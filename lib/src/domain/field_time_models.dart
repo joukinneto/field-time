@@ -22,6 +22,8 @@ final class Job {
     required this.number,
     required this.name,
     required this.address,
+    this.city,
+    this.status = 'active',
     this.travelBonusHours = 0,
     this.active = true,
   });
@@ -32,6 +34,8 @@ final class Job {
   final String number;
   final String name;
   final String address;
+  final String? city;
+  final String status;
   final double travelBonusHours;
   final bool active;
 
@@ -44,6 +48,8 @@ final class Job {
         'number': number,
         'name': name,
         'address': address,
+        'city': city,
+        'status': status,
         'travelBonusHours': travelBonusHours,
         'active': active,
       };
@@ -55,6 +61,9 @@ final class Job {
         number: json['number'] as String,
         name: json['name'] as String,
         address: json['address'] as String,
+        city: json['city'] as String?,
+        status: json['status'] as String? ??
+            ((json['active'] as bool? ?? true) ? 'active' : 'inactive'),
         travelBonusHours: (json['travelBonusHours'] as num? ?? 0).toDouble(),
         active: json['active'] as bool? ?? true,
       );

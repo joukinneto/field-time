@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:jkdd_field_time_records_production/features/jobs/data/job_asset_repository.dart';
 import 'package:jkdd_field_time_records_production/src/application/field_time_application_service.dart';
 import 'package:jkdd_field_time_records_production/src/data/repositories/field_time_repository.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
@@ -16,10 +17,14 @@ final fieldTimeRepositoryProvider = Provider<FieldTimeRepository>(
 final fieldTimeApplicationServiceProvider =
     Provider((ref) => const FieldTimeApplicationService());
 
+final jobAssetRepositoryProvider =
+    Provider((ref) => const JobAssetRepository());
+
 final fieldTimeControllerProvider =
     StateNotifierProvider<FieldTimeController, FieldTimeState>((ref) {
   final controller = FieldTimeController(
     repository: ref.watch(fieldTimeRepositoryProvider),
+    jobRepository: ref.watch(jobAssetRepositoryProvider),
     service: ref.watch(fieldTimeApplicationServiceProvider),
   );
   controller.initialize();
@@ -32,6 +37,8 @@ final class FieldTimeState {
     this.loading = false,
     this.message,
     this.error,
+    this.jobsImportMetadata,
+    this.jobsImportError,
     this.lastLocation,
     this.lastCompletedDay,
   });
@@ -40,6 +47,8 @@ final class FieldTimeState {
   final bool loading;
   final String? message;
   final String? error;
+  final JobCatalogMetadata? jobsImportMetadata;
+  final String? jobsImportError;
   final GeoPoint? lastLocation;
   final WorkDay? lastCompletedDay;
 
@@ -78,21 +87,38 @@ final class ReceiptDraft {
 final class FieldTimeController extends StateNotifier<FieldTimeState> {
   FieldTimeController({
     required this.repository,
+    required this.jobRepository,
     required this.service,
     this.locationService = const TimeRecordLocationService(),
     this.uuid = const Uuid(),
   }) : super(FieldTimeState(snapshot: FieldTimeSnapshot.seeded()));
 
   final FieldTimeRepository repository;
+  final JobAssetRepository jobRepository;
   final FieldTimeApplicationService service;
   final TimeRecordLocationService locationService;
   final Uuid uuid;
 
   Future<void> initialize() async {
     state = FieldTimeState(snapshot: state.snapshot, loading: true);
-    final snapshot = await repository.load();
+    var snapshot = await repository.load();
+    JobCatalogMetadata? jobsImportMetadata;
+    String? jobsImportError;
+    try {
+      final catalog = await jobRepository.loadCatalog();
+      jobsImportMetadata = catalog.metadata;
+      if (catalog.jobs.isNotEmpty) {
+        snapshot = snapshot.copyWith(
+          jobs: jobRepository.toFieldTimeJobs(catalog.jobs),
+        );
+      }
+    } on JobAssetRepositoryException catch (error) {
+      jobsImportError = error.message;
+    }
     state = FieldTimeState(
       snapshot: snapshot,
+      jobsImportMetadata: jobsImportMetadata,
+      jobsImportError: jobsImportError,
       message: 'Dados locais carregados.',
     );
   }

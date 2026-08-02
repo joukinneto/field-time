@@ -66,6 +66,14 @@ FIELD_TIME_*.md
 009_CREATED_MODIFIED_FILES.md
 WEB_BUILD_REPORT.md
 
+# Local spreadsheet imports
+data_import/input/*
+data_import/processed/*
+data_import/archive/*
+!data_import/input/.gitkeep
+!data_import/processed/.gitkeep
+!data_import/archive/.gitkeep
+
 # Credentials and private signing material
 .env
 .env.*

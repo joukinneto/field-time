@@ -8,10 +8,14 @@ import 'package:jkdd_field_time_records_production/core/theme/app_colors.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_radius.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_shadows.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_spacing.dart';
+import 'package:jkdd_field_time_records_production/features/jobs/presentation/jobs_import_screen.dart';
 import 'package:jkdd_field_time_records_production/src/application/field_time_controller.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
 import 'package:jkdd_field_time_records_production/src/presentation/dialogs/receipt_dialog.dart';
 import 'package:jkdd_field_time_records_production/src/presentation/screens/timesheet_screen.dart';
+import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_controller.dart';
+import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_models.dart';
+import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_screen.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_app_bar.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_buttons.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_empty_state.dart';
@@ -20,7 +24,7 @@ import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_section_h
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_status_chip.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_summary_card.dart';
 
-enum _Destination { home, timesheet, jobs, receipts, settings }
+enum _Destination { home, timesheet, jobs, receipts, management, settings }
 
 final class TimeRecordsScreen extends ConsumerStatefulWidget {
   const TimeRecordsScreen({super.key});
@@ -52,6 +56,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(fieldTimeControllerProvider);
+    final pilotState = ref.watch(supervisorCenterProvider);
 
     ref.listen(fieldTimeControllerProvider, (previous, next) {
       final text = next.error ?? next.message;
@@ -68,7 +73,11 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final desktop = constraints.maxWidth >= 1024;
-        final child = _selectedScreen(state);
+        final destinations = _visibleDestinations(pilotState);
+        final selected = destinations.contains(_destination)
+            ? _destination
+            : _Destination.home;
+        final child = _selectedScreen(state, pilotState, selected);
         return Scaffold(
           appBar: JkddAppBar(
             online: state.online,
@@ -80,34 +89,16 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
               ? null
               : BottomNavigationBar(
                   type: BottomNavigationBarType.fixed,
-                  currentIndex: _destination.index,
+                  currentIndex: destinations.indexOf(selected),
                   selectedItemColor: AppColors.blue,
                   unselectedItemColor: AppColors.gray,
                   showUnselectedLabels: true,
                   onTap: (index) => setState(
-                    () => _destination = _Destination.values[index],
+                    () => _destination = destinations[index],
                   ),
-                  items: const [
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.dashboard),
-                      label: 'Home',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.table_chart),
-                      label: 'Timesheet',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.apartment),
-                      label: 'Jobs',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.receipt_long),
-                      label: 'Receipts',
-                    ),
-                    BottomNavigationBarItem(
-                      icon: Icon(Icons.menu),
-                      label: 'Menu',
-                    ),
+                  items: [
+                    for (final destination in destinations)
+                      _bottomItem(destination),
                   ],
                 ),
           body: SafeArea(
@@ -116,7 +107,8 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _DesktopNavigation(
-                        selected: _destination,
+                        selected: selected,
+                        destinations: destinations,
                         onSelected: (value) =>
                             setState(() => _destination = value),
                       ),
@@ -130,7 +122,52 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
     );
   }
 
-  Widget _selectedScreen(FieldTimeState state) => switch (_destination) {
+  List<_Destination> _visibleDestinations(SupervisorCenterState pilotState) => [
+        _Destination.home,
+        _Destination.timesheet,
+        _Destination.jobs,
+        _Destination.receipts,
+        if (pilotState.hasPermission(PilotPermission.viewManagement))
+          _Destination.management,
+        _Destination.settings,
+      ];
+
+  BottomNavigationBarItem _bottomItem(_Destination destination) =>
+      switch (destination) {
+        _Destination.home => const BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard),
+            label: 'Home',
+          ),
+        _Destination.timesheet => const BottomNavigationBarItem(
+            icon: Icon(Icons.table_chart),
+            label: 'Timesheet',
+          ),
+        _Destination.jobs => const BottomNavigationBarItem(
+            icon: Icon(Icons.apartment),
+            label: 'Jobs',
+          ),
+        _Destination.receipts => const BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: 'Receipts',
+          ),
+        _Destination.management => const BottomNavigationBarItem(
+            icon: Icon(Icons.engineering_outlined),
+            label: 'Gestao',
+          ),
+        _Destination.settings => const BottomNavigationBarItem(
+            icon: Icon(Icons.menu),
+            label: 'Menu',
+          ),
+      };
+
+  Widget _selectedScreen(
+    FieldTimeState state,
+    SupervisorCenterState pilotState,
+    _Destination selected,
+  ) =>
+      switch (selected) {
+        _Destination.home when pilotState.currentUser.isWorker =>
+          const WorkerPilotScreen(),
         _Destination.home => _HomeView(
             state: state,
             now: _now,
@@ -149,8 +186,10 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
             snapshot: state.snapshot,
             onReceipt: _receipt,
           ),
+        _Destination.management => const SupervisorCenterScreen(),
         _Destination.settings => _SettingsView(
             currentVersion: 'v1.0.0',
+            onJobsImport: _openJobsImport,
             onLanguageSelected: () => _message(
               'Language switching is a pending functional requirement.',
             ),
@@ -159,7 +198,8 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
 
   Future<void> _clockIn() async {
     final snapshot = ref.read(fieldTimeControllerProvider).snapshot;
-    final job = await _selectJob('Select job for clock in', snapshot.jobs);
+    final jobs = snapshot.jobs.where((job) => job.active).toList();
+    final job = await _selectJob('Select job for clock in', jobs);
     if (job == null) return;
     await ref.read(fieldTimeControllerProvider.notifier).clockIn(job, null);
   }
@@ -168,7 +208,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
     final state = ref.read(fieldTimeControllerProvider);
     final currentJobId = state.activeSegment?.jobId;
     final jobs = state.snapshot.jobs
-        .where((job) => job.id != currentJobId)
+        .where((job) => job.active && job.id != currentJobId)
         .toList(growable: false);
     final job = await _selectJob('Switch to which job?', jobs);
     if (job == null) return;
@@ -311,18 +351,54 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
         builder: (context) => SimpleDialog(
           title: Text(title),
           children: [
-            for (final job in jobs)
-              SimpleDialogOption(
-                onPressed: () => Navigator.pop(context, job),
-                child: ListTile(
-                  leading: const Icon(Icons.apartment_outlined),
-                  title: Text(job.displayName),
-                  subtitle: Text(job.address),
+            if (jobs.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(AppSpacing.xl),
+                child: JkddEmptyState(
+                  icon: Icons.apartment_outlined,
+                  title: 'No jobs available',
+                  message:
+                      'Import jobs from data_import/input before clocking in.',
                 ),
-              ),
+              )
+            else
+              for (final job in jobs)
+                SimpleDialogOption(
+                  onPressed: () => Navigator.pop(context, job),
+                  child: ListTile(
+                    leading: const Icon(Icons.apartment_outlined),
+                    title: Text('${job.number} - ${job.name}'),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(job.address),
+                        if (job.city?.trim().isNotEmpty == true)
+                          Text(job.city!),
+                        const SizedBox(height: AppSpacing.xs),
+                        JkddStatusChip(
+                          label: job.active ? 'Active' : 'Inactive',
+                          icon: job.active
+                              ? Icons.check_circle_outline
+                              : Icons.block,
+                          tone: job.active
+                              ? JkddStatusTone.success
+                              : JkddStatusTone.neutral,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
           ],
         ),
       );
+
+  Future<void> _openJobsImport() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => const JobsImportScreen(),
+      ),
+    );
+  }
 
   Future<void> _showDaySummary(WorkDay day, FieldTimeSnapshot snapshot) async {
     final sentReceipts = snapshot.receipts
@@ -382,9 +458,14 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
 }
 
 final class _DesktopNavigation extends StatelessWidget {
-  const _DesktopNavigation({required this.selected, required this.onSelected});
+  const _DesktopNavigation({
+    required this.selected,
+    required this.destinations,
+    required this.onSelected,
+  });
 
   final _Destination selected;
+  final List<_Destination> destinations;
   final ValueChanged<_Destination> onSelected;
 
   @override
@@ -401,35 +482,11 @@ final class _DesktopNavigation extends StatelessWidget {
           Expanded(
             child: NavigationRail(
               extended: true,
-              selectedIndex: selected.index,
-              onDestinationSelected: (index) =>
-                  onSelected(_Destination.values[index]),
-              destinations: const [
-                NavigationRailDestination(
-                  icon: Icon(Icons.dashboard_outlined),
-                  selectedIcon: Icon(Icons.dashboard),
-                  label: Text('Home'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.table_chart_outlined),
-                  selectedIcon: Icon(Icons.table_chart),
-                  label: Text('Timesheet'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.apartment_outlined),
-                  selectedIcon: Icon(Icons.apartment),
-                  label: Text('Jobs'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.receipt_long_outlined),
-                  selectedIcon: Icon(Icons.receipt_long),
-                  label: Text('Receipts'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.settings_outlined),
-                  selectedIcon: Icon(Icons.settings),
-                  label: Text('Settings'),
-                ),
+              selectedIndex: destinations.indexOf(selected),
+              onDestinationSelected: (index) => onSelected(destinations[index]),
+              destinations: [
+                for (final destination in destinations)
+                  _railDestination(destination),
               ],
             ),
           ),
@@ -445,6 +502,40 @@ final class _DesktopNavigation extends StatelessWidget {
       ),
     );
   }
+
+  NavigationRailDestination _railDestination(_Destination destination) =>
+      switch (destination) {
+        _Destination.home => const NavigationRailDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: Text('Home'),
+          ),
+        _Destination.timesheet => const NavigationRailDestination(
+            icon: Icon(Icons.table_chart_outlined),
+            selectedIcon: Icon(Icons.table_chart),
+            label: Text('Timesheet'),
+          ),
+        _Destination.jobs => const NavigationRailDestination(
+            icon: Icon(Icons.apartment_outlined),
+            selectedIcon: Icon(Icons.apartment),
+            label: Text('Jobs'),
+          ),
+        _Destination.receipts => const NavigationRailDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
+            label: Text('Receipts'),
+          ),
+        _Destination.management => const NavigationRailDestination(
+            icon: Icon(Icons.engineering_outlined),
+            selectedIcon: Icon(Icons.engineering),
+            label: Text('Gestao'),
+          ),
+        _Destination.settings => const NavigationRailDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: Text('Settings'),
+          ),
+      };
 }
 
 final class _HomeView extends StatelessWidget {
@@ -1212,10 +1303,12 @@ final class _ReceiptsView extends StatelessWidget {
 final class _SettingsView extends StatelessWidget {
   const _SettingsView({
     required this.currentVersion,
+    required this.onJobsImport,
     required this.onLanguageSelected,
   });
 
   final String currentVersion;
+  final VoidCallback onJobsImport;
   final VoidCallback onLanguageSelected;
 
   @override
@@ -1226,9 +1319,22 @@ final class _SettingsView extends StatelessWidget {
         children: [
           const JkddSectionHeader(
             title: 'Settings',
-            subtitle: 'Visual layout only. Functional preferences are pending.',
+            subtitle: 'Profile, pilot controls and app preferences.',
           ),
           const SizedBox(height: AppSpacing.lg),
+          const PilotProfileSelector(),
+          const SizedBox(height: AppSpacing.xl),
+          _SettingsSection(
+            title: 'Data',
+            children: [
+              _SettingsActionTile(
+                title: 'Importação de Obras',
+                icon: Icons.dataset_outlined,
+                value: 'Local Excel',
+                onTap: onJobsImport,
+              ),
+            ],
+          ),
           const _SettingsSection(
             title: 'Account',
             children: [
@@ -1322,6 +1428,32 @@ final class _SettingsTile extends StatelessWidget {
       leading: Icon(icon, color: AppColors.blue),
       title: Text(title),
       trailing: Text(value, style: Theme.of(context).textTheme.labelMedium),
+    );
+  }
+}
+
+final class _SettingsActionTile extends StatelessWidget {
+  const _SettingsActionTile({
+    required this.title,
+    required this.icon,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String title;
+  final IconData icon;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: AppColors.blue),
+      title: Text(title),
+      subtitle: Text(value),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
     );
   }
 }
