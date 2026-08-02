@@ -6,7 +6,7 @@
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#0f766e",
-  "description": "Registro de ponto de campo da JKDD.",
+  "description": "Field Time by JKDD Tech - ponto, obras, recibos e timesheets para equipes de campo.",
   "orientation": "any",
   "prefer_related_applications": false,
   "icons": [
