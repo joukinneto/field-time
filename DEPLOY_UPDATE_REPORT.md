@@ -21,14 +21,24 @@
 
 ## Deployment
 
-- Git commit: pending
-- GitHub push: pending
-- GitHub Pages publish: pending
-- Published URL: pending
-- Published HTTP 200: pending
-- Published jobs asset count: pending
+- Git commit: 6d3157218982b943ae39740906808468e8d7a11b
+- GitHub push: completed
+- GitHub Actions run: https://github.com/joukinneto/field-time/actions/runs/30773198407
+- GitHub Pages publish: completed
+- Published URL: https://joukinneto.github.io/field-time/
+- Published HTTP 200: yes
+- Published jobs asset URL: https://joukinneto.github.io/field-time/assets/assets/data/jobs.json
+- Published jobs asset HTTP 200: yes
+- Published jobs asset count: 23
+- Published active jobs: 23
+- Published inactive jobs: 0
+- Published client: EWW
+- Published source workbook: JKDD_Banco_de_Dados_Obras.xlsx
+- Published source sheet: Obras JKDD
+- Published iPhone-width validation: passed at 390px width
+- Published iPhone-width overflow check: passed, scrollWidth matched viewport width
+- Published console/request check: no console errors and no failed requests in automated viewport check
 
 ## Result
 
-- Status: pending deployment
-
+- Status: deployed and validated
