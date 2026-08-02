@@ -47,11 +47,14 @@ jobs:
         run: flutter build web --release --base-href "/field-time/"
 
       - name: Add GitHub Pages marker
-        run: touch build/web/.nojekyll
+        run: |
+          touch build/web/.nojekyll
+          cp build/web/index.html build/web/404.html
 
       - name: Verify web build outputs
         run: |
           test -f build/web/index.html
+          test -f build/web/404.html
           test -f build/web/main.dart.js
           test -f build/web/flutter_bootstrap.js
           test -f build/web/manifest.json
