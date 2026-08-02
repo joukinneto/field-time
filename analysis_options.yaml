@@ -1,0 +1,17 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - '001_DOMAIN/**'
+    - '002_APPLICATION/**'
+    - '003_DATA/**'
+    - '004_PRESENTATION/**'
+    - '005_SYNC/**'
+    - '006_GPS/**'
+    - '007_TESTS/**'
+    - '008_DOCUMENTATION/**'
+
+linter:
+  rules:
+    always_use_package_imports: true
+    prefer_single_quotes: true

@@ -1,0 +1,39 @@
+{
+  "name": "Field Time",
+  "short_name": "Field Time",
+  "id": "/field-time/",
+  "start_url": "/field-time/",
+  "scope": "/field-time/",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#0D6EFD",
+  "description": "Field Time by JKDD TECH - time records, jobs, receipts and timesheets for field teams.",
+  "orientation": "any",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icons/Icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/Icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/Icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/Icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
