@@ -124,7 +124,10 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
       final employeeCatalog = await employeeRepository.loadCatalog();
       final activeEmployees = employeeCatalog.activeEmployees;
       if (activeEmployees.isNotEmpty) {
-        final employee = activeEmployees.first;
+        final employee = activeEmployees.firstWhere(
+          (employee) => employee.employeeId == FieldTimeSnapshot.workerIdPilot,
+          orElse: () => activeEmployees.first,
+        );
         snapshot = snapshot.copyWith(
           worker: employeeRepository.toWorkerProfile(employee),
           subcontractor: SubcontractorCompany(
@@ -132,6 +135,7 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
             companyId: FieldTimeSnapshot.companyIdEww,
             legalName: employee.company,
             displayName: employee.company,
+            registrationNumber: 'SUB-0001',
           ),
         );
       }

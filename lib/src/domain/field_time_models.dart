@@ -22,7 +22,13 @@ final class Job {
     required this.number,
     required this.name,
     required this.address,
+    this.registrationNumber = '',
     this.city,
+    this.state,
+    this.zipCode,
+    this.client,
+    this.supervisor,
+    this.accessInstructions,
     this.status = 'active',
     this.travelBonusHours = 0,
     this.active = true,
@@ -32,9 +38,15 @@ final class Job {
   final String companyId;
   final String subcontractorCompanyId;
   final String number;
+  final String registrationNumber;
   final String name;
   final String address;
   final String? city;
+  final String? state;
+  final String? zipCode;
+  final String? client;
+  final String? supervisor;
+  final String? accessInstructions;
   final String status;
   final double travelBonusHours;
   final bool active;
@@ -46,9 +58,15 @@ final class Job {
         'companyId': companyId,
         'subcontractorCompanyId': subcontractorCompanyId,
         'number': number,
+        'registrationNumber': registrationNumber,
         'name': name,
         'address': address,
         'city': city,
+        'state': state,
+        'zipCode': zipCode,
+        'client': client,
+        'supervisor': supervisor,
+        'accessInstructions': accessInstructions,
         'status': status,
         'travelBonusHours': travelBonusHours,
         'active': active,
@@ -59,9 +77,15 @@ final class Job {
         companyId: json['companyId'] as String,
         subcontractorCompanyId: json['subcontractorCompanyId'] as String,
         number: json['number'] as String,
+        registrationNumber: json['registrationNumber'] as String? ?? '',
         name: json['name'] as String,
         address: json['address'] as String,
         city: json['city'] as String?,
+        state: json['state'] as String?,
+        zipCode: json['zipCode'] as String?,
+        client: json['client'] as String?,
+        supervisor: json['supervisor'] as String?,
+        accessInstructions: json['accessInstructions'] as String?,
         status: json['status'] as String? ??
             ((json['active'] as bool? ?? true) ? 'active' : 'inactive'),
         travelBonusHours: (json['travelBonusHours'] as num? ?? 0).toDouble(),
@@ -75,18 +99,21 @@ final class SubcontractorCompany {
     required this.companyId,
     required this.legalName,
     required this.displayName,
+    this.registrationNumber = '',
   });
 
   final String id;
   final String companyId;
   final String legalName;
   final String displayName;
+  final String registrationNumber;
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'companyId': companyId,
         'legalName': legalName,
         'displayName': displayName,
+        'registrationNumber': registrationNumber,
       };
 
   factory SubcontractorCompany.fromJson(Map<String, dynamic> json) =>
@@ -95,6 +122,7 @@ final class SubcontractorCompany {
         companyId: json['companyId'] as String,
         legalName: json['legalName'] as String,
         displayName: json['displayName'] as String,
+        registrationNumber: json['registrationNumber'] as String? ?? '',
       );
 }
 
@@ -105,6 +133,7 @@ final class WorkerProfile {
     required this.subcontractorCompanyId,
     required this.displayName,
     required this.laborType,
+    this.registrationNumber = '',
   });
 
   final String id;
@@ -112,6 +141,7 @@ final class WorkerProfile {
   final String subcontractorCompanyId;
   final String displayName;
   final LaborType laborType;
+  final String registrationNumber;
 
   bool get isSubcontractor => laborType == LaborType.subcontractor;
 
@@ -121,6 +151,7 @@ final class WorkerProfile {
         'subcontractorCompanyId': subcontractorCompanyId,
         'displayName': displayName,
         'laborType': laborType.name,
+        'registrationNumber': registrationNumber,
       };
 
   factory WorkerProfile.fromJson(Map<String, dynamic> json) => WorkerProfile(
@@ -129,6 +160,7 @@ final class WorkerProfile {
         subcontractorCompanyId: json['subcontractorCompanyId'] as String,
         displayName: json['displayName'] as String,
         laborType: LaborType.values.byName(json['laborType'] as String),
+        registrationNumber: json['registrationNumber'] as String? ?? '',
       );
 }
 
@@ -264,11 +296,13 @@ final class WorkDay {
     required this.segments,
     required this.createdAt,
     required this.updatedAt,
+    this.registrationNumber = '',
     this.completedAt,
     this.notes,
   });
 
   final String id;
+  final String registrationNumber;
   final String companyId;
   final String subcontractorCompanyId;
   final String workerId;
@@ -295,10 +329,20 @@ final class WorkDay {
         Duration.zero,
         (total, segment) => total + segment.duration(),
       );
-  double get travelBonusHours => segments.fold(
-        0,
-        (total, segment) => total + segment.travelBonusHours,
+  double get travelBonusHours {
+    final bonusByJob = <String, double>{};
+    for (final segment in segments) {
+      bonusByJob.update(
+        segment.jobId,
+        (value) => value >= segment.travelBonusHours
+            ? value
+            : segment.travelBonusHours,
+        ifAbsent: () => segment.travelBonusHours,
       );
+    }
+    return bonusByJob.values.fold(0, (total, bonus) => total + bonus);
+  }
+
   double get totalHours => workedDuration.inMinutes / 60 + travelBonusHours;
   Set<String> get visitedJobIds => segments.map((item) => item.jobId).toSet();
 
@@ -311,6 +355,7 @@ final class WorkDay {
   }) =>
       WorkDay(
         id: id,
+        registrationNumber: registrationNumber,
         companyId: companyId,
         subcontractorCompanyId: subcontractorCompanyId,
         workerId: workerId,
@@ -325,6 +370,7 @@ final class WorkDay {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'registrationNumber': registrationNumber,
         'companyId': companyId,
         'subcontractorCompanyId': subcontractorCompanyId,
         'workerId': workerId,
@@ -339,6 +385,7 @@ final class WorkDay {
 
   factory WorkDay.fromJson(Map<String, dynamic> json) => WorkDay(
         id: json['id'] as String,
+        registrationNumber: json['registrationNumber'] as String? ?? '',
         companyId: json['companyId'] as String,
         subcontractorCompanyId: json['subcontractorCompanyId'] as String,
         workerId: json['workerId'] as String,
@@ -517,12 +564,14 @@ final class Receipt {
     required this.userReviewed,
     required this.createdAt,
     required this.updatedAt,
+    this.registrationNumber = '',
     this.receiptNumber,
     this.notes,
     this.extractionResult,
   });
 
   final String id;
+  final String registrationNumber;
   final String companyId;
   final String subcontractorCompanyId;
   final String workerId;
@@ -543,6 +592,7 @@ final class Receipt {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'registrationNumber': registrationNumber,
         'companyId': companyId,
         'subcontractorCompanyId': subcontractorCompanyId,
         'workerId': workerId,
@@ -564,6 +614,7 @@ final class Receipt {
 
   factory Receipt.fromJson(Map<String, dynamic> json) => Receipt(
         id: json['id'] as String,
+        registrationNumber: json['registrationNumber'] as String? ?? '',
         companyId: json['companyId'] as String,
         subcontractorCompanyId: json['subcontractorCompanyId'] as String,
         workerId: json['workerId'] as String,
@@ -600,9 +651,11 @@ final class ReimbursementRequest {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
+    this.registrationNumber = '',
   });
 
   final String id;
+  final String registrationNumber;
   final String companyId;
   final String subcontractorCompanyId;
   final String workerId;
@@ -616,6 +669,7 @@ final class ReimbursementRequest {
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'registrationNumber': registrationNumber,
         'companyId': companyId,
         'subcontractorCompanyId': subcontractorCompanyId,
         'workerId': workerId,
@@ -631,6 +685,7 @@ final class ReimbursementRequest {
   factory ReimbursementRequest.fromJson(Map<String, dynamic> json) =>
       ReimbursementRequest(
         id: json['id'] as String,
+        registrationNumber: json['registrationNumber'] as String? ?? '',
         companyId: json['companyId'] as String,
         subcontractorCompanyId: json['subcontractorCompanyId'] as String,
         workerId: json['workerId'] as String,
@@ -741,11 +796,13 @@ final class FieldTimeSnapshot {
     this.attachments = const [],
     this.approvals = const [],
     this.syncQueue = const [],
+    this.registrationSequences = const {},
   });
 
   static const companyIdEww = 'eww';
-  static const subcontractorIdJkdd = 'jkdd-finish-remodeling';
+  static const subcontractorIdJkdd = '1f6f8d7d-8c98-4f4d-9d38-9846ecb10a01';
   static const workerIdPilot = 'TER-0001';
+  static const workerTechnicalIdPilot = '9d48bb6e-52cb-48a8-84f2-7e9a3ef8f001';
 
   final String companyId;
   final String companyName;
@@ -758,6 +815,11 @@ final class FieldTimeSnapshot {
   final List<Attachment> attachments;
   final List<Approval> approvals;
   final List<SyncQueueItem> syncQueue;
+  final Map<String, int> registrationSequences;
+
+  String get contractingCompanyId => companyId;
+  String get subcontractorCompanyId => subcontractor.id;
+  String get responsibleWorkerId => worker.id;
 
   factory FieldTimeSnapshot.seeded() => const FieldTimeSnapshot(
         companyId: companyIdEww,
@@ -767,13 +829,15 @@ final class FieldTimeSnapshot {
           companyId: companyIdEww,
           legalName: 'JKDD Finish & Remodeling Corp.',
           displayName: 'JKDD Finish & Remodeling Corp.',
+          registrationNumber: 'SUB-0001',
         ),
         worker: WorkerProfile(
-          id: workerIdPilot,
+          id: workerTechnicalIdPilot,
           companyId: companyIdEww,
           subcontractorCompanyId: subcontractorIdJkdd,
           displayName: 'Santana',
           laborType: LaborType.subcontractor,
+          registrationNumber: 'TER-0001',
         ),
         jobs: [],
       );
@@ -795,6 +859,7 @@ final class FieldTimeSnapshot {
     List<Attachment>? attachments,
     List<Approval>? approvals,
     List<SyncQueueItem>? syncQueue,
+    Map<String, int>? registrationSequences,
   }) =>
       FieldTimeSnapshot(
         companyId: companyId,
@@ -808,11 +873,16 @@ final class FieldTimeSnapshot {
         attachments: attachments ?? this.attachments,
         approvals: approvals ?? this.approvals,
         syncQueue: syncQueue ?? this.syncQueue,
+        registrationSequences:
+            registrationSequences ?? this.registrationSequences,
       );
 
   Map<String, dynamic> toJson() => {
         'companyId': companyId,
+        'contractingCompanyId': contractingCompanyId,
         'companyName': companyName,
+        'subcontractorCompanyId': subcontractorCompanyId,
+        'responsibleWorkerId': responsibleWorkerId,
         'subcontractor': subcontractor.toJson(),
         'worker': worker.toJson(),
         'jobs': jobs.map((item) => item.toJson()).toList(),
@@ -822,6 +892,7 @@ final class FieldTimeSnapshot {
         'attachments': attachments.map((item) => item.toJson()).toList(),
         'approvals': approvals.map((item) => item.toJson()).toList(),
         'syncQueue': syncQueue.map((item) => item.toJson()).toList(),
+        'registrationSequences': registrationSequences,
       };
 
   factory FieldTimeSnapshot.fromJson(Map<String, dynamic> json) =>
@@ -839,6 +910,9 @@ final class FieldTimeSnapshot {
         attachments: _decodeList(json['attachments'], Attachment.fromJson),
         approvals: _decodeList(json['approvals'], Approval.fromJson),
         syncQueue: _decodeList(json['syncQueue'], SyncQueueItem.fromJson),
+        registrationSequences:
+            (json['registrationSequences'] as Map<String, dynamic>? ?? const {})
+                .map((key, value) => MapEntry(key, (value as num).toInt())),
       );
 }
 

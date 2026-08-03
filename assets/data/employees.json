@@ -8,11 +8,13 @@
   "inactive_count": 0,
   "employees": [
     {
+      "id": "9d48bb6e-52cb-48a8-84f2-7e9a3ef8f001",
+      "registration_number": "TER-0001",
       "employee_id": "TER-0001",
       "full_name": "Santana",
       "preferred_name": "Santana",
       "photo": null,
-      "phone": "(561) 555-0101",
+      "phone": null,
       "email": null,
       "company": "JKDD Finish & Remodeling Corp.",
       "category": "Terceirizado de Mão de Obra",
@@ -22,7 +24,7 @@
       "admission_date": "2025-07-11",
       "status": "active",
       "preferred_language": "pt",
-      "supervisor": "Joaquim Neto",
+      "supervisor": "Santana",
       "default_start_time": "07:00",
       "default_end_time": "17:00",
       "allowed_jobs": [
@@ -36,8 +38,8 @@
         "country": "US"
       },
       "emergency_contact": {
-        "name": "Contato a definir",
-        "phone": "(561) 555-0199"
+        "name": null,
+        "phone": null
       },
       "notes": "Primeiro colaborador terceirizado cadastrado para testes do sistema.",
       "active": true

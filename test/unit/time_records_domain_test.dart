@@ -6,7 +6,8 @@ void main() {
     final snapshot = FieldTimeSnapshot.seeded();
 
     expect(snapshot.companyName, 'EWW');
-    expect(snapshot.worker.id, 'TER-0001');
+    expect(snapshot.worker.id, FieldTimeSnapshot.workerTechnicalIdPilot);
+    expect(snapshot.worker.registrationNumber, 'TER-0001');
     expect(snapshot.worker.displayName, 'Santana');
     expect(snapshot.worker.isSubcontractor, isTrue);
     expect(snapshot.worker.subcontractorCompanyId,

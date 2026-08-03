@@ -7,6 +7,7 @@ import 'package:jkdd_field_time_records_production/features/jobs/domain/job.dart
     as imported;
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart'
     as field_time;
+import 'package:jkdd_field_time_records_production/src/domain/registration_number.dart';
 
 final jobAssetRepositoryProvider =
     Provider((ref) => const JobAssetRepository());
@@ -130,19 +131,33 @@ final class JobAssetRepository {
   }
 
   List<field_time.Job> toFieldTimeJobs(List<imported.Job> jobs) => [
-        for (final job in jobs)
+        for (final entry in jobs.asMap().entries)
           field_time.Job(
-            id: job.jobId,
+            id: RegistrationNumberPolicy.isUuid(entry.value.jobId)
+                ? entry.value.jobId
+                : RegistrationNumberPolicy.deterministicUuid(
+                    'job:${entry.value.jobId}:${entry.value.jobNumber}',
+                  ),
             companyId: field_time.FieldTimeSnapshot.companyIdEww,
             subcontractorCompanyId:
                 field_time.FieldTimeSnapshot.subcontractorIdJkdd,
-            number: job.jobNumber,
-            name: job.jobName,
-            address: job.fullAddress,
-            city: job.city,
-            status: job.status,
-            travelBonusHours: job.travelBonusHours ?? 0,
-            active: job.isActive,
+            number: entry.value.jobNumber,
+            registrationNumber: entry.value.registrationNumber ??
+                RegistrationNumberPolicy.format(
+                  RegistrationRecordType.job,
+                  entry.key + 1,
+                ),
+            name: entry.value.jobName,
+            address: entry.value.fullAddress,
+            city: entry.value.city,
+            state: entry.value.state,
+            zipCode: entry.value.zipCode,
+            client: entry.value.client,
+            supervisor: entry.value.supervisor,
+            accessInstructions: entry.value.accessInstructions,
+            status: entry.value.status,
+            travelBonusHours: entry.value.travelBonusHours ?? 0,
+            active: entry.value.isActive,
           ),
       ];
 

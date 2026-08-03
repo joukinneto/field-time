@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
+import 'package:jkdd_field_time_records_production/core/theme/app_assets.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
 import 'package:pdf/pdf.dart';
@@ -38,7 +39,7 @@ final class TimesheetPdfService {
     AppLanguage language = AppLanguage.en,
     String? employerName,
   }) async {
-    final strings = AppStrings(language);
+    const strings = AppStrings(AppLanguage.en);
     final week = weekFor(anchorDate);
     final days = snapshot.workDays
         .where((day) => week.contains(day.workDate))
@@ -58,23 +59,39 @@ final class TimesheetPdfService {
     );
     final totalWithBonus = totalDuration + Duration(minutes: bonusMinutes);
     final document = pw.Document(title: strings.t('pdf.title'));
+    final logoBytes = await _loadLogoBytes();
+    final timesheetRegistrationNumbers = days
+        .map((day) => day.registrationNumber)
+        .where((value) => value.trim().isNotEmpty)
+        .toList(growable: false);
 
     document.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.letter.landscape,
         margin: const pw.EdgeInsets.all(24),
         build: (context) => [
-          _header(snapshot, week, employerName, strings),
+          _header(snapshot, week, employerName, strings, logoBytes,
+              timesheetRegistrationNumbers),
           pw.SizedBox(height: 14),
           _recordsTable(days, strings),
           pw.SizedBox(height: 12),
           pw.Align(
             alignment: pw.Alignment.centerRight,
             child: pw.Text(
-              strings.t(
-                'pdf.totalGeneral',
-                {'total': decimalHoursText(totalWithBonus)},
-              ),
+              'Total Worked Hours: ${decimalHoursText(totalDuration)}',
+            ),
+          ),
+          pw.Align(
+            alignment: pw.Alignment.centerRight,
+            child: pw.Text(
+              'Total Travel Bonus: '
+              '${decimalHoursText(Duration(minutes: bonusMinutes))}',
+            ),
+          ),
+          pw.Align(
+            alignment: pw.Alignment.centerRight,
+            child: pw.Text(
+              'Grand Total: ${decimalHoursText(totalWithBonus)}',
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14),
             ),
           ),
@@ -126,6 +143,8 @@ final class TimesheetPdfService {
     TimesheetWeek week,
     String? employerName,
     AppStrings strings,
+    Uint8List? logoBytes,
+    List<String> timesheetRegistrationNumbers,
   ) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(14),
@@ -136,42 +155,53 @@ final class TimesheetPdfService {
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Container(
-            width: 90,
-            height: 44,
-            alignment: pw.Alignment.center,
-            color: PdfColors.blueGrey900,
-            child: pw.Text(
-              'FIELD TIME',
-              style: pw.TextStyle(
-                color: PdfColors.white,
-                fontWeight: pw.FontWeight.bold,
-              ),
-            ),
-          ),
+          logoBytes == null
+              ? pw.Container(
+                  width: 90,
+                  height: 44,
+                  alignment: pw.Alignment.center,
+                  color: PdfColors.blueGrey900,
+                  child: pw.Text(
+                    'FIELD TIME',
+                    style: pw.TextStyle(
+                      color: PdfColors.white,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                )
+              : pw.Image(
+                  pw.MemoryImage(logoBytes),
+                  width: 128,
+                  height: 46,
+                  fit: pw.BoxFit.contain,
+                ),
           pw.SizedBox(width: 16),
           pw.Expanded(
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Text(
-                  employerName?.trim().isNotEmpty == true
-                      ? employerName!.trim()
-                      : snapshot.companyName,
+                  'FIELD TIME',
                   style: pw.TextStyle(
                     fontSize: 18,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
-                pw.Text(strings.t(
-                  'pdf.worker',
-                  {'worker': snapshot.worker.displayName},
-                )),
-                pw.Text(strings.t(
-                  'pdf.period',
-                  {'start': _date(week.start), 'end': _date(week.end)},
-                )),
-                pw.Text(strings.t('pdf.week')),
+                pw.Text('BY JKDD TECH'),
+                pw.SizedBox(height: 6),
+                pw.Text('Contracting Company:'),
+                pw.Text(employerName?.trim().isNotEmpty == true
+                    ? employerName!.trim()
+                    : snapshot.companyName),
+                pw.Text('Subcontractor:'),
+                pw.Text(snapshot.subcontractor.displayName),
+                pw.Text('Responsible:'),
+                pw.Text(snapshot.worker.displayName),
+                pw.Text('Reporting Period: ${_date(week.start)} to '
+                    '${_date(week.end)}'),
+                if (timesheetRegistrationNumbers.isNotEmpty)
+                  pw.Text('Timesheet Registration Number: '
+                      '${timesheetRegistrationNumbers.join(', ')}'),
               ],
             ),
           ),
@@ -186,26 +216,46 @@ final class TimesheetPdfService {
       for (final segment in day.segments) {
         rows.add([
           _date(day.workDate),
-          segment.jobNumber,
-          segment.jobName,
+          _weekDay(day.workDate),
+          '${segment.jobNumber} - ${segment.jobName}',
           segment.jobAddress,
           _time(segment.startedAt),
           segment.endedAt == null ? '--:--' : _time(segment.endedAt!),
           _duration(segment.duration()),
+          '',
+          _duration(segment.duration()),
           segment.notes ?? '',
+        ]);
+      }
+      for (final segment in _bonusSegments(day)) {
+        final bonusDuration =
+            Duration(minutes: (segment.travelBonusHours * 60).round());
+        rows.add([
+          _date(day.workDate),
+          _weekDay(day.workDate),
+          '${segment.jobNumber} - ${segment.jobName}',
+          segment.jobAddress,
+          '',
+          '',
+          '00:00',
+          _duration(bonusDuration),
+          _duration(bonusDuration),
+          'Travel Bonus',
         ]);
       }
     }
     return pw.TableHelper.fromTextArray(
       headers: [
-        strings.t('timesheet.date'),
-        strings.t('timesheet.job'),
-        strings.t('timesheet.name'),
-        strings.t('timesheet.address'),
-        strings.t('timesheet.clockIn'),
-        strings.t('timesheet.clockOut'),
-        strings.t('timesheet.total'),
-        strings.t('timesheet.notes'),
+        'Date',
+        'Week Day',
+        'Job',
+        'Location',
+        'Time In',
+        'Time Out',
+        'Worked Hours',
+        'Travel Bonus',
+        'Total Hours',
+        'Observations',
       ],
       data: rows.isEmpty
           ? [
@@ -217,6 +267,8 @@ final class TimesheetPdfService {
                 '-',
                 '-',
                 '00:00',
+                '00:00',
+                '00:00',
                 strings.t('pdf.noRecords')
               ],
             ]
@@ -227,10 +279,12 @@ final class TimesheetPdfService {
       cellAlignment: pw.Alignment.centerLeft,
       columnWidths: const {
         0: pw.FixedColumnWidth(54),
-        1: pw.FixedColumnWidth(42),
+        1: pw.FixedColumnWidth(54),
         4: pw.FixedColumnWidth(40),
         5: pw.FixedColumnWidth(40),
         6: pw.FixedColumnWidth(54),
+        7: pw.FixedColumnWidth(54),
+        8: pw.FixedColumnWidth(54),
       },
     );
   }
@@ -242,6 +296,7 @@ final class TimesheetPdfService {
   ) {
     return pw.TableHelper.fromTextArray(
       headers: [
+        'Registration Number',
         strings.t('receipts.date'),
         strings.t('receipts.amount'),
         strings.t('receipts.merchant'),
@@ -254,6 +309,7 @@ final class TimesheetPdfService {
       data: [
         for (final receipt in receipts)
           [
+            receipt.registrationNumber,
             _date(receipt.purchaseDate),
             '\$${receipt.total.toStringAsFixed(2)}',
             receipt.merchant,
@@ -284,6 +340,8 @@ final class TimesheetPdfService {
         pw.Text(strings.t('pdf.receipt', {'merchant': receipt.merchant}),
             style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
         pw.SizedBox(height: 6),
+        if (receipt.registrationNumber.isNotEmpty)
+          pw.Text('Registration Number: ${receipt.registrationNumber}'),
         pw.Text(
           '${_date(receipt.purchaseDate)} - ${_jobLabel(snapshot, receipt.jobId)} - '
           '${snapshot.worker.displayName}',
@@ -308,6 +366,29 @@ final class TimesheetPdfService {
   }
 }
 
+Future<Uint8List?> _loadLogoBytes() async {
+  try {
+    final data = await rootBundle.load(AppAssets.fieldTimeLogoHorizontal);
+    return data.buffer.asUint8List();
+  } catch (_) {
+    return null;
+  }
+}
+
+List<WorkSegment> _bonusSegments(WorkDay day) {
+  final byJob = <String, WorkSegment>{};
+  for (final segment in day.segments) {
+    if (segment.travelBonusHours <= 0) continue;
+    final current = byJob[segment.jobId];
+    if (current == null ||
+        current.travelBonusHours < segment.travelBonusHours) {
+      byJob[segment.jobId] = segment;
+    }
+  }
+  return byJob.values.toList(growable: false)
+    ..sort((left, right) => left.jobNumber.compareTo(right.jobNumber));
+}
+
 String _jobLabel(FieldTimeSnapshot snapshot, String jobId) {
   final job = snapshot.jobs.firstWhere((job) => job.id == jobId);
   return '${job.number} - ${job.name}';
@@ -320,6 +401,17 @@ String _jobAddress(FieldTimeSnapshot snapshot, String jobId) {
 
 String _date(DateTime value) => '${value.month.toString().padLeft(2, '0')}/'
     '${value.day.toString().padLeft(2, '0')}/${value.year}';
+
+String _weekDay(DateTime value) => switch (value.weekday) {
+      DateTime.monday => 'Monday',
+      DateTime.tuesday => 'Tuesday',
+      DateTime.wednesday => 'Wednesday',
+      DateTime.thursday => 'Thursday',
+      DateTime.friday => 'Friday',
+      DateTime.saturday => 'Saturday',
+      DateTime.sunday => 'Sunday',
+      _ => '',
+    };
 
 String _time(DateTime value) => '${value.hour.toString().padLeft(2, '0')}:'
     '${value.minute.toString().padLeft(2, '0')}';

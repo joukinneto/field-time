@@ -12,6 +12,7 @@ import 'package:jkdd_field_time_records_production/features/employees/presentati
 import 'package:jkdd_field_time_records_production/features/jobs/presentation/jobs_import_screen.dart';
 import 'package:jkdd_field_time_records_production/src/application/field_time_controller.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
+import 'package:jkdd_field_time_records_production/src/domain/registration_number.dart';
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
 import 'package:jkdd_field_time_records_production/src/presentation/dialogs/receipt_dialog.dart';
 import 'package:jkdd_field_time_records_production/src/presentation/screens/timesheet_screen.dart';
@@ -35,6 +36,8 @@ enum _Destination {
   management,
   settings
 }
+
+enum _EndDayReceiptChoice { attachNow, noReceipts, back }
 
 final class TimeRecordsScreen extends ConsumerStatefulWidget {
   const TimeRecordsScreen({super.key});
@@ -212,7 +215,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
           const EmployeesManagementScreen(embedded: true),
         _Destination.management => const SupervisorCenterScreen(),
         _Destination.settings => _SettingsView(
-            currentVersion: 'v1.0.0',
+            currentVersion: 'v1.1.0-test',
             onJobsImport: _openJobsImport,
             currentLanguage: ref.watch(appLanguageControllerProvider),
             onLanguageChanged: (language) async {
@@ -263,6 +266,38 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
+    final receiptChoice = await showDialog<_EndDayReceiptChoice>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.tr('receipts.title')),
+        content: Text(context.tr('endDay.receiptQuestion')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, _EndDayReceiptChoice.back),
+            child: Text(context.tr('common.cancel')),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(context, _EndDayReceiptChoice.noReceipts),
+            child: Text(context.tr('endDay.noReceipts')),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(context, _EndDayReceiptChoice.attachNow),
+            child: Text(context.tr('endDay.attachNow')),
+          ),
+        ],
+      ),
+    );
+    if (!mounted ||
+        receiptChoice == null ||
+        receiptChoice == _EndDayReceiptChoice.back) {
+      return;
+    }
+    if (receiptChoice == _EndDayReceiptChoice.attachNow) {
+      await _receipt();
+      if (!mounted) return;
+    }
     await ref.read(fieldTimeControllerProvider.notifier).endDay(null);
     if (!mounted) return;
     final state = ref.read(fieldTimeControllerProvider);
@@ -487,6 +522,13 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
           ),
         ),
         actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() => _destination = _Destination.timesheet);
+            },
+            child: Text(context.tr('endDay.viewTimesheet')),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(context),
             child: Text(context.tr('common.done')),
@@ -811,7 +853,7 @@ final class _GreetingBand extends StatelessWidget {
                 Image.asset(AppAssets.fieldTimeLogoDark, height: 58),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
-                  '${_greeting(context, now)}, Joukin.',
+                  '${_greeting(context, now)}, ${state.snapshot.worker.displayName.isEmpty ? 'Santana' : state.snapshot.worker.displayName}.',
                   style: Theme.of(context)
                       .textTheme
                       .headlineLarge
@@ -947,7 +989,7 @@ final class _CurrentStatusCard extends StatelessWidget {
                 JkddInfoRow(
                   icon: Icons.engineering_outlined,
                   label: context.tr('home.subcontractor'),
-                  value: state.snapshot.worker.displayName,
+                  value: state.snapshot.subcontractor.displayName,
                 ),
               ],
             ),
@@ -1239,13 +1281,51 @@ final class _InfoGrid extends StatelessWidget {
   }
 }
 
-final class _JobsView extends StatelessWidget {
+enum _JobFilter { active, inactive, withBonus, all }
+
+final class _JobsView extends StatefulWidget {
   const _JobsView({required this.snapshot});
 
   final FieldTimeSnapshot snapshot;
 
   @override
+  State<_JobsView> createState() => _JobsViewState();
+}
+
+final class _JobsViewState extends State<_JobsView> {
+  final _search = TextEditingController();
+  _JobFilter _filter = _JobFilter.active;
+  int _newJobRequestSequence = 0;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  List<Job> get _filteredJobs {
+    final query = _search.text.trim().toLowerCase();
+    return widget.snapshot.jobs.where((job) {
+      final matchesFilter = switch (_filter) {
+        _JobFilter.active => job.active,
+        _JobFilter.inactive => !job.active,
+        _JobFilter.withBonus => job.travelBonusHours > 0,
+        _JobFilter.all => true,
+      };
+      if (!matchesFilter) return false;
+      if (query.isEmpty) return true;
+      return [
+        job.number,
+        job.name,
+        job.address,
+        job.city ?? '',
+      ].any((value) => value.toLowerCase().contains(query));
+    }).toList(growable: false);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final jobs = _filteredJobs;
     return _PageFrame(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1253,70 +1333,354 @@ final class _JobsView extends StatelessWidget {
           JkddSectionHeader(
             title: context.tr('jobs.title'),
             subtitle: context.tr('jobs.subtitle'),
+            trailing: FilledButton.icon(
+              onPressed: _showNewJobRequest,
+              icon: const Icon(Icons.add_business_outlined),
+              label: Text(context.tr('jobs.newJobRequest')),
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 900
-                  ? 3
-                  : constraints.maxWidth >= 620
-                      ? 2
-                      : 1;
-              return GridView.count(
-                crossAxisCount: columns,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                childAspectRatio: columns == 1 ? 2.9 : 1.7,
-                crossAxisSpacing: AppSpacing.md,
-                mainAxisSpacing: AppSpacing.md,
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (final job in snapshot.jobs)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.lg),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.apartment_outlined,
-                                    color: AppColors.blue),
-                                const SizedBox(width: AppSpacing.sm),
-                                Expanded(
-                                  child: Text(
-                                    job.displayName,
-                                    style:
-                                        Theme.of(context).textTheme.titleMedium,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Spacer(),
-                            Text(job.address),
-                            const SizedBox(height: AppSpacing.sm),
-                            JkddStatusChip(
-                              label: job.active
-                                  ? context.tr('jobs.active')
-                                  : context.tr('jobs.inactive'),
-                              icon: job.active
-                                  ? Icons.check_circle_outline
-                                  : Icons.block,
-                              tone: job.active
-                                  ? JkddStatusTone.success
-                                  : JkddStatusTone.neutral,
-                            ),
-                          ],
+                  TextField(
+                    controller: _search,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.search),
+                      labelText: context.tr('jobs.search'),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SegmentedButton<_JobFilter>(
+                      segments: [
+                        ButtonSegment(
+                          value: _JobFilter.active,
+                          label: Text(context.tr('jobs.active')),
+                        ),
+                        ButtonSegment(
+                          value: _JobFilter.inactive,
+                          label: Text(context.tr('jobs.inactive')),
+                        ),
+                        ButtonSegment(
+                          value: _JobFilter.withBonus,
+                          label: Text(context.tr('jobs.withBonus')),
+                        ),
+                        ButtonSegment(
+                          value: _JobFilter.all,
+                          label: Text(context.tr('common.all')),
+                        ),
+                      ],
+                      selected: {_filter},
+                      onSelectionChanged: (value) =>
+                          setState(() => _filter = value.first),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (jobs.isEmpty)
+            JkddEmptyState(
+              icon: Icons.apartment_outlined,
+              title: context.tr('jobs.noJobsFound'),
+              message: context.tr('jobs.noJobsAvailableHelp'),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = constraints.maxWidth >= 900 ? 2 : 1;
+                final width = columns == 1
+                    ? constraints.maxWidth
+                    : (constraints.maxWidth - AppSpacing.md) / 2;
+                return Wrap(
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.md,
+                  children: [
+                    for (final job in jobs)
+                      SizedBox(
+                        width: width,
+                        child: _JobCompactTile(
+                          job: job,
+                          onTap: () => _showJobDetails(job),
                         ),
                       ),
-                    ),
-                ],
-              );
-            },
-          ),
+                  ],
+                );
+              },
+            ),
         ],
       ),
     );
   }
+
+  Future<void> _showJobDetails(Job job) async {
+    final mapSearch = Uri.encodeComponent(
+      [job.address, job.city].whereType<String>().join(' '),
+    );
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          AppSpacing.md,
+          AppSpacing.xl,
+          AppSpacing.xl,
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              JkddSectionHeader(
+                title: context.tr('jobs.details'),
+                subtitle: job.displayName,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              JkddInfoRow(
+                icon: Icons.tag_outlined,
+                label: context.tr('common.registrationNumber'),
+                value: job.registrationNumber.isNotEmpty
+                    ? job.registrationNumber
+                    : context.tr('common.unavailable'),
+              ),
+              JkddInfoRow(
+                icon: Icons.numbers_outlined,
+                label: context.tr('jobs.jobNumber'),
+                value: job.number,
+              ),
+              JkddInfoRow(
+                icon: Icons.apartment_outlined,
+                label: context.tr('jobs.jobName'),
+                value: job.name,
+              ),
+              JkddInfoRow(
+                icon: Icons.location_on_outlined,
+                label: context.tr('jobs.address'),
+                value: job.address,
+              ),
+              JkddInfoRow(
+                icon: Icons.location_city_outlined,
+                label: context.tr('jobs.city'),
+                value: _cityStateZip(context, job),
+              ),
+              JkddInfoRow(
+                icon: Icons.flag_outlined,
+                label: context.tr('jobs.status'),
+                value: job.active
+                    ? context.tr('jobs.active')
+                    : context.tr('jobs.inactive'),
+              ),
+              JkddInfoRow(
+                icon: Icons.route_outlined,
+                label: context.tr('jobs.travelBonus'),
+                value: job.travelBonusHours > 0
+                    ? _hours(job.travelBonusHours)
+                    : context.tr('common.none'),
+              ),
+              JkddInfoRow(
+                icon: Icons.business_outlined,
+                label: context.tr('jobs.client'),
+                value: job.client ?? widget.snapshot.companyName,
+              ),
+              JkddInfoRow(
+                icon: Icons.supervisor_account_outlined,
+                label: context.tr('jobs.supervisor'),
+                value: job.supervisor ?? context.tr('common.unavailable'),
+              ),
+              JkddInfoRow(
+                icon: Icons.engineering_outlined,
+                label: context.tr('home.subcontractor'),
+                value: widget.snapshot.subcontractor.displayName,
+              ),
+              if (job.accessInstructions?.trim().isNotEmpty == true)
+                JkddInfoRow(
+                  icon: Icons.key_outlined,
+                  label: context.tr('jobs.accessInstructions'),
+                  value: job.accessInstructions!,
+                ),
+              const Divider(height: 28),
+              Text(context.tr('jobs.openMap'),
+                  style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: AppSpacing.xs),
+              SelectableText(
+                'https://www.google.com/maps/search/?api=1&query=$mapSearch',
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton.icon(
+                onPressed: job.active ? () => Navigator.pop(context) : null,
+                icon: const Icon(Icons.check_circle_outline),
+                label: Text(context.tr('jobs.selectThisJob')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showNewJobRequest() async {
+    final requestNumber = RegistrationNumberPolicy.next(
+      RegistrationRecordType.newJobRequest,
+      [
+        if (_newJobRequestSequence > 0)
+          RegistrationNumberPolicy.format(
+            RegistrationRecordType.newJobRequest,
+            _newJobRequestSequence,
+          ),
+      ],
+    );
+    final number = TextEditingController(text: requestNumber);
+    final name = TextEditingController();
+    final address = TextEditingController();
+    final city = TextEditingController();
+    final state = TextEditingController(text: 'FL');
+    final zip = TextEditingController();
+    final note = TextEditingController();
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.tr('jobs.newJobRequest')),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: number,
+                readOnly: true,
+                decoration: InputDecoration(
+                  labelText: context.tr('common.registrationNumber'),
+                  helperText: context.tr('common.generatedAutomatically'),
+                ),
+              ),
+              TextField(
+                controller: name,
+                decoration:
+                    InputDecoration(labelText: context.tr('jobs.jobName')),
+              ),
+              TextField(
+                controller: address,
+                decoration:
+                    InputDecoration(labelText: context.tr('jobs.address')),
+              ),
+              TextField(
+                controller: city,
+                decoration: InputDecoration(labelText: context.tr('jobs.city')),
+              ),
+              TextField(
+                controller: state,
+                decoration:
+                    InputDecoration(labelText: context.tr('jobs.state')),
+              ),
+              TextField(
+                controller: zip,
+                decoration:
+                    InputDecoration(labelText: context.tr('jobs.zipCode')),
+              ),
+              TextField(
+                controller: note,
+                minLines: 2,
+                maxLines: 4,
+                decoration:
+                    InputDecoration(labelText: context.tr('timesheet.notes')),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.tr('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(context.tr('common.save')),
+          ),
+        ],
+      ),
+    );
+    final duplicate = widget.snapshot.jobs.any((job) =>
+        job.number == number.text.trim() ||
+        job.address.toLowerCase() == address.text.trim().toLowerCase());
+    number.dispose();
+    name.dispose();
+    address.dispose();
+    city.dispose();
+    state.dispose();
+    zip.dispose();
+    note.dispose();
+    if (submitted != true || !mounted) return;
+    _newJobRequestSequence += 1;
+    _message(
+      duplicate
+          ? context.tr('jobs.duplicateWarning')
+          : context.tr('jobs.requestPrepared'),
+    );
+  }
+
+  void _message(String value) => ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content: Text(value)));
+}
+
+final class _JobCompactTile extends StatelessWidget {
+  const _JobCompactTile({required this.job, required this.onTap});
+
+  final Job job;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        margin: EdgeInsets.zero,
+        child: ListTile(
+          minVerticalPadding: AppSpacing.xs,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.xs,
+          ),
+          leading: const Icon(Icons.apartment_outlined, color: AppColors.blue),
+          title: Text(
+            '${job.number} - ${job.name}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              JkddStatusChip(
+                label: job.active
+                    ? context.tr('jobs.active')
+                    : context.tr('jobs.inactive'),
+                icon: job.active ? Icons.check_circle_outline : Icons.block,
+                tone: job.active
+                    ? JkddStatusTone.success
+                    : JkddStatusTone.neutral,
+              ),
+              if (job.travelBonusHours > 0)
+                JkddStatusChip(
+                  label: context.tr('jobs.travelBonus'),
+                  icon: Icons.route_outlined,
+                  tone: JkddStatusTone.warning,
+                ),
+            ],
+          ),
+          trailing: IconButton(
+            tooltip: context.tr('common.details'),
+            icon: const Icon(Icons.chevron_right),
+            onPressed: onTap,
+          ),
+          onTap: onTap,
+        ),
+      );
 }
 
 final class _ReceiptsView extends StatelessWidget {
@@ -1361,6 +1725,7 @@ final class _ReceiptsView extends StatelessWidget {
                       color: AppColors.amber),
                   title: Text(receipt.merchant),
                   subtitle: Text(
+                      '${receipt.registrationNumber.isEmpty ? '' : '${receipt.registrationNumber} - '}'
                       '${_date(receipt.purchaseDate)} - ${_receiptStatus(context, receipt.status)}'),
                   trailing: Text(_money(receipt.total)),
                 ),
@@ -1545,7 +1910,7 @@ final class _SettingsActionTile extends StatelessWidget {
   }
 }
 
-final class _LanguageTile extends StatelessWidget {
+final class _LanguageTile extends StatefulWidget {
   const _LanguageTile({
     required this.currentLanguage,
     required this.onChanged,
@@ -1553,6 +1918,30 @@ final class _LanguageTile extends StatelessWidget {
 
   final AppLanguage currentLanguage;
   final ValueChanged<AppLanguage> onChanged;
+
+  @override
+  State<_LanguageTile> createState() => _LanguageTileState();
+}
+
+final class _LanguageTileState extends State<_LanguageTile> {
+  late AppLanguage _draftLanguage;
+
+  @override
+  void initState() {
+    super.initState();
+    _draftLanguage = widget.currentLanguage;
+  }
+
+  @override
+  void didUpdateWidget(covariant _LanguageTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentLanguage != widget.currentLanguage &&
+        _draftLanguage == oldWidget.currentLanguage) {
+      _draftLanguage = widget.currentLanguage;
+    }
+  }
+
+  bool get _dirty => _draftLanguage != widget.currentLanguage;
 
   @override
   Widget build(BuildContext context) {
@@ -1588,9 +1977,39 @@ final class _LanguageTile extends StatelessWidget {
                     for (final language in AppLanguage.values)
                       ChoiceChip(
                         label: Text(language.label),
-                        selected: currentLanguage == language,
-                        onSelected: (_) => onChanged(language),
+                        selected: _draftLanguage == language,
+                        onSelected: (_) =>
+                            setState(() => _draftLanguage = language),
                       ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (_dirty)
+                      JkddStatusChip(
+                        label: context.tr('settings.unsavedChanges'),
+                        icon: Icons.edit_outlined,
+                        tone: JkddStatusTone.warning,
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: _dirty
+                          ? () => setState(
+                              () => _draftLanguage = widget.currentLanguage)
+                          : null,
+                      icon: const Icon(Icons.undo_outlined),
+                      label: Text(context.tr('common.discard')),
+                    ),
+                    FilledButton.icon(
+                      onPressed: _dirty
+                          ? () => widget.onChanged(_draftLanguage)
+                          : null,
+                      icon: const Icon(Icons.save_outlined),
+                      label: Text(context.tr('common.saveChanges')),
+                    ),
                   ],
                 ),
               ],
@@ -1654,6 +2073,15 @@ String _hours(double value) =>
     _duration(Duration(minutes: (value * 60).round()));
 
 String _money(double value) => '\$${value.toStringAsFixed(2)}';
+
+String _cityStateZip(BuildContext context, Job job) {
+  final value = [
+    job.city,
+    job.state,
+    job.zipCode,
+  ].whereType<String>().where((item) => item.trim().isNotEmpty).join(', ');
+  return value.isEmpty ? context.tr('common.unavailable') : value;
+}
 
 String _gps(BuildContext context, dynamic point) {
   if (point == null || point.isOfflineFallback == true) {

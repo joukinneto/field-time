@@ -5,6 +5,7 @@ final class Job {
     required this.jobName,
     required this.fullAddress,
     required this.status,
+    this.registrationNumber,
     this.address,
     this.city,
     this.county,
@@ -24,6 +25,7 @@ final class Job {
   });
 
   final String jobId;
+  final String? registrationNumber;
   final String jobNumber;
   final String jobName;
   final String fullAddress;
@@ -64,6 +66,7 @@ final class Job {
 
   factory Job.fromJson(Map<String, dynamic> json) => Job(
         jobId: _string(json['Job_ID']),
+        registrationNumber: _nullableString(json['Registration_Number']),
         jobNumber: _string(json['Job_Number']),
         jobName: _string(json['Job_Name']),
         fullAddress: _string(json['Full_Address']),
@@ -88,6 +91,7 @@ final class Job {
 
   Map<String, dynamic> toJson() => {
         'Job_ID': jobId,
+        'Registration_Number': registrationNumber,
         'Job_Number': jobNumber,
         'Job_Name': jobName,
         'Full_Address': fullAddress,

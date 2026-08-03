@@ -1,6 +1,7 @@
 import 'package:jkdd_field_time_records_production/features/employees/domain/employee.dart';
 import 'package:jkdd_field_time_records_production/features/jobs/domain/job.dart'
     as imported_job;
+import 'package:jkdd_field_time_records_production/src/domain/registration_number.dart';
 
 enum PilotRole {
   owner,
@@ -52,6 +53,7 @@ final class PilotUser {
     required this.id,
     required this.name,
     required this.role,
+    this.registrationNumber = '',
     this.company,
     this.category,
     this.supervisor,
@@ -60,6 +62,7 @@ final class PilotUser {
   });
 
   final String id;
+  final String registrationNumber;
   final String name;
   final PilotRole role;
   final String? company;
@@ -88,9 +91,11 @@ final class SupervisorJob {
     required this.supervisorId,
     required this.notes,
     required this.status,
+    this.registrationNumber = '',
   });
 
   final String id;
+  final String registrationNumber;
   final String number;
   final String name;
   final String client;
@@ -108,6 +113,7 @@ final class SupervisorJob {
 
   factory SupervisorJob.placeholder(String id) => SupervisorJob(
         id: id,
+        registrationNumber: id,
         number: id,
         name: '',
         client: 'EWW',
@@ -117,13 +123,14 @@ final class SupervisorJob {
         zipCode: '',
         startDate: DateTime.now(),
         scheduledTime: '',
-        supervisorId: 'TER-0001',
+        supervisorId: '9d48bb6e-52cb-48a8-84f2-7e9a3ef8f001',
         notes: '',
         status: JobStatus.active,
       );
 
   SupervisorJob copyWith({
     String? id,
+    String? registrationNumber,
     String? number,
     String? name,
     String? client,
@@ -139,6 +146,7 @@ final class SupervisorJob {
   }) =>
       SupervisorJob(
         id: id ?? this.id,
+        registrationNumber: registrationNumber ?? this.registrationNumber,
         number: number ?? this.number,
         name: name ?? this.name,
         client: client ?? this.client,
@@ -370,7 +378,8 @@ final class SupervisorCenterState {
   PilotUser get currentUser {
     if (users.isEmpty) {
       return const PilotUser(
-        id: 'TER-0001',
+        id: '9d48bb6e-52cb-48a8-84f2-7e9a3ef8f001',
+        registrationNumber: 'TER-0001',
         name: 'Santana',
         role: PilotRole.supervisor,
         company: 'JKDD Finish & Remodeling Corp.',
@@ -433,12 +442,13 @@ final class SupervisorCenterState {
   factory SupervisorCenterState.seeded() {
     const users = [
       PilotUser(
-        id: 'TER-0001',
+        id: '9d48bb6e-52cb-48a8-84f2-7e9a3ef8f001',
+        registrationNumber: 'TER-0001',
         name: 'Santana',
         role: PilotRole.supervisor,
         company: 'JKDD Finish & Remodeling Corp.',
         category: 'Terceirizado de Mao de Obra',
-        supervisor: 'Joaquim Neto',
+        supervisor: 'Santana',
         function: 'Responsavel pela JKDD',
       ),
     ];
@@ -468,8 +478,19 @@ final class SupervisorCenterState {
       currentRole: currentRole,
       users: users,
       jobs: jobs.map((job) {
+        final index = jobs.indexOf(job);
+        final technicalId = RegistrationNumberPolicy.isUuid(job.jobId)
+            ? job.jobId
+            : RegistrationNumberPolicy.deterministicUuid(
+                'supervisor-job:${job.jobId}:${job.jobNumber}',
+              );
         return SupervisorJob(
-          id: job.jobId,
+          id: technicalId,
+          registrationNumber: job.registrationNumber ??
+              RegistrationNumberPolicy.format(
+                RegistrationRecordType.job,
+                index + 1,
+              ),
           number: job.jobNumber,
           name: job.jobName,
           client: job.client ?? 'EWW',
@@ -495,7 +516,10 @@ final class SupervisorCenterState {
 }
 
 PilotUser _pilotUserFromEmployee(Employee employee) => PilotUser(
-      id: employee.employeeId,
+      id: employee.id.isNotEmpty ? employee.id : employee.employeeId,
+      registrationNumber: employee.registrationNumber.isNotEmpty
+          ? employee.registrationNumber
+          : employee.employeeId,
       name: employee.displayName,
       role: _roleFromEmployee(employee),
       company: employee.company,

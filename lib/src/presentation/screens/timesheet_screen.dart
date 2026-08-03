@@ -51,7 +51,6 @@ final class _TimesheetContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final snapshot = ref.watch(fieldTimeControllerProvider).snapshot;
-    final language = ref.watch(appLanguageControllerProvider);
     final service = ref.watch(fieldTimeApplicationServiceProvider);
     const pdfService = TimesheetPdfService();
     final days = service.timesheet(snapshot, period, DateTime.now());
@@ -64,9 +63,9 @@ final class _TimesheetContent extends ConsumerWidget {
       0,
       (total, segment) => total + segment.regularHours(),
     );
-    final bonusHours = segments.fold<double>(
+    final bonusHours = days.fold<double>(
       0,
-      (total, segment) => total + segment.travelBonusHours,
+      (total, day) => total + day.travelBonusHours,
     );
     final reimbursement = receipts.fold<double>(
       0,
@@ -76,9 +75,18 @@ final class _TimesheetContent extends ConsumerWidget {
     for (final segment in segments) {
       totalsByJob.update(
         segment.jobNumber,
-        (value) => value + segment.totalHours(),
-        ifAbsent: segment.totalHours,
+        (value) => value + segment.regularHours(),
+        ifAbsent: () => segment.regularHours(),
       );
+    }
+    for (final day in days) {
+      for (final segment in _bonusSegments(day)) {
+        totalsByJob.update(
+          segment.jobNumber,
+          (value) => value + segment.travelBonusHours,
+          ifAbsent: () => segment.travelBonusHours,
+        );
+      }
     }
 
     return ListView(
@@ -100,14 +108,12 @@ final class _TimesheetContent extends ConsumerWidget {
                     spacing: AppSpacing.sm,
                     children: [
                       OutlinedButton.icon(
-                        onPressed: () =>
-                            _sharePdf(snapshot, pdfService, language),
+                        onPressed: () => _sharePdf(snapshot, pdfService),
                         icon: const Icon(Icons.ios_share_outlined),
                         label: Text(context.tr('timesheet.share')),
                       ),
                       FilledButton.icon(
-                        onPressed: () =>
-                            _previewPdf(snapshot, pdfService, language),
+                        onPressed: () => _previewPdf(snapshot, pdfService),
                         icon: const Icon(Icons.picture_as_pdf_outlined),
                         label: Text(context.tr('timesheet.generatePdf')),
                       ),
@@ -185,7 +191,7 @@ final class _TimesheetContent extends ConsumerWidget {
                     message: context.tr('timesheet.noRecordsHelp'),
                   )
                 else
-                  for (final day in days)
+                  for (final day in days) ...[
                     for (final segment in day.segments)
                       _SegmentCard(
                         day: day,
@@ -198,6 +204,9 @@ final class _TimesheetContent extends ConsumerWidget {
                             )
                             .length,
                       ),
+                    for (final segment in _bonusSegments(day))
+                      _TravelBonusCard(day: day, segment: segment),
+                  ],
               ],
             ),
           ),
@@ -209,14 +218,13 @@ final class _TimesheetContent extends ConsumerWidget {
   Future<void> _previewPdf(
     FieldTimeSnapshot snapshot,
     TimesheetPdfService pdfService,
-    AppLanguage language,
   ) async {
+    const reportStrings = AppStrings(AppLanguage.en);
     await Printing.layoutPdf(
-      name: AppStrings(language).t('timesheet.fileName'),
+      name: reportStrings.t('timesheet.fileName'),
       onLayout: (_) => pdfService.buildWeeklyTimesheetPdf(
         snapshot: snapshot,
         anchorDate: DateTime.now(),
-        language: language,
       ),
     );
   }
@@ -224,16 +232,15 @@ final class _TimesheetContent extends ConsumerWidget {
   Future<void> _sharePdf(
     FieldTimeSnapshot snapshot,
     TimesheetPdfService pdfService,
-    AppLanguage language,
   ) async {
+    const reportStrings = AppStrings(AppLanguage.en);
     final bytes = await pdfService.buildWeeklyTimesheetPdf(
       snapshot: snapshot,
       anchorDate: DateTime.now(),
-      language: language,
     );
     await Printing.sharePdf(
       bytes: bytes,
-      filename: AppStrings(language).t('timesheet.fileName'),
+      filename: reportStrings.t('timesheet.fileName'),
     );
   }
 }
@@ -472,6 +479,43 @@ final class _SegmentCard extends StatelessWidget {
           ),
         ),
       );
+}
+
+final class _TravelBonusCard extends StatelessWidget {
+  const _TravelBonusCard({required this.day, required this.segment});
+
+  final WorkDay day;
+  final WorkSegment segment;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        margin: const EdgeInsets.only(bottom: AppSpacing.md),
+        child: ListTile(
+          leading: const Icon(Icons.route_outlined, color: AppColors.amber),
+          title: Text(
+            '${segment.jobNumber} - ${context.tr('timesheet.travelBonusLine')}',
+          ),
+          subtitle: Text('${_date(day.workDate)} - ${segment.jobAddress}'),
+          trailing: Text(
+            _hours(segment.travelBonusHours),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ),
+      );
+}
+
+List<WorkSegment> _bonusSegments(WorkDay day) {
+  final byJob = <String, WorkSegment>{};
+  for (final segment in day.segments) {
+    if (segment.travelBonusHours <= 0) continue;
+    final current = byJob[segment.jobId];
+    if (current == null ||
+        current.travelBonusHours < segment.travelBonusHours) {
+      byJob[segment.jobId] = segment;
+    }
+  }
+  return byJob.values.toList(growable: false)
+    ..sort((left, right) => left.jobNumber.compareTo(right.jobNumber));
 }
 
 bool _sameDate(DateTime left, DateTime right) =>

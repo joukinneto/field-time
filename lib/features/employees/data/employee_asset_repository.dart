@@ -149,12 +149,15 @@ final class EmployeeAssetRepository {
 
   field_time.WorkerProfile toWorkerProfile(Employee employee) =>
       field_time.WorkerProfile(
-        id: employee.employeeId,
+        id: employee.id.isNotEmpty ? employee.id : employee.employeeId,
         companyId: field_time.FieldTimeSnapshot.companyIdEww,
         subcontractorCompanyId:
             field_time.FieldTimeSnapshot.subcontractorIdJkdd,
         displayName: employee.displayName,
         laborType: field_time.LaborType.subcontractor,
+        registrationNumber: employee.registrationNumber.isNotEmpty
+            ? employee.registrationNumber
+            : employee.employeeId,
       );
 }
 

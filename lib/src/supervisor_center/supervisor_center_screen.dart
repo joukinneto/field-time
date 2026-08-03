@@ -4,6 +4,7 @@ import 'package:jkdd_field_time_records_production/core/theme/app_colors.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_spacing.dart';
 import 'package:jkdd_field_time_records_production/features/employees/presentation/employees_management_screen.dart';
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
+import 'package:jkdd_field_time_records_production/src/domain/registration_number.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_controller.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_models.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_empty_state.dart';
@@ -1678,7 +1679,14 @@ Future<void> _sendToReview(
 }
 
 Future<void> _newJob(BuildContext context, WidgetRef ref) async {
-  final number = TextEditingController();
+  final registrationNumber = RegistrationNumberPolicy.next(
+    RegistrationRecordType.job,
+    ref.read(supervisorCenterProvider).jobs.map((job) =>
+        job.registrationNumber.isNotEmpty
+            ? job.registrationNumber
+            : job.number),
+  );
+  final number = TextEditingController(text: registrationNumber);
   final name = TextEditingController();
   final client = TextEditingController(text: 'EWW');
   final address = TextEditingController();
@@ -1699,8 +1707,11 @@ Future<void> _newJob(BuildContext context, WidgetRef ref) async {
               children: [
                 TextField(
                     controller: number,
+                    readOnly: true,
                     decoration: InputDecoration(
-                        labelText: context.tr('jobs.jobNumber'))),
+                      labelText: context.tr('common.registrationNumber'),
+                      helperText: context.tr('common.generatedAutomatically'),
+                    )),
                 const SizedBox(height: AppSpacing.sm),
                 TextField(
                     controller: name,
@@ -1762,11 +1773,26 @@ Future<void> _newJob(BuildContext context, WidgetRef ref) async {
   );
   if (saved == true) {
     if (!context.mounted) return;
+    final existingJobs = ref.read(supervisorCenterProvider).jobs;
+    if (existingJobs.any((job) =>
+        job.registrationNumber == registrationNumber ||
+        job.number == registrationNumber)) {
+      _snack(context, context.tr('fieldTime.duplicateRegistration'));
+      number.dispose();
+      name.dispose();
+      client.dispose();
+      address.dispose();
+      city.dispose();
+      zip.dispose();
+      notes.dispose();
+      return;
+    }
     final supervisorId = ref.read(supervisorCenterProvider).currentUser.id;
     ref.read(supervisorCenterProvider.notifier).addJob(
           SupervisorJob(
-            id: 'job-${DateTime.now().millisecondsSinceEpoch}',
-            number: number.text.trim().isEmpty ? 'NEW' : number.text.trim(),
+            id: RegistrationNumberPolicy.newUuid(),
+            registrationNumber: registrationNumber,
+            number: registrationNumber,
             name: name.text.trim().isEmpty
                 ? context.tr('jobs.newJob')
                 : name.text.trim(),

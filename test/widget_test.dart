@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jkdd_field_time_records_production/main.dart';
@@ -15,11 +16,17 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('v1.0.0'), findsOneWidget);
-    expect(find.textContaining('Good'), findsOneWidget);
     expect(find.text('EWW'), findsOneWidget);
-    expect(find.text('Santana'), findsWidgets);
-    expect(find.text('Subcontractor'), findsWidgets);
+    expect(find.textContaining('Santana'), findsWidgets);
+    expect(find.textContaining('JKDD Finish & Remodeling Corp'), findsWidgets);
+    expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Text && RegExp(r'Bo(m|a)').hasMatch(widget.data ?? ''),
+        ),
+        findsWidgets);
   });
 }

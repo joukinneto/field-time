@@ -16,12 +16,13 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('CLOCK IN'), findsOneWidget);
-    expect(find.text('Switch Job'), findsOneWidget);
-    expect(find.text('Attach Receipt'), findsOneWidget);
-    expect(find.text('Request Reimbursement'), findsOneWidget);
-    expect(find.text('My Timesheet'), findsOneWidget);
+    expect(find.text('REGISTRAR ENTRADA'), findsOneWidget);
+    expect(find.text('Trocar obra'), findsOneWidget);
+    expect(find.text('Anexar recibo'), findsOneWidget);
+    expect(find.text('Pedir reembolso'), findsOneWidget);
+    expect(find.text('Meu timesheet'), findsOneWidget);
     expect(find.textContaining('Pause'), findsNothing);
     expect(find.textContaining('Pausa'), findsNothing);
   });

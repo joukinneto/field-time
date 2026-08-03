@@ -1,4 +1,5 @@
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
+import 'package:jkdd_field_time_records_production/src/domain/registration_number.dart';
 import 'package:jkdd_field_time_records_production/src/domain/receipt_extraction_service.dart';
 import 'package:jkdd_field_time_records_production/src/domain/value_objects/geo_point.dart';
 import 'package:uuid/uuid.dart';
@@ -23,8 +24,17 @@ final class FieldTimeApplicationService {
       throw StateError('fieldTime.openPeriodExists');
     }
     final segment = _newSegment(snapshot, job, at, location, notes);
+    final timesheetSequence = _nextRegistrationSequence(
+      snapshot,
+      RegistrationRecordType.timesheet,
+      snapshot.workDays.map((day) => day.registrationNumber),
+    );
     final day = WorkDay(
       id: uuid.v7(),
+      registrationNumber: RegistrationNumberPolicy.format(
+        RegistrationRecordType.timesheet,
+        timesheetSequence,
+      ),
       companyId: snapshot.companyId,
       subcontractorCompanyId: snapshot.subcontractor.id,
       workerId: snapshot.worker.id,
@@ -36,6 +46,11 @@ final class FieldTimeApplicationService {
     );
     return snapshot.copyWith(
       workDays: [...snapshot.workDays, day],
+      registrationSequences: _withRegistrationSequence(
+        snapshot,
+        RegistrationRecordType.timesheet,
+        timesheetSequence,
+      ),
       syncQueue: [
         ...snapshot.syncQueue,
         _queue(snapshot, 'WorkDay', day.id, SyncOperation.create, at),
@@ -135,6 +150,16 @@ final class FieldTimeApplicationService {
     }
     final now = DateTime.now();
     final receiptId = uuid.v7();
+    final receiptSequence = _nextRegistrationSequence(
+      snapshot,
+      RegistrationRecordType.receipt,
+      snapshot.receipts.map((receipt) => receipt.registrationNumber),
+    );
+    final reimbursementSequence = _nextRegistrationSequence(
+      snapshot,
+      RegistrationRecordType.reimbursement,
+      snapshot.reimbursements.map((item) => item.registrationNumber),
+    );
     final extraction = await receiptExtractionService.extract(
       receiptId: receiptId,
       companyId: snapshot.companyId,
@@ -142,8 +167,23 @@ final class FieldTimeApplicationService {
       attachment: attachment,
     );
     final status = submit ? ReceiptStatus.submitted : ReceiptStatus.draft;
+    final receiptRegistrationNumber = RegistrationNumberPolicy.format(
+      RegistrationRecordType.receipt,
+      receiptSequence,
+    );
+    final reimbursementRegistrationNumber = RegistrationNumberPolicy.format(
+      RegistrationRecordType.reimbursement,
+      reimbursementSequence,
+    );
+    if (snapshot.receipts.any((receipt) =>
+            receipt.registrationNumber == receiptRegistrationNumber) ||
+        snapshot.reimbursements.any((item) =>
+            item.registrationNumber == reimbursementRegistrationNumber)) {
+      throw StateError('fieldTime.duplicateRegistration');
+    }
     final receipt = Receipt(
       id: receiptId,
+      registrationNumber: receiptRegistrationNumber,
       companyId: snapshot.companyId,
       subcontractorCompanyId: snapshot.subcontractor.id,
       workerId: snapshot.worker.id,
@@ -165,6 +205,7 @@ final class FieldTimeApplicationService {
     );
     final reimbursement = ReimbursementRequest(
       id: uuid.v7(),
+      registrationNumber: reimbursementRegistrationNumber,
       companyId: snapshot.companyId,
       subcontractorCompanyId: snapshot.subcontractor.id,
       workerId: snapshot.worker.id,
@@ -189,6 +230,17 @@ final class FieldTimeApplicationService {
       receipts: [...snapshot.receipts, receipt],
       reimbursements: [...snapshot.reimbursements, reimbursement],
       approvals: [...snapshot.approvals, approval],
+      registrationSequences: _withRegistrationSequence(
+        snapshot.copyWith(
+          registrationSequences: _withRegistrationSequence(
+            snapshot,
+            RegistrationRecordType.receipt,
+            receiptSequence,
+          ),
+        ),
+        RegistrationRecordType.reimbursement,
+        reimbursementSequence,
+      ),
       syncQueue: [
         ...snapshot.syncQueue,
         _queue(snapshot, 'Receipt', receipt.id, SyncOperation.create, now),
@@ -291,6 +343,32 @@ final class FieldTimeApplicationService {
         laborType: snapshot.worker.laborType,
         travelBonusHours: job.travelBonusHours,
       );
+
+  int _nextRegistrationSequence(
+    FieldTimeSnapshot snapshot,
+    RegistrationRecordType type,
+    Iterable<String?> existingNumbers,
+  ) {
+    final stored = snapshot.registrationSequences[type.prefix] ?? 0;
+    final existing = RegistrationNumberPolicy.maxSequenceFor(
+      type,
+      existingNumbers,
+    );
+    final max = stored > existing ? stored : existing;
+    return max + 1;
+  }
+
+  Map<String, int> _withRegistrationSequence(
+    FieldTimeSnapshot snapshot,
+    RegistrationRecordType type,
+    int sequence,
+  ) {
+    final current = snapshot.registrationSequences[type.prefix] ?? 0;
+    return {
+      ...snapshot.registrationSequences,
+      type.prefix: sequence > current ? sequence : current,
+    };
+  }
 
   List<WorkDay> _replaceDay(List<WorkDay> days, WorkDay replacement) => [
         for (final day in days)

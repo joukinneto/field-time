@@ -24,4 +24,4 @@ assets/data/employees.json
 
 ## Observação
 
-Os telefones cadastrados são fictícios e deverão ser substituídos posteriormente.
+Os telefones fictícios foram removidos do JSON operacional; contatos reais devem ser preenchidos somente a partir de fonte oficial.

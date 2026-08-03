@@ -658,7 +658,13 @@ final _headerAliases = {
   'radiusft': 'Allowed_Radius_ft',
   'travelbonushours': 'Travel_Bonus_Hours',
   'travelbonus': 'Travel_Bonus_Hours',
+  'travelbonush': 'Travel_Bonus_Hours',
   'bonushours': 'Travel_Bonus_Hours',
+  'bonus': 'Travel_Bonus_Hours',
+  'bonusviagem': 'Travel_Bonus_Hours',
+  'bonusdeviagem': 'Travel_Bonus_Hours',
+  'horasbonus': 'Travel_Bonus_Hours',
+  'horasdebonus': 'Travel_Bonus_Hours',
   'status': 'Status',
   'client': 'Client',
   'customer': 'Client',
@@ -737,6 +743,13 @@ Object? _nullableNumber(String? value) {
 double _travelBonusHours(String? value) {
   final text = value?.trim() ?? '';
   if (text.isEmpty) return 0.0;
+  if (RegExp(r'^\+?\d{1,2}:\d{2}$').hasMatch(text)) {
+    final cleanTime = text.replaceAll('+', '');
+    final parts = cleanTime.split(':');
+    final hours = int.tryParse(parts[0]) ?? 0;
+    final minutes = int.tryParse(parts[1]) ?? 0;
+    return hours + (minutes / 60);
+  }
   final cleaned = text
       .toLowerCase()
       .replaceAll('hours', '')

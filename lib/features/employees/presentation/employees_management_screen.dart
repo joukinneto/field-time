@@ -5,6 +5,7 @@ import 'package:jkdd_field_time_records_production/core/theme/app_spacing.dart';
 import 'package:jkdd_field_time_records_production/features/employees/data/employee_asset_repository.dart';
 import 'package:jkdd_field_time_records_production/features/employees/domain/employee.dart';
 import 'package:jkdd_field_time_records_production/src/application/field_time_controller.dart';
+import 'package:jkdd_field_time_records_production/src/domain/registration_number.dart';
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_controller.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_empty_state.dart';
@@ -97,22 +98,46 @@ final class _EmployeesManagementScreenState
 
   bool _hasHistory(Employee employee) {
     final snapshot = ref.read(fieldTimeControllerProvider).snapshot;
+    final knownIds = {
+      employee.id,
+      employee.registrationNumber,
+      employee.employeeId,
+    }.where((value) => value.trim().isNotEmpty).toSet();
     final hasFieldHistory =
-        snapshot.workDays.any((day) => day.workerId == employee.employeeId);
+        snapshot.workDays.any((day) => knownIds.contains(day.workerId));
     final supervisorState = ref.read(supervisorCenterProvider);
     final hasSupervisorHistory = supervisorState.timeEntries
-            .any((entry) => entry.userId == employee.employeeId) ||
+            .any((entry) => knownIds.contains(entry.userId)) ||
         supervisorState.assignments
-            .any((assignment) => assignment.userId == employee.employeeId);
+            .any((assignment) => knownIds.contains(assignment.userId));
     return hasFieldHistory || hasSupervisorHistory;
   }
 
   Future<void> _addEmployee() async {
+    final registrationNumber = RegistrationNumberPolicy.next(
+      RegistrationRecordType.subcontractorWorker,
+      (_employees ?? const <Employee>[]).map(
+        (employee) => employee.registrationNumber.isNotEmpty
+            ? employee.registrationNumber
+            : employee.employeeId,
+      ),
+    );
     final employee = await showDialog<Employee>(
       context: context,
-      builder: (context) => _EmployeeEditorDialog(),
+      builder: (context) => _EmployeeEditorDialog(
+          generatedRegistrationNumber: registrationNumber),
     );
     if (employee == null) return;
+    if ((_employees ?? const <Employee>[]).any((current) =>
+        current.id == employee.id ||
+        current.registrationNumber == employee.registrationNumber ||
+        current.employeeId == employee.employeeId)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('fieldTime.duplicateRegistration'))),
+      );
+      return;
+    }
     setState(() => _employees = [...?_employees, employee]);
   }
 
@@ -437,7 +462,8 @@ final class _EmployeeCard extends StatelessWidget {
           foregroundColor: AppColors.blue,
           child: const Icon(Icons.badge_outlined),
         ),
-        title: Text('${employee.employeeId} - ${employee.displayName}'),
+        title: Text(
+            '${employee.registrationNumber.isNotEmpty ? employee.registrationNumber : employee.employeeId} - ${employee.displayName}'),
         subtitle: Text('${employee.company}\n${employee.role ?? '-'}'),
         isThreeLine: true,
         trailing: Wrap(
@@ -518,7 +544,9 @@ final class EmployeeDetailsScreen extends StatelessWidget {
                     children: [
                       JkddSectionHeader(
                         title: employee.displayName,
-                        subtitle: employee.employeeId,
+                        subtitle: employee.registrationNumber.isNotEmpty
+                            ? employee.registrationNumber
+                            : employee.employeeId,
                         trailing: Wrap(
                           spacing: AppSpacing.sm,
                           children: [
@@ -541,6 +569,11 @@ final class EmployeeDetailsScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: AppSpacing.lg),
+                      JkddInfoRow(
+                          label: context.tr('common.registrationNumber'),
+                          value: employee.registrationNumber.isNotEmpty
+                              ? employee.registrationNumber
+                              : employee.employeeId),
                       JkddInfoRow(
                           label: context.tr('employees.company'),
                           value: employee.company),
@@ -584,9 +617,13 @@ final class EmployeeDetailsScreen extends StatelessWidget {
 }
 
 final class _EmployeeEditorDialog extends StatefulWidget {
-  _EmployeeEditorDialog({Employee? employee})
+  _EmployeeEditorDialog(
+      {Employee? employee, String? generatedRegistrationNumber})
       : employee = employee,
-        employeeId = TextEditingController(text: employee?.employeeId ?? ''),
+        employeeId = TextEditingController(
+            text: employee?.registrationNumber.isNotEmpty == true
+                ? employee!.registrationNumber
+                : employee?.employeeId ?? generatedRegistrationNumber ?? ''),
         fullName = TextEditingController(text: employee?.fullName ?? ''),
         company = TextEditingController(
           text: employee?.company ?? 'JKDD Finish & Remodeling Corp.',
@@ -640,9 +677,11 @@ final class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
               children: [
                 TextFormField(
                   controller: widget.employeeId,
-                  enabled: widget.employee == null,
+                  readOnly: true,
                   decoration: InputDecoration(
-                      labelText: context.tr('employees.employeeId')),
+                    labelText: context.tr('common.registrationNumber'),
+                    helperText: context.tr('common.generatedAutomatically'),
+                  ),
                   validator: _required,
                 ),
                 TextFormField(
@@ -703,6 +742,10 @@ final class _EmployeeEditorDialogState extends State<_EmployeeEditorDialog> {
     final previous = widget.employee;
     Navigator.of(context).pop(
       Employee(
+        id: previous?.id.isNotEmpty == true
+            ? previous!.id
+            : RegistrationNumberPolicy.newUuid(),
+        registrationNumber: widget.employeeId.text.trim(),
         employeeId: widget.employeeId.text.trim(),
         fullName: widget.fullName.text.trim(),
         preferredName: widget.fullName.text.trim(),

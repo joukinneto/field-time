@@ -63,6 +63,8 @@ final class Employee {
     required this.company,
     required this.status,
     required this.active,
+    this.id = '',
+    this.registrationNumber = '',
     this.preferredName,
     this.photo,
     this.phone,
@@ -82,6 +84,8 @@ final class Employee {
     this.notes,
   });
 
+  final String id;
+  final String registrationNumber;
   final String employeeId;
   final String fullName;
   final String? preferredName;
@@ -109,6 +113,8 @@ final class Employee {
       ? preferredName!.trim()
       : fullName;
   String get searchableText => [
+        id,
+        registrationNumber,
         employeeId,
         fullName,
         preferredName,
@@ -119,6 +125,8 @@ final class Employee {
       ].whereType<String>().join(' ').toLowerCase();
 
   Employee copyWith({
+    String? id,
+    String? registrationNumber,
     String? employeeId,
     String? fullName,
     String? preferredName,
@@ -143,6 +151,8 @@ final class Employee {
     bool? active,
   }) =>
       Employee(
+        id: id ?? this.id,
+        registrationNumber: registrationNumber ?? this.registrationNumber,
         employeeId: employeeId ?? this.employeeId,
         fullName: fullName ?? this.fullName,
         preferredName: preferredName ?? this.preferredName,
@@ -168,6 +178,9 @@ final class Employee {
       );
 
   factory Employee.fromJson(Map<String, dynamic> json) => Employee(
+        id: _string(json['id']),
+        registrationNumber: _string(json['registration_number'],
+            fallback: _string(json['employee_id'])),
         employeeId: _string(json['employee_id']),
         fullName: _string(json['full_name']),
         preferredName: _nullableString(json['preferred_name']),
@@ -205,6 +218,8 @@ final class Employee {
       );
 
   Map<String, dynamic> toJson() => {
+        'id': id,
+        'registration_number': registrationNumber,
         'employee_id': employeeId,
         'full_name': fullName,
         'preferred_name': preferredName,
