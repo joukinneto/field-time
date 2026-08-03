@@ -11,7 +11,7 @@ void main() {
   );
 
   test('multiple jobs create separate segments without replacing history', () {
-    var snapshot = FieldTimeSnapshot.seeded();
+    var snapshot = _snapshotWithJobs();
     snapshot = service.clockIn(
       snapshot: snapshot,
       job: snapshot.jobs[0],
@@ -40,7 +40,7 @@ void main() {
   });
 
   test('end day closes final segment and calculates daily total', () {
-    var snapshot = FieldTimeSnapshot.seeded();
+    var snapshot = _snapshotWithJobs();
     snapshot = service.clockIn(
       snapshot: snapshot,
       job: snapshot.jobs[0],
@@ -67,7 +67,7 @@ void main() {
   });
 
   test('weekly filter includes all days in current week', () {
-    var snapshot = FieldTimeSnapshot.seeded();
+    var snapshot = _snapshotWithJobs();
     for (final dayNumber in [3, 4]) {
       snapshot = service.clockIn(
         snapshot: snapshot,
@@ -91,7 +91,7 @@ void main() {
   });
 
   test('receipt is linked to job and creates reimbursement request', () async {
-    final snapshot = FieldTimeSnapshot.seeded();
+    final snapshot = _snapshotWithJobs();
     final job = snapshot.jobs.first;
     final attachment = Attachment(
       id: 'attachment-1',
@@ -128,3 +128,32 @@ void main() {
     expect(result.approvals.single.status, ApprovalStatus.pending);
   });
 }
+
+FieldTimeSnapshot _snapshotWithJobs() => FieldTimeSnapshot.seeded().copyWith(
+      jobs: const [
+        Job(
+          id: 'job-1001',
+          companyId: FieldTimeSnapshot.companyIdEww,
+          subcontractorCompanyId: FieldTimeSnapshot.subcontractorIdJkdd,
+          number: '1001',
+          name: 'Imported Job 1001',
+          address: 'Boca Raton, FL',
+        ),
+        Job(
+          id: 'job-1002',
+          companyId: FieldTimeSnapshot.companyIdEww,
+          subcontractorCompanyId: FieldTimeSnapshot.subcontractorIdJkdd,
+          number: '1002',
+          name: 'Imported Job 1002',
+          address: 'Delray Beach, FL',
+        ),
+        Job(
+          id: 'job-1003',
+          companyId: FieldTimeSnapshot.companyIdEww,
+          subcontractorCompanyId: FieldTimeSnapshot.subcontractorIdJkdd,
+          number: '1003',
+          name: 'Imported Job 1003',
+          address: 'Parkland, FL',
+        ),
+      ],
+    );

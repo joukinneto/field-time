@@ -1,3 +1,7 @@
+import 'package:jkdd_field_time_records_production/features/employees/domain/employee.dart';
+import 'package:jkdd_field_time_records_production/features/jobs/domain/job.dart'
+    as imported_job;
+
 enum PilotRole {
   owner,
   administrator,
@@ -48,11 +52,21 @@ final class PilotUser {
     required this.id,
     required this.name,
     required this.role,
+    this.company,
+    this.category,
+    this.supervisor,
+    this.function,
+    this.active = true,
   });
 
   final String id;
   final String name;
   final PilotRole role;
+  final String? company;
+  final String? category;
+  final String? supervisor;
+  final String? function;
+  final bool active;
 
   bool get isContractor => role == PilotRole.contractor;
   bool get isWorker =>
@@ -91,6 +105,22 @@ final class SupervisorJob {
   final JobStatus status;
 
   String get displayName => 'Obra $number - $name';
+
+  factory SupervisorJob.placeholder(String id) => SupervisorJob(
+        id: id,
+        number: id,
+        name: '',
+        client: 'EWW',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        startDate: DateTime.now(),
+        scheduledTime: '',
+        supervisorId: 'TER-0001',
+        notes: '',
+        status: JobStatus.active,
+      );
 
   SupervisorJob copyWith({
     String? id,
@@ -337,17 +367,30 @@ final class SupervisorCenterState {
   final String? message;
   final String? error;
 
-  PilotUser get currentUser => switch (currentRole) {
-        PilotRole.supervisor => userById('joukin'),
-        PilotRole.employee => userById('carlos'),
-        PilotRole.contractor => userById('marcos'),
-        PilotRole.owner => userById('joukin'),
-        PilotRole.administrator => userById('joukin'),
-        PilotRole.coordinator => userById('joukin'),
-      };
+  PilotUser get currentUser {
+    if (users.isEmpty) {
+      return const PilotUser(
+        id: 'TER-0001',
+        name: 'Santana',
+        role: PilotRole.supervisor,
+        company: 'JKDD Finish & Remodeling Corp.',
+        active: true,
+      );
+    }
+    return users.firstWhere(
+      (user) => user.role == currentRole,
+      orElse: () => users.first,
+    );
+  }
 
-  PilotUser userById(String id) => users.firstWhere((user) => user.id == id);
-  SupervisorJob jobById(String id) => jobs.firstWhere((job) => job.id == id);
+  PilotUser userById(String id) => users.firstWhere(
+        (user) => user.id == id,
+        orElse: () => currentUser,
+      );
+  SupervisorJob jobById(String id) => jobs.firstWhere(
+        (job) => job.id == id,
+        orElse: () => SupervisorJob.placeholder(id),
+      );
 
   bool hasPermission(PilotPermission permission) {
     final base = _permissionsFor(currentRole);
@@ -360,6 +403,7 @@ final class SupervisorCenterState {
 
   SupervisorCenterState copyWith({
     PilotRole? currentRole,
+    List<PilotUser>? users,
     List<SupervisorJob>? jobs,
     List<JobAssignment>? assignments,
     List<SupervisorSchedule>? schedules,
@@ -373,7 +417,7 @@ final class SupervisorCenterState {
   }) =>
       SupervisorCenterState(
         currentRole: currentRole ?? this.currentRole,
-        users: users,
+        users: users ?? this.users,
         jobs: jobs ?? this.jobs,
         assignments: assignments ?? this.assignments,
         schedules: schedules ?? this.schedules,
@@ -387,180 +431,107 @@ final class SupervisorCenterState {
       );
 
   factory SupervisorCenterState.seeded() {
-    final today = DateTime.now();
-    final date = DateTime(today.year, today.month, today.day);
     const users = [
-      PilotUser(id: 'joukin', name: 'Joukin', role: PilotRole.supervisor),
-      PilotUser(id: 'carlos', name: 'Carlos', role: PilotRole.employee),
-      PilotUser(id: 'jose', name: 'Jose', role: PilotRole.employee),
-      PilotUser(id: 'marcos', name: 'Marcos', role: PilotRole.contractor),
-      PilotUser(id: 'pedro', name: 'Pedro', role: PilotRole.contractor),
+      PilotUser(
+        id: 'TER-0001',
+        name: 'Santana',
+        role: PilotRole.supervisor,
+        company: 'JKDD Finish & Remodeling Corp.',
+        category: 'Terceirizado de Mao de Obra',
+        supervisor: 'Joaquim Neto',
+        function: 'Responsavel pela JKDD',
+      ),
     ];
-    return SupervisorCenterState(
+    return const SupervisorCenterState(
       currentRole: PilotRole.supervisor,
       users: users,
-      jobs: [
-        SupervisorJob(
-          id: 'job-630',
-          number: '630',
-          name: 'Golden Beach',
-          client: 'EWW',
-          address: '630 Ocean Blvd',
-          city: 'Golden Beach',
-          state: 'FL',
-          zipCode: '33160',
-          startDate: date,
-          scheduledTime: '7:00 AM',
-          supervisorId: 'joukin',
-          notes: 'Exterior finish and daily inspection.',
-          status: JobStatus.active,
-        ),
-        SupervisorJob(
-          id: 'job-3099',
-          number: '3099',
-          name: 'Boca Raton',
-          client: 'EWW',
-          address: '3099 Banyan Rd',
-          city: 'Boca Raton',
-          state: 'FL',
-          zipCode: '33431',
-          startDate: date,
-          scheduledTime: '11:00 AM',
-          supervisorId: 'joukin',
-          notes: 'Midday visit and material check.',
-          status: JobStatus.active,
-        ),
-        SupervisorJob(
-          id: 'job-3131',
-          number: '3131',
-          name: 'Delray Beach',
-          client: 'EWW',
-          address: '3131 Atlantic Ave',
-          city: 'Delray Beach',
-          state: 'FL',
-          zipCode: '33444',
-          startDate: date,
-          scheduledTime: '2:30 PM',
-          supervisorId: 'joukin',
-          notes: 'Afternoon walkthrough.',
-          status: JobStatus.planned,
-        ),
-      ],
-      assignments: [
-        JobAssignment(
-          id: 'assign-carlos-630',
-          userId: 'carlos',
-          jobId: 'job-630',
-          assignmentDate: date,
-          scheduledStart: '7:00 AM',
-          scheduledEnd: '5:00 PM',
-          assignedBy: 'joukin',
-          supervisorId: 'joukin',
-          status: AssignmentStatus.finished,
-          notes: 'Finish crew.',
-        ),
-        JobAssignment(
-          id: 'assign-jose-630',
-          userId: 'jose',
-          jobId: 'job-630',
-          assignmentDate: date,
-          scheduledStart: '7:00 AM',
-          scheduledEnd: '4:30 PM',
-          assignedBy: 'joukin',
-          supervisorId: 'joukin',
-          status: AssignmentStatus.finished,
-          notes: 'Interior detail.',
-        ),
-        JobAssignment(
-          id: 'assign-marcos-630',
-          userId: 'marcos',
-          jobId: 'job-630',
-          assignmentDate: date,
-          scheduledStart: '7:00 AM',
-          scheduledEnd: '5:00 PM',
-          assignedBy: 'joukin',
-          supervisorId: 'joukin',
-          status: AssignmentStatus.working,
-          notes: 'Contractor punch list.',
-        ),
-        JobAssignment(
-          id: 'assign-pedro-3099',
-          userId: 'pedro',
-          jobId: 'job-3099',
-          assignmentDate: date,
-          scheduledStart: '11:00 AM',
-          scheduledEnd: '4:00 PM',
-          assignedBy: 'joukin',
-          supervisorId: 'joukin',
-          status: AssignmentStatus.noEntry,
-          notes: 'Contractor visit.',
-        ),
-      ],
-      schedules: [
-        SupervisorSchedule(
-          id: 'schedule-630',
-          supervisorId: 'joukin',
-          jobId: 'job-630',
-          date: date,
-          time: '7:00 AM',
-          note: 'Start day at Golden Beach.',
-        ),
-        SupervisorSchedule(
-          id: 'schedule-3099',
-          supervisorId: 'joukin',
-          jobId: 'job-3099',
-          date: date,
-          time: '11:00 AM',
-          note: 'Review Boca Raton progress.',
-        ),
-        SupervisorSchedule(
-          id: 'schedule-3131',
-          supervisorId: 'joukin',
-          jobId: 'job-3131',
-          date: date,
-          time: '2:30 PM',
-          note: 'Confirm Delray Beach start readiness.',
-        ),
-      ],
-      timeEntries: [
-        TimeEntry(
-          id: 'entry-carlos',
-          userId: 'carlos',
-          jobId: 'job-630',
-          date: date,
-          clockIn: '7:00 AM',
-          clockOut: '5:00 PM',
-          breakMinutes: 30,
-          employeeNote: 'Completed paint prep and cleanup.',
-          status: TimeReviewStatus.pending,
-        ),
-        TimeEntry(
-          id: 'entry-jose',
-          userId: 'jose',
-          jobId: 'job-630',
-          date: date,
-          clockIn: '7:10 AM',
-          clockOut: '4:30 PM',
-          breakMinutes: 30,
-          employeeNote: 'Worked on finish details.',
-          status: TimeReviewStatus.pending,
-        ),
-        TimeEntry(
-          id: 'entry-marcos',
-          userId: 'marcos',
-          jobId: 'job-630',
-          date: date,
-          clockIn: '7:15 AM',
-          clockOut: null,
-          breakMinutes: 0,
-          employeeNote: 'Still working on contractor items.',
-          status: TimeReviewStatus.working,
-        ),
-      ],
-      reviews: const [],
-      auditLogs: const [],
+      jobs: [],
+      assignments: [],
+      schedules: [],
+      timeEntries: [],
+      reviews: [],
+      auditLogs: [],
     );
   }
+
+  factory SupervisorCenterState.fromEmployeesAndJobs({
+    required List<Employee> employees,
+    required List<imported_job.Job> jobs,
+    PilotRole currentRole = PilotRole.supervisor,
+    bool allowSupervisorCreateJobs = true,
+  }) {
+    final today = DateTime.now();
+    final date = DateTime(today.year, today.month, today.day);
+    final users = employees.map(_pilotUserFromEmployee).toList(growable: false);
+    final supervisorId = users.isEmpty ? 'TER-0001' : users.first.id;
+    return SupervisorCenterState(
+      currentRole: currentRole,
+      users: users,
+      jobs: jobs.map((job) {
+        return SupervisorJob(
+          id: job.jobId,
+          number: job.jobNumber,
+          name: job.jobName,
+          client: job.client ?? 'EWW',
+          address: job.address ?? job.fullAddress,
+          city: job.city ?? '',
+          state: job.state ?? '',
+          zipCode: job.zipCode ?? '',
+          startDate: date,
+          scheduledTime: '7:00 AM',
+          supervisorId: supervisorId,
+          notes: job.notes ?? '',
+          status: _jobStatusFromText(job.status),
+        );
+      }).toList(growable: false),
+      assignments: const [],
+      schedules: const [],
+      timeEntries: const [],
+      reviews: const [],
+      auditLogs: const [],
+      allowSupervisorCreateJobs: allowSupervisorCreateJobs,
+    );
+  }
+}
+
+PilotUser _pilotUserFromEmployee(Employee employee) => PilotUser(
+      id: employee.employeeId,
+      name: employee.displayName,
+      role: _roleFromEmployee(employee),
+      company: employee.company,
+      category: employee.category,
+      supervisor: employee.supervisor,
+      function: employee.role,
+      active: employee.active,
+    );
+
+PilotRole _roleFromEmployee(Employee employee) {
+  final text = [
+    employee.role,
+    employee.category,
+    employee.employmentType,
+  ].whereType<String>().join(' ').toLowerCase();
+  if (text.contains('owner')) return PilotRole.owner;
+  if (text.contains('admin')) return PilotRole.administrator;
+  if (text.contains('coorden') || text.contains('coordin')) {
+    return PilotRole.coordinator;
+  }
+  if (text.contains('respons') || text.contains('supervisor')) {
+    return PilotRole.supervisor;
+  }
+  if (text.contains('terceir') || text.contains('contract')) {
+    return PilotRole.contractor;
+  }
+  return PilotRole.employee;
+}
+
+JobStatus _jobStatusFromText(String value) {
+  final text = value.trim().toLowerCase();
+  if (text == 'planned') return JobStatus.planned;
+  if (text == 'paused') return JobStatus.paused;
+  if (text == 'completed') return JobStatus.completed;
+  if (text == 'cancelled' || text == 'canceled') return JobStatus.cancelled;
+  return JobStatus.active;
 }
 
 Set<PilotPermission> _permissionsFor(PilotRole role) => switch (role) {

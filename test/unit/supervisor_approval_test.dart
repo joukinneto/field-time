@@ -4,8 +4,8 @@ import 'package:jkdd_field_time_records_production/src/supervisor_center/supervi
 
 void main() {
   test('approval records supervisor, timestamp, history and locks entry', () {
-    final controller = SupervisorCenterController();
-    const entryId = 'entry-carlos';
+    final controller = _controllerWithEntries();
+    const entryId = 'entry-ter-0002';
 
     controller.approveEntry(entryId, 'Hours reviewed against job log.');
 
@@ -14,7 +14,7 @@ void main() {
     expect(entry.status, TimeReviewStatus.approved);
     expect(entry.isLocked, isTrue);
     expect(entry.approvedAt, isNotNull);
-    expect(entry.approvedBy, 'Joukin');
+    expect(entry.approvedBy, 'Santana');
     expect(controller.state.reviews.single.previousStatus,
         TimeReviewStatus.pending);
     expect(
@@ -24,8 +24,8 @@ void main() {
   });
 
   test('reject requires reason and exposes rejection details', () {
-    final controller = SupervisorCenterController();
-    const entryId = 'entry-carlos';
+    final controller = _controllerWithEntries();
+    const entryId = 'entry-ter-0002';
 
     expect(
       () => controller.rejectEntry(entryId, ''),
@@ -37,7 +37,7 @@ void main() {
         controller.state.timeEntries.firstWhere((item) => item.id == entryId);
 
     expect(entry.status, TimeReviewStatus.rejected);
-    expect(entry.rejectedBy, 'Joukin');
+    expect(entry.rejectedBy, 'Santana');
     expect(entry.rejectedAt, isNotNull);
     expect(entry.rejectionReason, 'Clock-out photo is missing.');
     expect(
@@ -45,8 +45,8 @@ void main() {
   });
 
   test('review request keeps data and stores history observation', () {
-    final controller = SupervisorCenterController();
-    const entryId = 'entry-jose';
+    final controller = _controllerWithEntries();
+    const entryId = 'entry-ter-0002';
 
     controller.correctionRequestedBySupervisor(
       entryId,
@@ -57,7 +57,7 @@ void main() {
     final entry =
         controller.state.timeEntries.firstWhere((item) => item.id == entryId);
     expect(entry.status, TimeReviewStatus.underReview);
-    expect(entry.reviewRequestedBy, 'Joukin');
+    expect(entry.reviewRequestedBy, 'Santana');
     expect(entry.reviewNote, 'Please confirm break minutes.');
     expect(entry.clockIn, '7:10 AM');
     expect(controller.state.reviews.single.observation,
@@ -65,8 +65,8 @@ void main() {
   });
 
   test('approved entries cannot be edited by common review form', () {
-    final controller = SupervisorCenterController();
-    const entryId = 'entry-carlos';
+    final controller = _controllerWithEntries();
+    const entryId = 'entry-ter-0002';
 
     controller.approveEntry(entryId, 'Approved.');
 
@@ -87,8 +87,9 @@ void main() {
   test(
       'worker correction and resubmission use corrected and resubmitted status',
       () {
-    final controller = SupervisorCenterController();
-    const entryId = 'entry-carlos';
+    final controller = _controllerWithEntries(currentRole: PilotRole.employee);
+    const entryId = 'entry-ter-0002';
+    controller.setRole(PilotRole.supervisor);
     controller.rejectEntry(entryId, 'Fix required.');
     controller.setRole(PilotRole.employee);
 
@@ -108,4 +109,75 @@ void main() {
       TimeReviewStatus.resubmitted,
     );
   });
+}
+
+SupervisorCenterController _controllerWithEntries({
+  PilotRole currentRole = PilotRole.supervisor,
+}) {
+  final date = DateTime(2026, 8, 3);
+  final state = SupervisorCenterState(
+    currentRole: currentRole,
+    users: const [
+      PilotUser(
+        id: 'TER-0001',
+        name: 'Santana',
+        role: PilotRole.supervisor,
+        company: 'JKDD Finish & Remodeling Corp.',
+      ),
+      PilotUser(
+        id: 'TER-0002',
+        name: 'Employee Under Review',
+        role: PilotRole.employee,
+        company: 'JKDD Finish & Remodeling Corp.',
+      ),
+    ],
+    jobs: [
+      SupervisorJob(
+        id: 'job-real',
+        number: '1001',
+        name: 'Imported Job',
+        client: 'EWW',
+        address: 'Boca Raton, FL',
+        city: 'Boca Raton',
+        state: 'FL',
+        zipCode: '33428',
+        startDate: date,
+        scheduledTime: '7:00 AM',
+        supervisorId: 'TER-0001',
+        notes: '',
+        status: JobStatus.active,
+      ),
+    ],
+    assignments: [
+      JobAssignment(
+        id: 'assign-ter-0002',
+        userId: 'TER-0002',
+        jobId: 'job-real',
+        assignmentDate: date,
+        scheduledStart: '7:00 AM',
+        scheduledEnd: '5:00 PM',
+        assignedBy: 'TER-0001',
+        supervisorId: 'TER-0001',
+        status: AssignmentStatus.finished,
+        notes: '',
+      ),
+    ],
+    schedules: const [],
+    timeEntries: [
+      TimeEntry(
+        id: 'entry-ter-0002',
+        userId: 'TER-0002',
+        jobId: 'job-real',
+        date: date,
+        clockIn: '7:10 AM',
+        clockOut: '4:30 PM',
+        breakMinutes: 30,
+        employeeNote: 'Imported employee time.',
+        status: TimeReviewStatus.pending,
+      ),
+    ],
+    reviews: const [],
+    auditLogs: const [],
+  );
+  return SupervisorCenterController(initialState: state);
 }

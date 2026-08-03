@@ -19,7 +19,7 @@ void main() {
     expect(find.text('v1.0.0'), findsOneWidget);
     expect(find.textContaining('Good'), findsOneWidget);
     expect(find.text('EWW'), findsOneWidget);
-    expect(find.text('JKDD Finish & Remodeling Corp'), findsOneWidget);
+    expect(find.text('Santana'), findsWidgets);
     expect(find.text('Subcontractor'), findsWidgets);
   });
 }

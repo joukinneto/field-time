@@ -5,6 +5,7 @@ import 'package:jkdd_field_time_records_production/core/theme/app_radius.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_spacing.dart';
 import 'package:jkdd_field_time_records_production/src/application/field_time_controller.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
+import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
 
 final class ReceiptSubmission {
   const ReceiptSubmission({required this.draft, required this.file});
@@ -86,13 +87,13 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
-                  'Attach receipt / request reimbursement',
+                  context.tr('home.requestReimbursement'),
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
               IconButton(
                 onPressed: () => Navigator.pop(context),
-                tooltip: 'Close',
+                tooltip: context.tr('common.close'),
                 icon: const Icon(Icons.close),
               ),
             ],
@@ -105,15 +106,12 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
               borderRadius: BorderRadius.circular(AppRadius.md),
               border: Border.all(color: const Color(0xffbfdbfe)),
             ),
-            child: const Text(
-              'Automatic receipt reading is prepared, but still uses mock mode. '
-              'No data will be invented: review, correct and confirm before sending.',
-            ),
+            child: Text(context.tr('receipts.mockNotice')),
           ),
           const SizedBox(height: AppSpacing.lg),
           DropdownButtonFormField<Job>(
             initialValue: _job,
-            decoration: const InputDecoration(labelText: 'Job'),
+            decoration: InputDecoration(labelText: context.tr('timesheet.job')),
             items: [
               for (final job in widget.jobs)
                 DropdownMenuItem(value: job, child: Text(job.displayName)),
@@ -129,7 +127,7 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
                 child: OutlinedButton.icon(
                   onPressed: () => _pick(ImageSource.camera),
                   icon: const Icon(Icons.photo_camera_outlined),
-                  label: const Text('Take photo'),
+                  label: Text(context.tr('receipts.takePhoto')),
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -137,26 +135,29 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
                 child: OutlinedButton.icon(
                   onPressed: () => _pick(ImageSource.gallery),
                   icon: const Icon(Icons.photo_library_outlined),
-                  label: const Text('Select image'),
+                  label: Text(context.tr('receipts.selectImage')),
                 ),
               ),
             ],
           ),
           if (_file != null) ...[
             const SizedBox(height: AppSpacing.sm),
-            Text('File: ${_file!.name}'),
+            Text(context.tr('receipts.file', {'name': _file!.name})),
           ],
           const SizedBox(height: AppSpacing.md),
           _ResponsiveFormRow(
             children: [
               TextFormField(
                 controller: _merchant,
-                decoration: const InputDecoration(labelText: 'Merchant'),
+                decoration:
+                    InputDecoration(labelText: context.tr('receipts.merchant')),
                 validator: _required,
               ),
               TextFormField(
                 controller: _receiptNumber,
-                decoration: const InputDecoration(labelText: 'Receipt number'),
+                decoration: InputDecoration(
+                  labelText: context.tr('receipts.receiptNumber'),
+                ),
               ),
             ],
           ),
@@ -167,8 +168,8 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
                 controller: _total,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Amount',
+                decoration: InputDecoration(
+                  labelText: context.tr('receipts.amount'),
                   prefixText: r'$ ',
                 ),
                 validator: _money,
@@ -177,8 +178,8 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
                 controller: _tax,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Tax',
+                decoration: InputDecoration(
+                  labelText: context.tr('receipts.tax'),
                   prefixText: r'$ ',
                 ),
                 validator: _money,
@@ -189,12 +190,14 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
           OutlinedButton.icon(
             onPressed: _selectDate,
             icon: const Icon(Icons.calendar_today_outlined),
-            label: Text('Date: ${_date(_purchaseDate)}'),
+            label:
+                Text('${context.tr('receipts.date')}: ${_date(_purchaseDate)}'),
           ),
           const SizedBox(height: AppSpacing.md),
           TextFormField(
             controller: _description,
-            decoration: const InputDecoration(labelText: 'Description'),
+            decoration:
+                InputDecoration(labelText: context.tr('receipts.description')),
             validator: _required,
           ),
           const SizedBox(height: AppSpacing.md),
@@ -202,8 +205,8 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
             controller: _notes,
             minLines: 2,
             maxLines: 4,
-            decoration: const InputDecoration(
-              labelText: 'Notes',
+            decoration: InputDecoration(
+              labelText: context.tr('receipts.notes'),
               alignLabelWithHint: true,
             ),
           ),
@@ -211,7 +214,7 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
           CheckboxListTile(
             value: _reviewed,
             contentPadding: EdgeInsets.zero,
-            title: const Text('I reviewed and confirm the information'),
+            title: Text(context.tr('receipts.reviewConfirm')),
             onChanged: (value) => setState(() => _reviewed = value ?? false),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -220,7 +223,7 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => _submit(false),
-                  child: const Text('Save draft'),
+                  child: Text(context.tr('receipts.saveDraft')),
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -228,7 +231,7 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
                 child: FilledButton.icon(
                   onPressed: _reviewed ? () => _submit(true) : null,
                   icon: const Icon(Icons.send_outlined),
-                  label: const Text('Submit'),
+                  label: Text(context.tr('receipts.submit')),
                 ),
               ),
             ],
@@ -260,8 +263,8 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
     } on Exception {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Camera or photo library could not be opened.'),
+        SnackBar(
+          content: Text(context.tr('receipts.cameraUnavailable')),
         ),
       );
     }
@@ -281,7 +284,7 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
     if (!_formKey.currentState!.validate()) return;
     if (_file == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Attach a receipt photo or image.')),
+        SnackBar(content: Text(context.tr('receipts.attachPhotoRequired'))),
       );
       return;
     }
@@ -305,12 +308,15 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
     );
   }
 
-  String? _required(String? value) =>
-      value == null || value.trim().isEmpty ? 'Required field' : null;
+  String? _required(String? value) => value == null || value.trim().isEmpty
+      ? context.tr('receipts.requiredField')
+      : null;
 
   String? _money(String? value) {
     final number = double.tryParse((value ?? '').replaceAll(',', '.'));
-    return number == null || number < 0 ? 'Invalid amount' : null;
+    return number == null || number < 0
+        ? context.tr('receipts.invalidAmount')
+        : null;
   }
 
   String _date(DateTime value) => '${value.month.toString().padLeft(2, '0')}/'

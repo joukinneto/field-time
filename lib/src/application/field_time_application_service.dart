@@ -20,7 +20,7 @@ final class FieldTimeApplicationService {
     String? notes,
   }) {
     if (snapshot.activeWorkDay != null) {
-      throw StateError('Ja existe um periodo aberto.');
+      throw StateError('fieldTime.openPeriodExists');
     }
     final segment = _newSegment(snapshot, job, at, location, notes);
     final day = WorkDay(
@@ -53,13 +53,13 @@ final class FieldTimeApplicationService {
     final activeDay = snapshot.activeWorkDay;
     final activeSegment = activeDay?.openSegment;
     if (activeDay == null || activeSegment == null) {
-      throw StateError('Registre a entrada antes de trocar de obra.');
+      throw StateError('fieldTime.clockInBeforeSwitchJob');
     }
     if (activeSegment.jobId == nextJob.id) {
-      throw StateError('Selecione uma obra diferente da atual.');
+      throw StateError('fieldTime.selectDifferentJob');
     }
     if (at.isBefore(activeSegment.startedAt)) {
-      throw StateError('Horario de troca invalido.');
+      throw StateError('fieldTime.invalidSwitchTime');
     }
     final closed = activeSegment.close(at, location, notes: notes);
     final next = _newSegment(snapshot, nextJob, at, location, null);
@@ -88,10 +88,10 @@ final class FieldTimeApplicationService {
     final activeDay = snapshot.activeWorkDay;
     final activeSegment = activeDay?.openSegment;
     if (activeDay == null || activeSegment == null) {
-      throw StateError('Nao existe expediente aberto.');
+      throw StateError('fieldTime.noOpenWorkday');
     }
     if (at.isBefore(activeSegment.startedAt)) {
-      throw StateError('Horario de saida invalido.');
+      throw StateError('fieldTime.invalidClockOutTime');
     }
     final closed = activeSegment.close(at, location, notes: notes);
     final updated = activeDay.copyWith(
@@ -128,10 +128,10 @@ final class FieldTimeApplicationService {
     String? notes,
   }) async {
     if (submit && !userReviewed) {
-      throw StateError('Revise e confirme os dados antes de enviar.');
+      throw StateError('fieldTime.confirmReceiptBeforeSubmit');
     }
     if (merchant.trim().isEmpty || description.trim().isEmpty || total < 0) {
-      throw StateError('Preencha loja, descricao e valor corretamente.');
+      throw StateError('fieldTime.invalidReceiptFields');
     }
     final now = DateTime.now();
     final receiptId = uuid.v7();
@@ -221,10 +221,10 @@ final class FieldTimeApplicationService {
     final activeDay = snapshot.activeWorkDay;
     final activeSegment = activeDay?.openSegment;
     if (activeDay == null || activeSegment == null) {
-      throw StateError('Registre a entrada antes de adicionar observacoes.');
+      throw StateError('fieldTime.clockInBeforeObservation');
     }
     if (notes.trim().isEmpty) {
-      throw StateError('Digite uma observacao.');
+      throw StateError('fieldTime.typeObservation');
     }
     final updatedSegment = activeSegment.withNotes(notes);
     final updatedDay = activeDay.copyWith(

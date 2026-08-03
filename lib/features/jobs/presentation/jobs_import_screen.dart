@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_colors.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_spacing.dart';
 import 'package:jkdd_field_time_records_production/features/jobs/data/job_asset_repository.dart';
-import 'package:jkdd_field_time_records_production/src/application/field_time_controller.dart';
+import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_empty_state.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_info_row.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_section_header.dart';
@@ -21,23 +21,22 @@ class JobsImportScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final catalog = ref.watch(jobsImportCatalogProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Importação de Obras')),
+      appBar: AppBar(title: Text(context.tr('import.title'))),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.xl),
           children: [
-            const JkddSectionHeader(
-              title: 'Importação de Obras',
-              subtitle:
-                  'Banco local de obras para o Field Time. Funciona offline.',
+            JkddSectionHeader(
+              title: context.tr('import.title'),
+              subtitle: context.tr('import.subtitle'),
             ),
             const SizedBox(height: AppSpacing.xl),
             catalog.when(
               data: (value) => _ImportSummary(catalog: value),
               error: (error, stackTrace) => JkddEmptyState(
                 icon: Icons.error_outline,
-                title: 'Jobs database unavailable',
-                message: error.toString(),
+                title: context.tr('import.databaseUnavailable'),
+                message: context.tr('import.loadError'),
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
             ),
@@ -49,12 +48,12 @@ class JobsImportScreen extends ConsumerWidget {
                 FilledButton.icon(
                   onPressed: () => _showUpdateInstructions(context),
                   icon: const Icon(Icons.upload_file_outlined),
-                  label: const Text('Atualizar Obras'),
+                  label: Text(context.tr('import.updateJobs')),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => _showReportInstructions(context),
                   icon: const Icon(Icons.description_outlined),
-                  label: const Text('Ver Relatório'),
+                  label: Text(context.tr('import.viewReport')),
                 ),
               ],
             ),
@@ -68,16 +67,12 @@ class JobsImportScreen extends ConsumerWidget {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Atualizar Obras'),
-        content: const Text(
-          'Substitua a planilha atualizada em data_import/input/ e execute '
-          'dart run tool/import_jobs_from_excel.dart. Upload remoto não foi '
-          'implementado nesta etapa.',
-        ),
+        title: Text(context.tr('import.updateJobs')),
+        content: Text(context.tr('import.updateInstructions')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: Text(context.tr('common.ok')),
           ),
         ],
       ),
@@ -88,15 +83,12 @@ class JobsImportScreen extends ConsumerWidget {
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Relatório de Importação'),
-        content: const Text(
-          'O relatório local é gerado em '
-          'data_import/reports/JOBS_IMPORT_REPORT.md.',
-        ),
+        title: Text(context.tr('import.reportTitle')),
+        content: Text(context.tr('import.reportInstructions')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: Text(context.tr('common.ok')),
           ),
         ],
       ),
@@ -118,34 +110,38 @@ class _ImportSummary extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Resumo', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              context.tr('import.summary'),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: AppSpacing.lg),
             JkddInfoRow(
               icon: Icons.insert_drive_file_outlined,
-              label: 'Último arquivo processado',
-              value: metadata.sourceFile ?? 'Nenhum arquivo processado',
+              label: context.tr('import.lastFile'),
+              value:
+                  metadata.sourceFile ?? context.tr('import.noFileProcessed'),
             ),
             JkddInfoRow(
               icon: Icons.schedule_outlined,
-              label: 'Última atualização',
+              label: context.tr('import.lastUpdate'),
               value: metadata.processedAt == null
-                  ? 'Pendente'
+                  ? context.tr('import.pending')
                   : _dateTime(metadata.processedAt!),
             ),
             JkddInfoRow(
               icon: Icons.apartment_outlined,
-              label: 'Quantidade de obras',
+              label: context.tr('import.jobsCount'),
               value: catalog.jobs.length.toString(),
             ),
             JkddInfoRow(
               icon: Icons.error_outline,
-              label: 'Quantidade de erros',
+              label: context.tr('import.errorCount'),
               value: metadata.errors.toString(),
             ),
             if (metadata.errors > 0) ...[
               const SizedBox(height: AppSpacing.md),
               Text(
-                'Revise o relatório antes de usar a base no campo.',
+                context.tr('import.reviewReport'),
                 style: Theme.of(context)
                     .textTheme
                     .bodyMedium

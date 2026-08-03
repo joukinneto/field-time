@@ -8,6 +8,7 @@ import 'package:jkdd_field_time_records_production/core/theme/app_colors.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_radius.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_shadows.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_spacing.dart';
+import 'package:jkdd_field_time_records_production/features/employees/presentation/employees_management_screen.dart';
 import 'package:jkdd_field_time_records_production/features/jobs/presentation/jobs_import_screen.dart';
 import 'package:jkdd_field_time_records_production/src/application/field_time_controller.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
@@ -25,7 +26,15 @@ import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_section_h
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_status_chip.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_summary_card.dart';
 
-enum _Destination { home, timesheet, jobs, receipts, management, settings }
+enum _Destination {
+  home,
+  timesheet,
+  jobs,
+  receipts,
+  employees,
+  management,
+  settings
+}
 
 final class TimeRecordsScreen extends ConsumerStatefulWidget {
   const TimeRecordsScreen({super.key});
@@ -61,6 +70,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
 
     ref.listen(fieldTimeControllerProvider, (previous, next) {
       final text = next.error ?? next.message;
+      final values = next.error != null ? next.errorValues : next.messageValues;
       if (text == null ||
           text == previous?.error ||
           text == previous?.message) {
@@ -68,7 +78,9 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
       }
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(text)));
+        ..showSnackBar(
+          SnackBar(content: Text(_localizedFeedback(context, text, values))),
+        );
     });
 
     return LayoutBuilder(
@@ -129,6 +141,8 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
         _Destination.jobs,
         _Destination.receipts,
         if (pilotState.hasPermission(PilotPermission.viewManagement))
+          _Destination.employees,
+        if (pilotState.hasPermission(PilotPermission.viewManagement))
           _Destination.management,
         _Destination.settings,
       ];
@@ -153,6 +167,10 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
         _Destination.receipts => BottomNavigationBarItem(
             icon: const Icon(Icons.receipt_long),
             label: context.tr('nav.receipts'),
+          ),
+        _Destination.employees => BottomNavigationBarItem(
+            icon: const Icon(Icons.badge),
+            label: context.tr('nav.employees'),
           ),
         _Destination.management => BottomNavigationBarItem(
             icon: const Icon(Icons.engineering_outlined),
@@ -190,6 +208,8 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
             snapshot: state.snapshot,
             onReceipt: _receipt,
           ),
+        _Destination.employees =>
+          const EmployeesManagementScreen(embedded: true),
         _Destination.management => const SupervisorCenterScreen(),
         _Destination.settings => _SettingsView(
             currentVersion: 'v1.0.0',
@@ -208,7 +228,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
   Future<void> _clockIn() async {
     final snapshot = ref.read(fieldTimeControllerProvider).snapshot;
     final jobs = snapshot.jobs.where((job) => job.active).toList();
-    final job = await _selectJob('Select job for clock in', jobs);
+    final job = await _selectJob(context.tr('jobs.selectJobForClockIn'), jobs);
     if (job == null) return;
     await ref.read(fieldTimeControllerProvider.notifier).clockIn(job, null);
   }
@@ -219,7 +239,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
     final jobs = state.snapshot.jobs
         .where((job) => job.active && job.id != currentJobId)
         .toList(growable: false);
-    final job = await _selectJob('Switch to which job?', jobs);
+    final job = await _selectJob(context.tr('jobs.switchToWhichJob'), jobs);
     if (job == null) return;
     await ref.read(fieldTimeControllerProvider.notifier).switchJob(job, null);
   }
@@ -228,18 +248,16 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('End workday?'),
-        content: const Text(
-          'The current work period will be closed with the current time and GPS status.',
-        ),
+        title: Text(context.tr('endDay.title')),
+        content: Text(context.tr('endDay.message')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.tr('common.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('End workday'),
+            child: Text(context.tr('endDay.confirm')),
           ),
         ],
       ),
@@ -277,26 +295,26 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
     final state = ref.read(fieldTimeControllerProvider);
     final active = state.activeSegment;
     if (active == null) {
-      _message('Clock in before adding a job photo.');
+      _message(context.tr('photo.clockInRequired'));
       return;
     }
     final source = await showDialog<ImageSource>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Add photo'),
+        title: Text(context.tr('photo.addPhoto')),
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, ImageSource.camera),
-            child: const ListTile(
-              leading: Icon(Icons.photo_camera_outlined),
-              title: Text('Take photo'),
+            child: ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: Text(context.tr('photo.takePhoto')),
             ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, ImageSource.gallery),
-            child: const ListTile(
-              leading: Icon(Icons.photo_library_outlined),
-              title: Text('Select image'),
+            child: ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: Text(context.tr('photo.selectImage')),
             ),
           ),
         ],
@@ -310,42 +328,52 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
         maxWidth: 1600,
       );
       if (file == null || !mounted) return;
-      final job =
-          state.snapshot.jobs.firstWhere((job) => job.id == active.jobId);
+      final job = state.snapshot.jobs.firstWhere(
+        (job) => job.id == active.jobId,
+        orElse: () => Job(
+          id: active.jobId,
+          companyId: active.companyId,
+          subcontractorCompanyId: active.subcontractorCompanyId,
+          number: active.jobNumber,
+          name: active.jobName,
+          address: active.jobAddress,
+        ),
+      );
       await ref
           .read(fieldTimeControllerProvider.notifier)
           .addJobPhoto(file, job);
     } on Exception {
-      _message('Camera or photo library could not be opened on this device.');
+      if (!mounted) return;
+      _message(context.tr('photo.cameraUnavailable'));
     }
   }
 
   Future<void> _observation() async {
     final state = ref.read(fieldTimeControllerProvider);
     if (state.activeSegment == null) {
-      _message('Clock in before adding notes.');
+      _message(context.tr('note.clockInRequired'));
       return;
     }
     final controller = TextEditingController(text: state.activeSegment?.notes);
     final value = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Current period note'),
+        title: Text(context.tr('note.currentPeriod')),
         content: TextField(
           controller: controller,
           autofocus: true,
           minLines: 3,
           maxLines: 6,
-          decoration: const InputDecoration(hintText: 'Type a note'),
+          decoration: InputDecoration(hintText: context.tr('note.hint')),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(context.tr('common.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Save'),
+            child: Text(context.tr('common.save')),
           ),
         ],
       ),
@@ -361,13 +389,12 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
           title: Text(title),
           children: [
             if (jobs.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(AppSpacing.xl),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
                 child: JkddEmptyState(
                   icon: Icons.apartment_outlined,
-                  title: 'No jobs available',
-                  message:
-                      'Import jobs from data_import/input before clocking in.',
+                  title: context.tr('jobs.noJobsAvailable'),
+                  message: context.tr('jobs.noJobsAvailableHelp'),
                 ),
               )
             else
@@ -385,7 +412,9 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
                           Text(job.city!),
                         const SizedBox(height: AppSpacing.xs),
                         JkddStatusChip(
-                          label: job.active ? 'Active' : 'Inactive',
+                          label: job.active
+                              ? context.tr('jobs.active')
+                              : context.tr('jobs.inactive'),
                           icon: job.active
                               ? Icons.check_circle_outline
                               : Icons.block,
@@ -420,24 +449,29 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Workday summary'),
+        title: Text(context.tr('endDay.summary')),
         content: SizedBox(
           width: 520,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _SummaryLine('First clock in', _time(day.firstClockIn)),
-                _SummaryLine('Last clock out', _time(day.lastClockOut)),
-                _SummaryLine('Hours worked', _duration(day.workedDuration)),
-                _SummaryLine('Bonus hours', _hours(day.travelBonusHours)),
-                _SummaryLine('Receipts submitted', sentReceipts.toString()),
                 _SummaryLine(
-                  'Pending sync',
+                    context.tr('endDay.firstClockIn'), _time(day.firstClockIn)),
+                _SummaryLine(
+                    context.tr('endDay.lastClockOut'), _time(day.lastClockOut)),
+                _SummaryLine(context.tr('home.hoursWorked'),
+                    _duration(day.workedDuration)),
+                _SummaryLine(context.tr('home.bonusHours'),
+                    _hours(day.travelBonusHours)),
+                _SummaryLine(context.tr('endDay.receiptsSubmitted'),
+                    sentReceipts.toString()),
+                _SummaryLine(
+                  context.tr('home.pendingSync'),
                   snapshot.syncQueue.length.toString(),
                 ),
                 const Divider(height: 24),
-                Text('Jobs visited',
+                Text(context.tr('home.jobsVisited'),
                     style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 for (final segment in day.segments)
@@ -455,7 +489,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Done'),
+            child: Text(context.tr('common.done')),
           ),
         ],
       ),
@@ -499,11 +533,11 @@ final class _DesktopNavigation extends StatelessWidget {
               ],
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.all(20),
+          Padding(
+            padding: const EdgeInsets.all(20),
             child: Text(
-              'by JKDD TECH',
-              style: TextStyle(
+              context.tr('brand.byDeveloper'),
+              style: const TextStyle(
                   color: Color(0xffcbd5e1), fontWeight: FontWeight.w700),
             ),
           ),
@@ -536,6 +570,11 @@ final class _DesktopNavigation extends StatelessWidget {
             icon: const Icon(Icons.receipt_long_outlined),
             selectedIcon: const Icon(Icons.receipt_long),
             label: Text(context.tr('nav.receipts')),
+          ),
+        _Destination.employees => NavigationRailDestination(
+            icon: const Icon(Icons.badge_outlined),
+            selectedIcon: const Icon(Icons.badge),
+            label: Text(context.tr('nav.employees')),
           ),
         _Destination.management => NavigationRailDestination(
             icon: const Icon(Icons.engineering_outlined),
@@ -651,18 +690,18 @@ final class _HomeView extends StatelessWidget {
               ],
               const SizedBox(height: AppSpacing.xl),
               JkddSectionHeader(
-                title: 'Daily summary',
+                title: context.tr('home.dailySummary'),
                 subtitle: _date(now),
               ),
               const SizedBox(height: AppSpacing.md),
               _SummaryGrid(
                 items: [
-                  _SummarySpec('Hours Worked', _duration(worked),
-                      Icons.schedule, AppColors.blue),
-                  _SummarySpec('Bonus Hours', _hours(bonusHours),
-                      Icons.route_outlined, AppColors.teal),
+                  _SummarySpec(context.tr('home.hoursWorked'),
+                      _duration(worked), Icons.schedule, AppColors.blue),
+                  _SummarySpec(context.tr('home.bonusHours'),
+                      _hours(bonusHours), Icons.route_outlined, AppColors.teal),
                   _SummarySpec(
-                    'Jobs Visited',
+                    context.tr('home.jobsVisited'),
                     todaySegments
                         .map((item) => item.jobId)
                         .toSet()
@@ -672,19 +711,19 @@ final class _HomeView extends StatelessWidget {
                     AppColors.purple,
                   ),
                   _SummarySpec(
-                    'Receipts',
+                    context.tr('home.receipts'),
                     snapshot.receipts.length.toString(),
                     Icons.receipt_long_outlined,
                     AppColors.amber,
                   ),
                   _SummarySpec(
-                    'Reimbursements',
+                    context.tr('home.reimbursements'),
                     _money(reimbursementTotal),
                     Icons.payments_outlined,
                     AppColors.green,
                   ),
                   _SummarySpec(
-                    'Pending Sync',
+                    context.tr('home.pendingSync'),
                     state.pendingItems.toString(),
                     Icons.sync_problem_outlined,
                     state.pendingItems == 0 ? AppColors.green : AppColors.amber,
@@ -772,7 +811,7 @@ final class _GreetingBand extends StatelessWidget {
                 Image.asset(AppAssets.fieldTimeLogoDark, height: 58),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
-                  '${_greeting(now)}, Joukin.',
+                  '${_greeting(context, now)}, Joukin.',
                   style: Theme.of(context)
                       .textTheme
                       .headlineLarge
@@ -780,7 +819,7 @@ final class _GreetingBand extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '${_date(now)} - ${working ? 'Workday in progress' : 'Ready to clock in'}',
+                  '${_date(now)} - ${working ? context.tr('home.workdayInProgress') : context.tr('home.readyToClockIn')}',
                   style: Theme.of(context)
                       .textTheme
                       .bodyLarge
@@ -794,14 +833,18 @@ final class _GreetingBand extends StatelessWidget {
             runSpacing: AppSpacing.sm,
             children: [
               JkddStatusChip(
-                label: working ? 'Clocked in' : 'Clocked out',
+                label: working
+                    ? context.tr('home.clockedIn')
+                    : context.tr('home.clockedOut'),
                 icon: working
                     ? Icons.play_circle_outline
                     : Icons.pause_circle_outline,
                 tone: working ? JkddStatusTone.success : JkddStatusTone.neutral,
               ),
               JkddStatusChip(
-                label: state.online ? 'Online' : 'Offline',
+                label: state.online
+                    ? context.tr('home.online')
+                    : context.tr('home.offline'),
                 icon: state.online
                     ? Icons.cloud_done_outlined
                     : Icons.cloud_off_outlined,
@@ -810,7 +853,10 @@ final class _GreetingBand extends StatelessWidget {
                     : JkddStatusTone.warning,
               ),
               JkddStatusChip(
-                label: '${state.pendingItems} pending',
+                label: context.tr(
+                  'home.pendingItems',
+                  {'count': state.pendingItems},
+                ),
                 icon: Icons.sync_problem_outlined,
                 tone: state.pendingItems == 0
                     ? JkddStatusTone.success
@@ -845,10 +891,12 @@ final class _CurrentStatusCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             JkddSectionHeader(
-              title: 'Current status',
-              subtitle: 'Live field activity overview',
+              title: context.tr('home.currentStatus'),
+              subtitle: context.tr('home.currentStatusSubtitle'),
               trailing: JkddStatusChip(
-                label: segment == null ? 'Clocked out' : 'Clocked in',
+                label: segment == null
+                    ? context.tr('home.clockedOut')
+                    : context.tr('home.clockedIn'),
                 icon: segment == null ? Icons.logout : Icons.login,
                 tone: segment == null
                     ? JkddStatusTone.neutral
@@ -858,13 +906,13 @@ final class _CurrentStatusCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.xl),
             Text(
               segment == null
-                  ? 'No active job'
+                  ? context.tr('home.noActiveJob')
                   : '${segment.jobNumber} - ${segment.jobName}',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              segment?.jobAddress ?? 'Select a job when clocking in.',
+              segment?.jobAddress ?? context.tr('home.selectJobWhenClockingIn'),
               style: Theme.of(context)
                   .textTheme
                   .bodyLarge
@@ -875,29 +923,30 @@ final class _CurrentStatusCard extends StatelessWidget {
               children: [
                 JkddInfoRow(
                   icon: Icons.login,
-                  label: 'Clock in time',
+                  label: context.tr('home.clockInTime'),
                   value: _time(segment?.startedAt),
                 ),
                 JkddInfoRow(
                   icon: Icons.timer_outlined,
-                  label: 'Worked time',
+                  label: context.tr('home.workedTime'),
                   value: segment == null
                       ? '00h 00m'
                       : _duration(segment.duration(now)),
                 ),
                 JkddInfoRow(
                   icon: Icons.gps_fixed,
-                  label: 'GPS',
-                  value: _gps(state.lastLocation ?? segment?.startedLocation),
+                  label: context.tr('home.gps'),
+                  value: _gps(
+                      context, state.lastLocation ?? segment?.startedLocation),
                 ),
                 JkddInfoRow(
                   icon: Icons.business_outlined,
-                  label: 'Client company',
+                  label: context.tr('home.clientCompany'),
                   value: state.snapshot.companyName,
                 ),
                 JkddInfoRow(
                   icon: Icons.engineering_outlined,
-                  label: 'Subcontractor',
+                  label: context.tr('home.subcontractor'),
                   value: state.snapshot.worker.displayName,
                 ),
               ],
@@ -906,7 +955,7 @@ final class _CurrentStatusCard extends StatelessWidget {
               const Divider(height: 36),
               JkddInfoRow(
                 icon: Icons.note_outlined,
-                label: 'Current note',
+                label: context.tr('home.currentNote'),
                 value: segment!.notes!,
               ),
             ],
@@ -948,11 +997,13 @@ final class _ActionCenter extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Primary action',
+            Text(context.tr('home.primaryAction'),
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: AppSpacing.md),
             JkddPrimaryButton(
-              label: working ? 'END WORKDAY' : 'CLOCK IN',
+              label: working
+                  ? context.tr('home.endWorkday')
+                  : context.tr('home.clockIn'),
               icon: working
                   ? Icons.stop_circle_outlined
                   : Icons.play_circle_outline,
@@ -965,23 +1016,26 @@ final class _ActionCenter extends StatelessWidget {
               const LinearProgressIndicator(),
             ],
             const SizedBox(height: AppSpacing.xl),
-            Text('Secondary actions',
+            Text(context.tr('home.secondaryActions'),
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: AppSpacing.md),
             _ActionButtonGrid(
               actions: [
-                _ActionSpec('Switch Job', Icons.swap_horiz, onSwitchJob,
-                    enabled: working),
                 _ActionSpec(
-                    'Attach Receipt', Icons.receipt_long_outlined, onReceipt),
-                _ActionSpec('Request Reimbursement', Icons.payments_outlined,
-                    onReceipt),
-                _ActionSpec('Add Photo', Icons.add_a_photo_outlined, onPhoto,
+                    context.tr('home.switchJob'), Icons.swap_horiz, onSwitchJob,
                     enabled: working),
-                _ActionSpec('Add Note', Icons.note_add_outlined, onObservation,
+                _ActionSpec(context.tr('home.attachReceipt'),
+                    Icons.receipt_long_outlined, onReceipt),
+                _ActionSpec(context.tr('home.requestReimbursement'),
+                    Icons.payments_outlined, onReceipt),
+                _ActionSpec(context.tr('home.addPhoto'),
+                    Icons.add_a_photo_outlined, onPhoto,
                     enabled: working),
-                _ActionSpec(
-                    'My Timesheet', Icons.table_chart_outlined, onTimesheet),
+                _ActionSpec(context.tr('home.addNote'), Icons.note_add_outlined,
+                    onObservation,
+                    enabled: working),
+                _ActionSpec(context.tr('home.myTimesheet'),
+                    Icons.table_chart_outlined, onTimesheet),
               ],
             ),
           ],
@@ -1089,16 +1143,16 @@ final class _TodayTimeline extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const JkddSectionHeader(
-          title: 'Today timesheet',
-          subtitle: 'Timeline of work periods for this device.',
+        JkddSectionHeader(
+          title: context.tr('home.todayTimesheet'),
+          subtitle: context.tr('home.todayTimeline'),
         ),
         const SizedBox(height: AppSpacing.md),
         if (segments.isEmpty)
-          const JkddEmptyState(
+          JkddEmptyState(
             icon: Icons.timeline_outlined,
-            title: 'No work periods yet',
-            message: "Clock in to start building today's timesheet.",
+            title: context.tr('home.noWorkPeriods'),
+            message: context.tr('home.noWorkPeriodsHelp'),
           )
         else
           for (final segment in segments)
@@ -1133,16 +1187,18 @@ final class _ReceiptOverview extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         JkddSectionHeader(
-          title: 'Receipts and reimbursements',
-          subtitle:
-              '${snapshot.receipts.length} receipts - ${_money(total)} total',
+          title: context.tr('home.receiptsAndReimbursements'),
+          subtitle: context.tr('common.receiptsTotal', {
+            'count': snapshot.receipts.length,
+            'total': _money(total),
+          }),
         ),
         const SizedBox(height: AppSpacing.md),
         if (snapshot.receipts.isEmpty)
-          const JkddEmptyState(
+          JkddEmptyState(
             icon: Icons.receipt_long_outlined,
-            title: 'No receipts yet',
-            message: 'Attach a receipt when a job expense needs reimbursement.',
+            title: context.tr('home.noReceiptsYet'),
+            message: context.tr('home.noReceiptsYetHelp'),
           )
         else
           for (final receipt in snapshot.receipts.reversed.take(3))
@@ -1152,7 +1208,7 @@ final class _ReceiptOverview extends StatelessWidget {
                 leading: const Icon(Icons.receipt_long_outlined,
                     color: AppColors.amber),
                 title: Text(receipt.merchant),
-                subtitle: Text(_receiptStatus(receipt.status)),
+                subtitle: Text(_receiptStatus(context, receipt.status)),
                 trailing: Text(_money(receipt.total)),
               ),
             ),
@@ -1194,9 +1250,9 @@ final class _JobsView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const JkddSectionHeader(
-            title: 'Jobs',
-            subtitle: 'Visual directory of available Field Time jobs.',
+          JkddSectionHeader(
+            title: context.tr('jobs.title'),
+            subtitle: context.tr('jobs.subtitle'),
           ),
           const SizedBox(height: AppSpacing.lg),
           LayoutBuilder(
@@ -1239,7 +1295,9 @@ final class _JobsView extends StatelessWidget {
                             Text(job.address),
                             const SizedBox(height: AppSpacing.sm),
                             JkddStatusChip(
-                              label: job.active ? 'Active' : 'Inactive',
+                              label: job.active
+                                  ? context.tr('jobs.active')
+                                  : context.tr('jobs.inactive'),
                               icon: job.active
                                   ? Icons.check_circle_outline
                                   : Icons.block,
@@ -1276,22 +1334,23 @@ final class _ReceiptsView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           JkddSectionHeader(
-            title: 'Receipts and reimbursements',
-            subtitle:
-                '${snapshot.receipts.length} receipts - ${_money(total)} total',
+            title: context.tr('receipts.andReimbursements'),
+            subtitle: context.tr('common.receiptsTotal', {
+              'count': snapshot.receipts.length,
+              'total': _money(total),
+            }),
             trailing: FilledButton.icon(
               onPressed: onReceipt,
               icon: const Icon(Icons.add),
-              label: const Text('Attach Receipt'),
+              label: Text(context.tr('receipts.attachReceipt')),
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
           if (snapshot.receipts.isEmpty)
-            const JkddEmptyState(
+            JkddEmptyState(
               icon: Icons.receipt_long_outlined,
-              title: 'No receipts on this device',
-              message:
-                  'Use Attach Receipt to capture an expense and request reimbursement.',
+              title: context.tr('receipts.noReceiptsDevice'),
+              message: context.tr('receipts.noReceiptsDeviceHelp'),
             )
           else
             for (final receipt in snapshot.receipts.reversed)
@@ -1302,7 +1361,7 @@ final class _ReceiptsView extends StatelessWidget {
                       color: AppColors.amber),
                   title: Text(receipt.merchant),
                   subtitle: Text(
-                      '${_date(receipt.purchaseDate)} - ${_receiptStatus(receipt.status)}'),
+                      '${_date(receipt.purchaseDate)} - ${_receiptStatus(context, receipt.status)}'),
                   trailing: Text(_money(receipt.total)),
                 ),
               ),
@@ -1339,23 +1398,27 @@ final class _SettingsView extends StatelessWidget {
           const PilotProfileSelector(),
           const SizedBox(height: AppSpacing.xl),
           _SettingsSection(
-            title: 'Data',
+            title: context.tr('settings.data'),
             children: [
               _SettingsActionTile(
-                title: 'Importação de Obras',
+                title: context.tr('import.title'),
                 icon: Icons.dataset_outlined,
-                value: 'Local Excel',
+                value: context.tr('common.localExcel'),
                 onTap: onJobsImport,
               ),
             ],
           ),
-          const _SettingsSection(
-            title: 'Account',
+          _SettingsSection(
+            title: context.tr('settings.account'),
             children: [
-              _SettingsTile('Profile', Icons.person_outline, 'Coming Soon'),
-              _SettingsTile('Company', Icons.business_outlined, 'Coming Soon'),
+              _SettingsTile(context.tr('settings.profile'),
+                  Icons.person_outline, context.tr('common.comingSoon')),
+              _SettingsTile(context.tr('settings.company'),
+                  Icons.business_outlined, context.tr('common.comingSoon')),
               _SettingsTile(
-                  'Permissions', Icons.verified_user_outlined, 'Coming Soon'),
+                  context.tr('settings.permissions'),
+                  Icons.verified_user_outlined,
+                  context.tr('common.comingSoon')),
             ],
           ),
           _SettingsSection(
@@ -1365,37 +1428,44 @@ final class _SettingsView extends StatelessWidget {
                 currentLanguage: currentLanguage,
                 onChanged: onLanguageChanged,
               ),
-              const _SettingsTile(
-                  'Theme', Icons.dark_mode_outlined, 'System default'),
-              const _SettingsTile(
-                  'Date Format', Icons.calendar_today_outlined, 'MM/DD/YYYY'),
-              const _SettingsTile(
-                  'Time Format', Icons.schedule_outlined, '12-hour'),
-              const _SettingsTile(
-                  'Measurement Units', Icons.straighten_outlined, 'U.S.'),
-            ],
-          ),
-          const _SettingsSection(
-            title: 'Reports',
-            children: [
-              _SettingsTile('Timesheet Format', Icons.table_chart_outlined,
-                  'Coming Soon'),
+              _SettingsTile(context.tr('settings.theme'),
+                  Icons.dark_mode_outlined, context.tr('common.systemDefault')),
               _SettingsTile(
-                  'Default Paper Size', Icons.description_outlined, 'Letter'),
-              _SettingsTile('PDF Orientation',
-                  Icons.screen_rotation_alt_outlined, 'Landscape planned'),
+                  context.tr('settings.dateFormat'),
+                  Icons.calendar_today_outlined,
+                  context.tr('settings.dateFormatValue')),
+              _SettingsTile(
+                  context.tr('settings.timeFormat'),
+                  Icons.schedule_outlined,
+                  context.tr('settings.timeFormatValue')),
+              _SettingsTile(context.tr('settings.units'),
+                  Icons.straighten_outlined, context.tr('common.us')),
             ],
           ),
           _SettingsSection(
-            title: 'About',
+            title: context.tr('settings.reports'),
             children: [
-              const _SettingsTile(
-                  'Field Time', Icons.info_outline, 'by JKDD TECH'),
-              _SettingsTile('Version', Icons.tag_outlined, currentVersion),
-              const _SettingsTile(
-                  'Privacy', Icons.privacy_tip_outlined, 'Coming Soon'),
-              const _SettingsTile(
-                  'Terms', Icons.article_outlined, 'Coming Soon'),
+              _SettingsTile(context.tr('settings.timesheetFormat'),
+                  Icons.table_chart_outlined, context.tr('common.comingSoon')),
+              _SettingsTile(context.tr('settings.defaultPaperSize'),
+                  Icons.description_outlined, context.tr('common.letter')),
+              _SettingsTile(
+                  context.tr('settings.pdfOrientation'),
+                  Icons.screen_rotation_alt_outlined,
+                  context.tr('settings.landscapePlanned')),
+            ],
+          ),
+          _SettingsSection(
+            title: context.tr('settings.about'),
+            children: [
+              _SettingsTile(context.tr('app.title'), Icons.info_outline,
+                  context.tr('brand.byDeveloper')),
+              _SettingsTile(context.tr('settings.version'), Icons.tag_outlined,
+                  currentVersion),
+              _SettingsTile(context.tr('settings.privacy'),
+                  Icons.privacy_tip_outlined, context.tr('common.comingSoon')),
+              _SettingsTile(context.tr('settings.terms'),
+                  Icons.article_outlined, context.tr('common.comingSoon')),
             ],
           ),
         ],
@@ -1563,10 +1633,10 @@ bool _sameDate(DateTime left, DateTime right) =>
     left.month == right.month &&
     left.day == right.day;
 
-String _greeting(DateTime value) {
-  if (value.hour < 12) return 'Good morning';
-  if (value.hour < 18) return 'Good afternoon';
-  return 'Good evening';
+String _greeting(BuildContext context, DateTime value) {
+  if (value.hour < 12) return context.tr('home.goodMorning');
+  if (value.hour < 18) return context.tr('home.goodAfternoon');
+  return context.tr('home.goodEvening');
 }
 
 String _date(DateTime value) => '${value.month.toString().padLeft(2, '0')}/'
@@ -1585,16 +1655,29 @@ String _hours(double value) =>
 
 String _money(double value) => '\$${value.toStringAsFixed(2)}';
 
-String _gps(dynamic point) {
-  if (point == null || point.isOfflineFallback == true) return 'Unavailable';
+String _gps(BuildContext context, dynamic point) {
+  if (point == null || point.isOfflineFallback == true) {
+    return context.tr('common.unavailable');
+  }
   return '${point.latitude.toStringAsFixed(5)}, ${point.longitude.toStringAsFixed(5)}';
 }
 
-String _receiptStatus(ReceiptStatus status) => switch (status) {
-      ReceiptStatus.draft => 'Draft',
-      ReceiptStatus.submitted => 'Submitted',
-      ReceiptStatus.underReview => 'Under review',
-      ReceiptStatus.approved => 'Approved',
-      ReceiptStatus.rejected => 'Rejected',
-      ReceiptStatus.paid => 'Paid',
+String _receiptStatus(BuildContext context, ReceiptStatus status) =>
+    switch (status) {
+      ReceiptStatus.draft => context.tr('receiptStatus.draft'),
+      ReceiptStatus.submitted => context.tr('receiptStatus.submitted'),
+      ReceiptStatus.underReview => context.tr('receiptStatus.underReview'),
+      ReceiptStatus.approved => context.tr('receiptStatus.approved'),
+      ReceiptStatus.rejected => context.tr('receiptStatus.rejected'),
+      ReceiptStatus.paid => context.tr('receiptStatus.paid'),
     };
+
+String _localizedFeedback(
+  BuildContext context,
+  String text, [
+  Map<String, Object?>? values,
+]) {
+  final isTranslationKey =
+      RegExp(r'^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z0-9]+)+$').hasMatch(text);
+  return isTranslationKey ? context.tr(text, values ?? const {}) : text;
+}

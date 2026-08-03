@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_assets.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_colors.dart';
+import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
 
 final class JkddAppBar extends StatelessWidget implements PreferredSizeWidget {
   const JkddAppBar({
@@ -54,7 +55,7 @@ final class JkddAppBar extends StatelessWidget implements PreferredSizeWidget {
           ? [
               IconButton(
                 onPressed: onSettings,
-                tooltip: 'Settings',
+                tooltip: context.tr('settings.title'),
                 icon: const Icon(Icons.settings_outlined),
               ),
               const SizedBox(width: 4),
@@ -63,7 +64,7 @@ final class JkddAppBar extends StatelessWidget implements PreferredSizeWidget {
               _HeaderStatus(online: online, pendingItems: pendingItems),
               IconButton(
                 onPressed: onSettings,
-                tooltip: 'Settings',
+                tooltip: context.tr('settings.title'),
                 icon: const Icon(Icons.settings_outlined),
               ),
               const SizedBox(width: 8),
@@ -103,11 +104,11 @@ final class _HeaderStatus extends StatelessWidget {
           size: 20,
         ),
         const SizedBox(width: 6),
-        Text(online ? 'Online' : 'Offline'),
+        Text(online ? context.tr('home.online') : context.tr('home.offline')),
         const SizedBox(width: 16),
         const Icon(Icons.sync_problem_outlined, size: 20),
         const SizedBox(width: 6),
-        Text('$pendingItems pending'),
+        Text(context.tr('home.pendingItems', {'count': pendingItems})),
       ],
     );
   }

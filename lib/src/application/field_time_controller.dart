@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:jkdd_field_time_records_production/features/employees/data/employee_asset_repository.dart';
 import 'package:jkdd_field_time_records_production/features/jobs/data/job_asset_repository.dart';
 import 'package:jkdd_field_time_records_production/src/application/field_time_application_service.dart';
 import 'package:jkdd_field_time_records_production/src/data/repositories/field_time_repository.dart';
@@ -17,14 +18,12 @@ final fieldTimeRepositoryProvider = Provider<FieldTimeRepository>(
 final fieldTimeApplicationServiceProvider =
     Provider((ref) => const FieldTimeApplicationService());
 
-final jobAssetRepositoryProvider =
-    Provider((ref) => const JobAssetRepository());
-
 final fieldTimeControllerProvider =
     StateNotifierProvider<FieldTimeController, FieldTimeState>((ref) {
   final controller = FieldTimeController(
     repository: ref.watch(fieldTimeRepositoryProvider),
     jobRepository: ref.watch(jobAssetRepositoryProvider),
+    employeeRepository: ref.watch(employeeAssetRepositoryProvider),
     service: ref.watch(fieldTimeApplicationServiceProvider),
   );
   controller.initialize();
@@ -36,7 +35,9 @@ final class FieldTimeState {
     required this.snapshot,
     this.loading = false,
     this.message,
+    this.messageValues,
     this.error,
+    this.errorValues,
     this.jobsImportMetadata,
     this.jobsImportError,
     this.lastLocation,
@@ -46,7 +47,9 @@ final class FieldTimeState {
   final FieldTimeSnapshot snapshot;
   final bool loading;
   final String? message;
+  final Map<String, Object?>? messageValues;
   final String? error;
+  final Map<String, Object?>? errorValues;
   final JobCatalogMetadata? jobsImportMetadata;
   final String? jobsImportError;
   final GeoPoint? lastLocation;
@@ -88,6 +91,7 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
   FieldTimeController({
     required this.repository,
     required this.jobRepository,
+    required this.employeeRepository,
     required this.service,
     this.locationService = const TimeRecordLocationService(),
     this.uuid = const Uuid(),
@@ -95,6 +99,7 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
 
   final FieldTimeRepository repository;
   final JobAssetRepository jobRepository;
+  final EmployeeAssetRepository employeeRepository;
   final FieldTimeApplicationService service;
   final TimeRecordLocationService locationService;
   final Uuid uuid;
@@ -115,17 +120,36 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
     } on JobAssetRepositoryException catch (error) {
       jobsImportError = error.message;
     }
+    try {
+      final employeeCatalog = await employeeRepository.loadCatalog();
+      final activeEmployees = employeeCatalog.activeEmployees;
+      if (activeEmployees.isNotEmpty) {
+        final employee = activeEmployees.first;
+        snapshot = snapshot.copyWith(
+          worker: employeeRepository.toWorkerProfile(employee),
+          subcontractor: SubcontractorCompany(
+            id: FieldTimeSnapshot.subcontractorIdJkdd,
+            companyId: FieldTimeSnapshot.companyIdEww,
+            legalName: employee.company,
+            displayName: employee.company,
+          ),
+        );
+      }
+    } on EmployeeAssetRepositoryException {
+      // Keep the last local worker profile if the employees asset is unavailable.
+    }
     state = FieldTimeState(
       snapshot: snapshot,
       jobsImportMetadata: jobsImportMetadata,
       jobsImportError: jobsImportError,
-      message: 'Dados locais carregados.',
+      message: 'fieldTime.localDataLoaded',
     );
   }
 
   Future<void> clockIn(Job job, String? notes) => _withLocation(
-        progress: 'Registrando entrada...',
-        success: 'Entrada registrada em ${job.number}.',
+        progress: 'fieldTime.clockInProgress',
+        success: 'fieldTime.clockInSuccess',
+        successValues: {'job': job.number},
         mutate: (snapshot, at, location) => service.clockIn(
           snapshot: snapshot,
           job: job,
@@ -136,8 +160,9 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
       );
 
   Future<void> switchJob(Job job, String? notes) => _withLocation(
-        progress: 'Trocando obra...',
-        success: 'Novo periodo iniciado em ${job.number}.',
+        progress: 'fieldTime.switchJobProgress',
+        success: 'fieldTime.switchJobSuccess',
+        successValues: {'job': job.number},
         mutate: (snapshot, at, location) => service.switchJob(
           snapshot: snapshot,
           nextJob: job,
@@ -148,8 +173,8 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
       );
 
   Future<void> endDay(String? notes) => _withLocation(
-        progress: 'Encerrando o dia...',
-        success: 'Expediente encerrado.',
+        progress: 'fieldTime.endDayProgress',
+        success: 'fieldTime.endDaySuccess',
         rememberCompletedDay: true,
         mutate: (snapshot, at, location) => service.endDay(
           snapshot: snapshot,
@@ -160,7 +185,7 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
       );
 
   Future<void> addJobPhoto(XFile file, Job job) async {
-    await _run('Salvando foto...', () async {
+    await _run('fieldTime.savePhotoProgress', () async {
       final attachment = await _attachment(file, job, AttachmentKind.jobPhoto);
       final snapshot = service.addJobPhoto(
         snapshot: state.snapshot,
@@ -168,11 +193,11 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
       );
       await repository.save(snapshot);
       return snapshot;
-    }, 'Foto vinculada a obra ${job.number}.');
+    }, 'fieldTime.photoLinked', successValues: {'job': job.number});
   }
 
   Future<void> saveReceipt(ReceiptDraft draft, XFile file) async {
-    await _run('Salvando recibo...', () async {
+    await _run('fieldTime.saveReceiptProgress', () async {
       final attachment =
           await _attachment(file, draft.job, AttachmentKind.receipt);
       final snapshot = await service.saveReceipt(
@@ -191,11 +216,14 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
       );
       await repository.save(snapshot);
       return snapshot;
-    }, draft.submit ? 'Reembolso enviado para aprovacao.' : 'Rascunho salvo.');
+    },
+        draft.submit
+            ? 'fieldTime.reimbursementSubmitted'
+            : 'fieldTime.draftSaved');
   }
 
   Future<void> addObservation(String notes) async {
-    await _run('Salvando observacao...', () async {
+    await _run('fieldTime.saveObservationProgress', () async {
       final snapshot = service.addObservation(
         snapshot: state.snapshot,
         notes: notes,
@@ -203,12 +231,13 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
       );
       await repository.save(snapshot);
       return snapshot;
-    }, 'Observacao adicionada ao periodo atual.');
+    }, 'fieldTime.observationAdded');
   }
 
   Future<void> _withLocation({
     required String progress,
     required String success,
+    Map<String, Object?>? successValues,
     required FieldTimeSnapshot Function(
       FieldTimeSnapshot snapshot,
       DateTime at,
@@ -225,6 +254,7 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
       state = FieldTimeState(
         snapshot: snapshot,
         message: success,
+        messageValues: successValues,
         lastLocation: location,
         lastCompletedDay: rememberCompletedDay ? snapshot.workDays.last : null,
       );
@@ -233,7 +263,7 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
     } on Exception {
       state = FieldTimeState(
         snapshot: state.snapshot,
-        error: 'Nao foi possivel concluir a operacao.',
+        error: 'fieldTime.operationFailed',
       );
     }
   }
@@ -241,19 +271,24 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
   Future<void> _run(
     String progress,
     Future<FieldTimeSnapshot> Function() action,
-    String success,
-  ) async {
+    String success, {
+    Map<String, Object?>? successValues,
+  }) async {
     state = FieldTimeState(
         snapshot: state.snapshot, loading: true, message: progress);
     try {
       final snapshot = await action();
-      state = FieldTimeState(snapshot: snapshot, message: success);
+      state = FieldTimeState(
+        snapshot: snapshot,
+        message: success,
+        messageValues: successValues,
+      );
     } on StateError catch (error) {
       state = FieldTimeState(snapshot: state.snapshot, error: error.message);
     } on Exception {
       state = FieldTimeState(
         snapshot: state.snapshot,
-        error: 'Nao foi possivel salvar os dados no dispositivo.',
+        error: 'fieldTime.deviceSaveFailed',
       );
     }
   }

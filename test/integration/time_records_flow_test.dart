@@ -7,7 +7,18 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final repository = SharedPreferencesFieldTimeRepository();
     const service = FieldTimeApplicationService();
-    var snapshot = await repository.load();
+    var snapshot = (await repository.load()).copyWith(
+      jobs: const [
+        Job(
+          id: 'job-1001',
+          companyId: FieldTimeSnapshot.companyIdEww,
+          subcontractorCompanyId: FieldTimeSnapshot.subcontractorIdJkdd,
+          number: '1001',
+          name: 'Imported Job 1001',
+          address: 'Boca Raton, FL',
+        ),
+      ],
+    );
     final offline = GeoPoint(
       latitude: 0,
       longitude: 0,

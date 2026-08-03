@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-08-03T01:36:02+00:00",
+  "source_workbook": "002_EMPLOYEES_DATABASE.xlsx",
+  "company": "JKDD Finish & Remodeling Corp.",
+  "record_count": 1,
+  "active_count": 1,
+  "inactive_count": 0,
+  "employees": [
+    {
+      "employee_id": "TER-0001",
+      "full_name": "Santana",
+      "preferred_name": "Santana",
+      "photo": null,
+      "phone": "(561) 555-0101",
+      "email": null,
+      "company": "JKDD Finish & Remodeling Corp.",
+      "category": "Terceirizado de Mão de Obra",
+      "employment_type": "Empresa Terceirizada",
+      "role": "Responsável pela JKDD",
+      "specialty": "Finish Carpentry",
+      "admission_date": "2025-07-11",
+      "status": "active",
+      "preferred_language": "pt",
+      "supervisor": "Joaquim Neto",
+      "default_start_time": "07:00",
+      "default_end_time": "17:00",
+      "allowed_jobs": [
+        "*"
+      ],
+      "address": {
+        "street": "9745 Arbor Oaks Ln Apt 206",
+        "city": "Boca Raton",
+        "state": "FL",
+        "zip_code": "33428",
+        "country": "US"
+      },
+      "emergency_contact": {
+        "name": "Contato a definir",
+        "phone": "(561) 555-0199"
+      },
+      "notes": "Primeiro colaborador terceirizado cadastrado para testes do sistema.",
+      "active": true
+    }
+  ]
+}

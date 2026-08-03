@@ -2,10 +2,14 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jkdd_field_time_records_production/features/jobs/domain/job.dart'
     as imported;
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart'
     as field_time;
+
+final jobAssetRepositoryProvider =
+    Provider((ref) => const JobAssetRepository());
 
 final class JobAssetRepositoryException implements Exception {
   const JobAssetRepositoryException(this.message);

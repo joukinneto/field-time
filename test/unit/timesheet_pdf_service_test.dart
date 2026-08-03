@@ -22,7 +22,7 @@ void main() {
   });
 
   test('generates a PDF without wage or salary labels', () async {
-    var snapshot = FieldTimeSnapshot.seeded();
+    var snapshot = _snapshotWithJobs();
     const appService = FieldTimeApplicationService();
     final location = GeoPoint(
       latitude: 26.36,
@@ -57,7 +57,7 @@ void main() {
 
   test('includes linked weekly receipt attachments in the generated PDF',
       () async {
-    var snapshot = FieldTimeSnapshot.seeded();
+    var snapshot = _snapshotWithJobs();
     final job = snapshot.jobs.first;
     final attachment = Attachment(
       id: 'receipt-photo-1',
@@ -107,3 +107,16 @@ void main() {
 
 const _onePixelPngBase64 =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
+
+FieldTimeSnapshot _snapshotWithJobs() => FieldTimeSnapshot.seeded().copyWith(
+      jobs: const [
+        Job(
+          id: 'job-1001',
+          companyId: FieldTimeSnapshot.companyIdEww,
+          subcontractorCompanyId: FieldTimeSnapshot.subcontractorIdJkdd,
+          number: '1001',
+          name: 'Imported Job 1001',
+          address: 'Boca Raton, FL',
+        ),
+      ],
+    );

@@ -745,7 +745,7 @@ final class FieldTimeSnapshot {
 
   static const companyIdEww = 'eww';
   static const subcontractorIdJkdd = 'jkdd-finish-remodeling';
-  static const workerIdPilot = 'jkdd-pilot';
+  static const workerIdPilot = 'TER-0001';
 
   final String companyId;
   final String companyName;
@@ -765,58 +765,17 @@ final class FieldTimeSnapshot {
         subcontractor: SubcontractorCompany(
           id: subcontractorIdJkdd,
           companyId: companyIdEww,
-          legalName: 'JKDD Finish & Remodeling Corp',
-          displayName: 'JKDD Finish & Remodeling Corp',
+          legalName: 'JKDD Finish & Remodeling Corp.',
+          displayName: 'JKDD Finish & Remodeling Corp.',
         ),
         worker: WorkerProfile(
           id: workerIdPilot,
           companyId: companyIdEww,
           subcontractorCompanyId: subcontractorIdJkdd,
-          displayName: 'JKDD Finish & Remodeling Corp',
+          displayName: 'Santana',
           laborType: LaborType.subcontractor,
         ),
-        jobs: [
-          Job(
-            id: 'eww-3099',
-            companyId: companyIdEww,
-            subcontractorCompanyId: subcontractorIdJkdd,
-            number: '3099',
-            name: 'Banyan Rd',
-            address: '3099 Banyan Rd, Parkland, FL',
-          ),
-          Job(
-            id: 'eww-315',
-            companyId: companyIdEww,
-            subcontractorCompanyId: subcontractorIdJkdd,
-            number: '315',
-            name: 'Palm Beach Gardens',
-            address: 'Palm Beach Gardens, FL',
-          ),
-          Job(
-            id: 'eww-630',
-            companyId: companyIdEww,
-            subcontractorCompanyId: subcontractorIdJkdd,
-            number: '630',
-            name: 'Golden Beach',
-            address: 'Golden Beach, FL',
-          ),
-          Job(
-            id: 'eww-2856',
-            companyId: companyIdEww,
-            subcontractorCompanyId: subcontractorIdJkdd,
-            number: '2856',
-            name: 'NE 26th St',
-            address: '2856 NE 26th St, Fort Lauderdale, FL',
-          ),
-          Job(
-            id: 'eww-11129',
-            companyId: companyIdEww,
-            subcontractorCompanyId: subcontractorIdJkdd,
-            number: '11129',
-            name: 'Green Bayberry Dr',
-            address: '11129 Green Bayberry Dr, FL',
-          ),
-        ],
+        jobs: [],
       );
 
   WorkDay? get activeWorkDay {
@@ -827,6 +786,8 @@ final class FieldTimeSnapshot {
   }
 
   FieldTimeSnapshot copyWith({
+    SubcontractorCompany? subcontractor,
+    WorkerProfile? worker,
     List<Job>? jobs,
     List<WorkDay>? workDays,
     List<Receipt>? receipts,
@@ -838,8 +799,8 @@ final class FieldTimeSnapshot {
       FieldTimeSnapshot(
         companyId: companyId,
         companyName: companyName,
-        subcontractor: subcontractor,
-        worker: worker,
+        subcontractor: subcontractor ?? this.subcontractor,
+        worker: worker ?? this.worker,
         jobs: jobs ?? this.jobs,
         workDays: workDays ?? this.workDays,
         receipts: receipts ?? this.receipts,

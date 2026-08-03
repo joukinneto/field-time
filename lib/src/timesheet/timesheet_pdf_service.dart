@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
+import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
@@ -34,8 +35,10 @@ final class TimesheetPdfService {
   Future<Uint8List> buildWeeklyTimesheetPdf({
     required FieldTimeSnapshot snapshot,
     required DateTime anchorDate,
+    AppLanguage language = AppLanguage.en,
     String? employerName,
   }) async {
+    final strings = AppStrings(language);
     final week = weekFor(anchorDate);
     final days = snapshot.workDays
         .where((day) => week.contains(day.workDate))
@@ -54,21 +57,24 @@ final class TimesheetPdfService {
       (total, day) => total + (day.travelBonusHours * 60).round(),
     );
     final totalWithBonus = totalDuration + Duration(minutes: bonusMinutes);
-    final document = pw.Document(title: 'Field Time Timesheet');
+    final document = pw.Document(title: strings.t('pdf.title'));
 
     document.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.letter.landscape,
         margin: const pw.EdgeInsets.all(24),
         build: (context) => [
-          _header(snapshot, week, employerName),
+          _header(snapshot, week, employerName, strings),
           pw.SizedBox(height: 14),
-          _recordsTable(days),
+          _recordsTable(days, strings),
           pw.SizedBox(height: 12),
           pw.Align(
             alignment: pw.Alignment.centerRight,
             child: pw.Text(
-              'Total geral: ${decimalHoursText(totalWithBonus)}',
+              strings.t(
+                'pdf.totalGeneral',
+                {'total': decimalHoursText(totalWithBonus)},
+              ),
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14),
             ),
           ),
@@ -81,14 +87,14 @@ final class TimesheetPdfService {
         pageFormat: PdfPageFormat.letter.landscape,
         margin: const pw.EdgeInsets.all(24),
         build: (context) => [
-          pw.Text('Resumo dos recibos',
+          pw.Text(strings.t('pdf.receiptsSummary'),
               style:
                   pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 12),
           if (receipts.isEmpty)
-            pw.Text('Nenhum recibo vinculado a obra nesta semana.')
+            pw.Text(strings.t('pdf.noLinkedReceipts'))
           else
-            _receiptsTable(snapshot, receipts),
+            _receiptsTable(snapshot, receipts, strings),
         ],
       ),
     );
@@ -106,7 +112,7 @@ final class TimesheetPdfService {
             pageFormat: PdfPageFormat.letter,
             margin: const pw.EdgeInsets.all(24),
             build: (context) =>
-                _receiptPhotoPage(snapshot, receipt, attachment),
+                _receiptPhotoPage(snapshot, receipt, attachment, strings),
           ),
         );
       }
@@ -119,6 +125,7 @@ final class TimesheetPdfService {
     FieldTimeSnapshot snapshot,
     TimesheetWeek week,
     String? employerName,
+    AppStrings strings,
   ) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(14),
@@ -156,9 +163,15 @@ final class TimesheetPdfService {
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
-                pw.Text('Colaborador: ${snapshot.worker.displayName}'),
-                pw.Text('Periodo: ${_date(week.start)} ate ${_date(week.end)}'),
-                pw.Text('Semana: segunda-feira a domingo'),
+                pw.Text(strings.t(
+                  'pdf.worker',
+                  {'worker': snapshot.worker.displayName},
+                )),
+                pw.Text(strings.t(
+                  'pdf.period',
+                  {'start': _date(week.start), 'end': _date(week.end)},
+                )),
+                pw.Text(strings.t('pdf.week')),
               ],
             ),
           ),
@@ -167,7 +180,7 @@ final class TimesheetPdfService {
     );
   }
 
-  pw.Widget _recordsTable(List<WorkDay> days) {
+  pw.Widget _recordsTable(List<WorkDay> days, AppStrings strings) {
     final rows = <List<String>>[];
     for (final day in days) {
       for (final segment in day.segments) {
@@ -184,19 +197,28 @@ final class TimesheetPdfService {
       }
     }
     return pw.TableHelper.fromTextArray(
-      headers: const [
-        'Data',
-        'Obra',
-        'Nome',
-        'Endereco',
-        'Entrada',
-        'Saida',
-        'Total do dia',
-        'Obs.',
+      headers: [
+        strings.t('timesheet.date'),
+        strings.t('timesheet.job'),
+        strings.t('timesheet.name'),
+        strings.t('timesheet.address'),
+        strings.t('timesheet.clockIn'),
+        strings.t('timesheet.clockOut'),
+        strings.t('timesheet.total'),
+        strings.t('timesheet.notes'),
       ],
       data: rows.isEmpty
-          ? const [
-              ['-', '-', '-', '-', '-', '-', '00:00', 'Sem registros'],
+          ? [
+              [
+                '-',
+                '-',
+                '-',
+                '-',
+                '-',
+                '-',
+                '00:00',
+                strings.t('pdf.noRecords')
+              ],
             ]
           : rows,
       headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey100),
@@ -213,17 +235,21 @@ final class TimesheetPdfService {
     );
   }
 
-  pw.Widget _receiptsTable(FieldTimeSnapshot snapshot, List<Receipt> receipts) {
+  pw.Widget _receiptsTable(
+    FieldTimeSnapshot snapshot,
+    List<Receipt> receipts,
+    AppStrings strings,
+  ) {
     return pw.TableHelper.fromTextArray(
-      headers: const [
-        'Data',
-        'Valor',
-        'Estabelecimento',
-        'Obra',
-        'Endereco',
-        'Categoria',
-        'Colaborador',
-        'Observacao',
+      headers: [
+        strings.t('receipts.date'),
+        strings.t('receipts.amount'),
+        strings.t('receipts.merchant'),
+        strings.t('timesheet.job'),
+        strings.t('jobs.address'),
+        strings.t('receipts.category'),
+        strings.t('home.subcontractor'),
+        strings.t('receipts.observation'),
       ],
       data: [
         for (final receipt in receipts)
@@ -249,22 +275,25 @@ final class TimesheetPdfService {
     FieldTimeSnapshot snapshot,
     Receipt receipt,
     Attachment attachment,
+    AppStrings strings,
   ) {
     final bytes = base64Decode(attachment.dataBase64);
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Text('Recibo - ${receipt.merchant}',
+        pw.Text(strings.t('pdf.receipt', {'merchant': receipt.merchant}),
             style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
         pw.SizedBox(height: 6),
         pw.Text(
           '${_date(receipt.purchaseDate)} - ${_jobLabel(snapshot, receipt.jobId)} - '
           '${snapshot.worker.displayName}',
         ),
-        pw.Text('Endereco: ${_jobAddress(snapshot, receipt.jobId)}'),
-        pw.Text('Categoria: ${receipt.description}'),
+        pw.Text(
+          '${strings.t('jobs.address')}: ${_jobAddress(snapshot, receipt.jobId)}',
+        ),
+        pw.Text('${strings.t('receipts.category')}: ${receipt.description}'),
         if (receipt.notes?.trim().isNotEmpty == true)
-          pw.Text('Observacao: ${receipt.notes}'),
+          pw.Text('${strings.t('receipts.observation')}: ${receipt.notes}'),
         pw.SizedBox(height: 12),
         pw.Expanded(
           child: pw.Center(

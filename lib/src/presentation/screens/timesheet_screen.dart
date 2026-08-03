@@ -51,6 +51,7 @@ final class _TimesheetContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final snapshot = ref.watch(fieldTimeControllerProvider).snapshot;
+    final language = ref.watch(appLanguageControllerProvider);
     final service = ref.watch(fieldTimeApplicationServiceProvider);
     const pdfService = TimesheetPdfService();
     final days = service.timesheet(snapshot, period, DateTime.now());
@@ -99,12 +100,14 @@ final class _TimesheetContent extends ConsumerWidget {
                     spacing: AppSpacing.sm,
                     children: [
                       OutlinedButton.icon(
-                        onPressed: () => _sharePdf(snapshot, pdfService),
+                        onPressed: () =>
+                            _sharePdf(snapshot, pdfService, language),
                         icon: const Icon(Icons.ios_share_outlined),
-                        label: const Text('Share'),
+                        label: Text(context.tr('timesheet.share')),
                       ),
                       FilledButton.icon(
-                        onPressed: () => _previewPdf(snapshot, pdfService),
+                        onPressed: () =>
+                            _previewPdf(snapshot, pdfService, language),
                         icon: const Icon(Icons.picture_as_pdf_outlined),
                         label: Text(context.tr('timesheet.generatePdf')),
                       ),
@@ -119,18 +122,36 @@ final class _TimesheetContent extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.xl),
                 _TotalsGrid(
                   items: [
-                    _TotalItem('Regular Hours', _hours(regularHours),
-                        Icons.schedule_outlined, AppColors.blue),
-                    _TotalItem('Bonus Hours', _hours(bonusHours),
-                        Icons.route_outlined, AppColors.teal),
-                    _TotalItem('Total Hours', _hours(regularHours + bonusHours),
-                        Icons.access_time_filled, AppColors.green),
-                    _TotalItem('Jobs', totalsByJob.length.toString(),
-                        Icons.apartment_outlined, AppColors.purple),
-                    _TotalItem('Receipts', receipts.length.toString(),
-                        Icons.receipt_long_outlined, AppColors.amber),
-                    _TotalItem('Reimbursements', _money(reimbursement),
-                        Icons.payments_outlined, AppColors.green),
+                    _TotalItem(
+                        context.tr('timesheet.regularHours'),
+                        _hours(regularHours),
+                        Icons.schedule_outlined,
+                        AppColors.blue),
+                    _TotalItem(
+                        context.tr('timesheet.bonusHours'),
+                        _hours(bonusHours),
+                        Icons.route_outlined,
+                        AppColors.teal),
+                    _TotalItem(
+                        context.tr('timesheet.totalHours'),
+                        _hours(regularHours + bonusHours),
+                        Icons.access_time_filled,
+                        AppColors.green),
+                    _TotalItem(
+                        context.tr('timesheet.jobs'),
+                        totalsByJob.length.toString(),
+                        Icons.apartment_outlined,
+                        AppColors.purple),
+                    _TotalItem(
+                        context.tr('timesheet.receipts'),
+                        receipts.length.toString(),
+                        Icons.receipt_long_outlined,
+                        AppColors.amber),
+                    _TotalItem(
+                        context.tr('timesheet.reimbursements'),
+                        _money(reimbursement),
+                        Icons.payments_outlined,
+                        AppColors.green),
                   ],
                 ),
                 if (totalsByJob.isNotEmpty) ...[
@@ -147,7 +168,10 @@ final class _TimesheetContent extends ConsumerWidget {
                       ),
                     ),
                     JkddStatusChip(
-                      label: '${segments.length} records',
+                      label: context.tr(
+                        'common.recordsCount',
+                        {'count': segments.length},
+                      ),
                       icon: Icons.list_alt_outlined,
                       tone: JkddStatusTone.info,
                     ),
@@ -185,12 +209,14 @@ final class _TimesheetContent extends ConsumerWidget {
   Future<void> _previewPdf(
     FieldTimeSnapshot snapshot,
     TimesheetPdfService pdfService,
+    AppLanguage language,
   ) async {
     await Printing.layoutPdf(
-      name: 'field_time_timesheet.pdf',
+      name: AppStrings(language).t('timesheet.fileName'),
       onLayout: (_) => pdfService.buildWeeklyTimesheetPdf(
         snapshot: snapshot,
         anchorDate: DateTime.now(),
+        language: language,
       ),
     );
   }
@@ -198,14 +224,16 @@ final class _TimesheetContent extends ConsumerWidget {
   Future<void> _sharePdf(
     FieldTimeSnapshot snapshot,
     TimesheetPdfService pdfService,
+    AppLanguage language,
   ) async {
     final bytes = await pdfService.buildWeeklyTimesheetPdf(
       snapshot: snapshot,
       anchorDate: DateTime.now(),
+      language: language,
     );
     await Printing.sharePdf(
       bytes: bytes,
-      filename: 'field_time_timesheet.pdf',
+      filename: AppStrings(language).t('timesheet.fileName'),
     );
   }
 }
@@ -320,7 +348,7 @@ final class _TotalsByJob extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Total by job',
+            Text(context.tr('timesheet.totalByJob'),
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: AppSpacing.md),
             Wrap(
@@ -366,7 +394,9 @@ final class _SegmentCard extends StatelessWidget {
                     ),
                   ),
                   JkddStatusChip(
-                    label: day.isOpen ? 'In progress' : 'Pending',
+                    label: day.isOpen
+                        ? context.tr('timesheet.inProgress')
+                        : context.tr('approval.pending'),
                     icon: day.isOpen
                         ? Icons.play_circle_outline
                         : Icons.pending_outlined,
@@ -389,51 +419,54 @@ final class _SegmentCard extends StatelessWidget {
                       SizedBox(
                           width: itemWidth,
                           child: JkddInfoRow(
-                              label: 'Date', value: _date(day.workDate))),
+                              label: context.tr('timesheet.date'),
+                              value: _date(day.workDate))),
                       SizedBox(
                           width: itemWidth,
                           child: JkddInfoRow(
-                              label: 'Clock In',
+                              label: context.tr('timesheet.clockIn'),
                               value: _time(segment.startedAt))),
                       SizedBox(
                           width: itemWidth,
                           child: JkddInfoRow(
-                              label: 'Clock Out',
+                              label: context.tr('timesheet.clockOut'),
                               value: segment.endedAt == null
                                   ? '--:--'
                                   : _time(segment.endedAt!))),
                       SizedBox(
                           width: itemWidth,
                           child: JkddInfoRow(
-                              label: 'Regular',
+                              label: context.tr('timesheet.regularHours'),
                               value: _hours(segment.regularHours()))),
                       SizedBox(
                           width: itemWidth,
                           child: JkddInfoRow(
-                              label: 'Bonus',
+                              label: context.tr('timesheet.bonus'),
                               value: _hours(segment.travelBonusHours))),
                       SizedBox(
                           width: itemWidth,
                           child: JkddInfoRow(
-                              label: 'Total',
+                              label: context.tr('timesheet.total'),
                               value: _hours(segment.totalHours()))),
                       SizedBox(
                           width: itemWidth,
                           child: JkddInfoRow(
-                              label: 'Receipts',
+                              label: context.tr('timesheet.receipts'),
                               value: receiptCount.toString())),
                       SizedBox(
                           width: itemWidth,
                           child: JkddInfoRow(
-                              label: 'Approval',
-                              value: day.isOpen ? 'In progress' : 'Pending')),
+                              label: context.tr('timesheet.approval'),
+                              value: day.isOpen
+                                  ? context.tr('timesheet.inProgress')
+                                  : context.tr('approval.pending'))),
                     ],
                   );
                 },
               ),
               if (segment.notes?.isNotEmpty == true) ...[
                 const Divider(height: 28),
-                Text('Notes: ${segment.notes}'),
+                Text('${context.tr('timesheet.notes')}: ${segment.notes}'),
               ],
             ],
           ),

@@ -28,8 +28,7 @@ final class MockReceiptExtractionService implements ReceiptExtractionService {
         companyId: companyId,
         subcontractorCompanyId: subcontractorCompanyId,
         receiptId: receiptId,
-        message:
-            'Leitura automatica ainda nao integrada. Revise e preencha os campos.',
+        message: 'receipts.automaticReadingNotIntegrated',
         createdAt: DateTime.now(),
       );
 }

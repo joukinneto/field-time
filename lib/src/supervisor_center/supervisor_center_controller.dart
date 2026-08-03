@@ -1,19 +1,50 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:jkdd_field_time_records_production/features/employees/data/employee_asset_repository.dart';
+import 'package:jkdd_field_time_records_production/features/employees/domain/employee.dart';
+import 'package:jkdd_field_time_records_production/features/jobs/data/job_asset_repository.dart';
+import 'package:jkdd_field_time_records_production/features/jobs/domain/job.dart'
+    as imported_job;
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_models.dart';
 
 final supervisorCenterProvider =
     StateNotifierProvider<SupervisorCenterController, SupervisorCenterState>(
-  (ref) => SupervisorCenterController(),
+  (ref) {
+    final controller = SupervisorCenterController(
+      employeeRepository: ref.watch(employeeAssetRepositoryProvider),
+      jobRepository: ref.watch(jobAssetRepositoryProvider),
+    );
+    controller.initialize();
+    return controller;
+  },
 );
 
 final class SupervisorCenterController
     extends StateNotifier<SupervisorCenterState> {
-  SupervisorCenterController() : super(SupervisorCenterState.seeded());
+  SupervisorCenterController({
+    this.employeeRepository,
+    this.jobRepository,
+    SupervisorCenterState? initialState,
+  }) : super(initialState ?? SupervisorCenterState.seeded());
+
+  final EmployeeAssetRepository? employeeRepository;
+  final JobAssetRepository? jobRepository;
+
+  Future<void> initialize() async {
+    final employees = await _loadEmployees();
+    final jobs = await _loadJobs();
+    if (employees.isEmpty && jobs.isEmpty) return;
+    state = SupervisorCenterState.fromEmployeesAndJobs(
+      employees: employees,
+      jobs: jobs,
+      currentRole: state.currentRole,
+      allowSupervisorCreateJobs: state.allowSupervisorCreateJobs,
+    );
+  }
 
   void setRole(PilotRole role) {
     state = state.copyWith(
       currentRole: role,
-      message: 'Modo de teste alterado para ${roleLabel(role)}.',
+      message: 'supervisor.roleChanged',
     );
   }
 
@@ -22,8 +53,8 @@ final class SupervisorCenterController
     state = state.copyWith(
       allowSupervisorCreateJobs: value,
       message: value
-          ? 'Supervisor pode cadastrar obras no piloto.'
-          : 'Cadastro de obras por Supervisor bloqueado.',
+          ? 'supervisor.createJobsAllowed'
+          : 'supervisor.createJobsBlocked',
     );
   }
 
@@ -31,8 +62,28 @@ final class SupervisorCenterController
     _require(PilotPermission.createJob);
     state = state.copyWith(
       jobs: [...state.jobs, job],
-      message: 'Nova obra ${job.number} criada no piloto.',
+      message: 'supervisor.jobCreated',
     );
+  }
+
+  Future<List<Employee>> _loadEmployees() async {
+    final repository = employeeRepository;
+    if (repository == null) return const [];
+    try {
+      return (await repository.loadCatalog()).employees;
+    } on EmployeeAssetRepositoryException {
+      return const [];
+    }
+  }
+
+  Future<List<imported_job.Job>> _loadJobs() async {
+    final repository = jobRepository;
+    if (repository == null) return const [];
+    try {
+      return (await repository.loadCatalog()).jobs;
+    } on JobAssetRepositoryException {
+      return const [];
+    }
   }
 
   void updateJob(SupervisorJob job) {
@@ -42,7 +93,7 @@ final class SupervisorCenterController
         for (final current in state.jobs)
           if (current.id == job.id) job else current,
       ],
-      message: 'Obra ${job.number} atualizada.',
+      message: 'supervisor.jobUpdated',
     );
   }
 
@@ -50,16 +101,20 @@ final class SupervisorCenterController
     _require(PilotPermission.clockOwnTime);
     final user = state.currentUser;
     if (!user.isWorker) {
-      throw StateError('Apenas Employee ou Contractor registram horas.');
+      throw StateError('supervisor.employeeOrContractorOnly');
     }
     final existing = state.timeEntries
         .where((entry) => entry.userId == user.id)
         .cast<TimeEntry?>()
         .firstOrNull;
-    final jobId = existing?.jobId ??
-        state.assignments
-            .firstWhere((assignment) => assignment.userId == user.id)
-            .jobId;
+    final assignment = state.assignments
+        .where((assignment) => assignment.userId == user.id)
+        .cast<JobAssignment?>()
+        .firstOrNull;
+    final jobId = existing?.jobId ?? assignment?.jobId;
+    if (jobId == null) {
+      throw StateError('supervisor.noAssignedJob');
+    }
     final resubmitting = existing != null &&
         {
           TimeReviewStatus.rejected,
@@ -97,21 +152,21 @@ final class SupervisorCenterController
                 if (current.id == entry.id) entry else current,
             ],
       message: resubmitting
-          ? 'Horas corrigidas e reenviadas para aprovacao.'
-          : 'Horas enviadas para aprovacao.',
+          ? 'supervisor.hoursCorrectedResubmitted'
+          : 'supervisor.hoursSentForApproval',
     );
   }
 
   void requestCorrection(String entryId, String justification) {
     _require(PilotPermission.requestCorrection);
     if (justification.trim().isEmpty) {
-      throw StateError('Informe o motivo da solicitacao.');
+      throw StateError('supervisor.correctionReasonRequired');
     }
     _mutateEntry(
       entryId,
       status: TimeReviewStatus.corrected,
       note: justification,
-      success: 'Correcao enviada para nova revisao.',
+      success: 'supervisor.correctionSent',
     );
   }
 
@@ -120,7 +175,7 @@ final class SupervisorCenterController
       entryId,
       TimeReviewStatus.approved,
       justification,
-      'Registro aprovado.',
+      'supervisor.entryApproved',
     );
   }
 
@@ -129,7 +184,7 @@ final class SupervisorCenterController
       entryId,
       TimeReviewStatus.rejected,
       justification,
-      'Registro rejeitado.',
+      'supervisor.entryRejected',
     );
   }
 
@@ -142,7 +197,7 @@ final class SupervisorCenterController
       entryId,
       TimeReviewStatus.underReview,
       justification,
-      'Registro enviado para revisao.',
+      'supervisor.entrySentToReview',
       observation: observation,
     );
   }
@@ -159,10 +214,10 @@ final class SupervisorCenterController
     _require(PilotPermission.approveTime);
     final entry = state.timeEntries.firstWhere((item) => item.id == entryId);
     if (entry.isLocked) {
-      throw StateError('Registro aprovado esta bloqueado para edicoes comuns.');
+      throw StateError('supervisor.approvedRecordLocked');
     }
     if (justification.trim().isEmpty) {
-      throw StateError('Toda alteracao precisa de justificativa.');
+      throw StateError('supervisor.changeJustificationRequired');
     }
     final updated = entry.copyWith(
       clockIn: clockIn,
@@ -189,8 +244,8 @@ final class SupervisorCenterController
     }
 
     addLog('clockIn', entry.clockIn, updated.clockIn);
-    addLog(
-        'clockOut', entry.clockOut ?? 'Aberto', updated.clockOut ?? 'Aberto');
+    addLog('clockOut', entry.clockOut ?? 'common.open',
+        updated.clockOut ?? 'common.open');
     addLog('breakMinutes', '${entry.breakMinutes}', '${updated.breakMinutes}');
     addLog(
       'travelBonusHours',
@@ -207,14 +262,14 @@ final class SupervisorCenterController
           if (current.id == entryId) updated else current,
       ],
       auditLogs: [...state.auditLogs, ...logs],
-      message: 'Revisao salva com registro de auditoria.',
+      message: 'supervisor.reviewSavedAudit',
     );
   }
 
   void approveAllValidForJob(String jobId, String justification) {
     _require(PilotPermission.approveTime);
     if (justification.trim().isEmpty) {
-      throw StateError('Informe uma justificativa para aprovar em lote.');
+      throw StateError('supervisor.batchApproveJustificationRequired');
     }
     final validIds = state.timeEntries
         .where((entry) =>
@@ -254,7 +309,7 @@ final class SupervisorCenterController
             reviewedAt: now,
           ),
       ],
-      message: '${validIds.length} registros validos aprovados.',
+      message: 'supervisor.validRecordsApproved',
     );
   }
 
@@ -263,11 +318,11 @@ final class SupervisorCenterController
       {String observation = ''}) {
     _require(PilotPermission.approveTime);
     if (justification.trim().isEmpty) {
-      throw StateError('Informe a justificativa da revisao.');
+      throw StateError('supervisor.reviewJustificationRequired');
     }
     final entry = state.timeEntries.firstWhere((item) => item.id == entryId);
     if (status == TimeReviewStatus.rejected && justification.trim().isEmpty) {
-      throw StateError('Informe o motivo da rejeicao.');
+      throw StateError('supervisor.rejectionReasonRequired');
     }
     final review = TimeEntryReview(
       id: 'review-${DateTime.now().microsecondsSinceEpoch}',
@@ -332,7 +387,7 @@ final class SupervisorCenterController
 
   void _require(PilotPermission permission) {
     if (!state.hasPermission(permission)) {
-      throw StateError('Perfil sem permissao para executar esta acao.');
+      throw StateError('supervisor.permissionDenied');
     }
   }
 }

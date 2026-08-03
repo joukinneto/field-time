@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_colors.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_spacing.dart';
+import 'package:jkdd_field_time_records_production/features/employees/presentation/employees_management_screen.dart';
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_controller.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_models.dart';
@@ -43,16 +44,15 @@ final class _SupervisorCenterScreenState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           JkddSectionHeader(
-            title: _title(_view),
-            subtitle:
-                'Supervisor Center / Central do Supervisor / Centro del Supervisor',
+            title: _title(context, _view),
+            subtitle: context.tr('supervisor.title'),
             trailing: _view == SupervisorCenterView.dashboard
                 ? null
                 : TextButton.icon(
                     onPressed: () =>
                         setState(() => _view = SupervisorCenterView.dashboard),
                     icon: const Icon(Icons.arrow_back),
-                    label: const Text('Gestao'),
+                    label: Text(context.tr('supervisor.management')),
                   ),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -71,15 +71,16 @@ final class _SupervisorCenterScreenState
     );
   }
 
-  String _title(SupervisorCenterView view) => switch (view) {
-        SupervisorCenterView.dashboard => 'Gestao / Management / Gestion',
+  String _title(BuildContext context, SupervisorCenterView view) =>
+      switch (view) {
+        SupervisorCenterView.dashboard => context.tr('supervisor.management'),
         SupervisorCenterView.approveTime =>
-          'Aprovar Horas / Approve Time / Aprobar Horas',
-        SupervisorCenterView.schedule =>
-          'Programacao / Schedule / Programacion',
-        SupervisorCenterView.jobs => 'Obras / Jobs / Obras',
-        SupervisorCenterView.peopleByJob => 'Pessoas por Obra',
-        SupervisorCenterView.workingNow => 'Trabalhando Agora',
+          context.tr('supervisor.approveTime'),
+        SupervisorCenterView.schedule => context.tr('supervisor.schedule'),
+        SupervisorCenterView.jobs => context.tr('supervisor.jobs'),
+        SupervisorCenterView.peopleByJob =>
+          context.tr('supervisor.peopleByJob'),
+        SupervisorCenterView.workingNow => context.tr('supervisor.workingNow'),
       };
 }
 
@@ -99,8 +100,9 @@ final class WorkerPilotScreen extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           JkddSectionHeader(
-            title: 'Field Time',
-            subtitle: '${user.name} - ${roleLabel(user.role)} pilot mode',
+            title: context.tr('app.title'),
+            subtitle:
+                '${user.name} - ${_roleLabel(context, user.role)} ${context.tr('supervisor.pilotMode')}',
           ),
           const SizedBox(height: AppSpacing.lg),
           Wrap(
@@ -108,7 +110,7 @@ final class WorkerPilotScreen extends ConsumerWidget {
             runSpacing: AppSpacing.md,
             children: [
               JkddStatusChip(
-                label: roleLabel(user.role),
+                label: _roleLabel(context, user.role),
                 icon: user.isContractor
                     ? Icons.engineering_outlined
                     : Icons.badge_outlined,
@@ -116,8 +118,8 @@ final class WorkerPilotScreen extends ConsumerWidget {
                     ? JkddStatusTone.info
                     : JkddStatusTone.success,
               ),
-              const JkddStatusChip(
-                label: 'Gestao indisponivel',
+              JkddStatusChip(
+                label: context.tr('supervisor.managementUnavailable'),
                 icon: Icons.lock_outline,
                 tone: JkddStatusTone.neutral,
               ),
@@ -128,45 +130,48 @@ final class WorkerPilotScreen extends ConsumerWidget {
             minWidth: 230,
             children: [
               _ActionCard(
-                title: 'Registrar entrada',
-                subtitle: 'Clock in',
+                title: context.tr('home.clockIn'),
+                subtitle: context.tr('approval.clockIn'),
                 icon: Icons.play_circle_outline,
-                onTap: () => _snack(context, 'Entrada simulada no piloto.'),
+                onTap: () =>
+                    _snack(context, context.tr('supervisor.clockInSimulated')),
               ),
               _ActionCard(
-                title: 'Registrar saida',
-                subtitle: 'Clock out and send hours',
+                title: context.tr('approval.clockOut'),
+                subtitle: context.tr('supervisor.reviewSubmittedRecords'),
                 icon: Icons.stop_circle_outlined,
                 onTap: () => _submitOwnTime(context, ref),
               ),
               _ActionCard(
-                title: 'Iniciar intervalo',
-                subtitle: 'Break start',
+                title: context.tr('assignment.breakTime'),
+                subtitle: context.tr('approval.breakMinutes'),
                 icon: Icons.pause_circle_outline,
-                onTap: () => _snack(context, 'Intervalo iniciado no piloto.'),
+                onTap: () =>
+                    _snack(context, context.tr('supervisor.breakStarted')),
               ),
               _ActionCard(
-                title: 'Finalizar intervalo',
-                subtitle: 'Break end',
+                title: context.tr('assignment.finished'),
+                subtitle: context.tr('approval.breakMinutes'),
                 icon: Icons.restart_alt,
-                onTap: () => _snack(context, 'Intervalo finalizado no piloto.'),
+                onTap: () =>
+                    _snack(context, context.tr('supervisor.breakEnded')),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
-          const JkddSectionHeader(
-            title: 'Minha obra de hoje',
-            subtitle: 'Minha programacao, minhas horas e correcoes.',
+          JkddSectionHeader(
+            title: context.tr('supervisor.currentWorkerJob'),
+            subtitle: context.tr('supervisor.workerJobSubtitle'),
           ),
           const SizedBox(height: AppSpacing.md),
           for (final assignment in assignments)
             _AssignmentCard(assignment: assignment),
           const SizedBox(height: AppSpacing.lg),
           if (entries.isEmpty)
-            const JkddEmptyState(
+            JkddEmptyState(
               icon: Icons.table_chart_outlined,
-              title: 'Sem horas enviadas',
-              message: 'Registros do perfil atual aparecem aqui.',
+              title: context.tr('supervisor.noHoursSent'),
+              message: context.tr('supervisor.noHoursSentHelp'),
             )
           else
             for (final entry in entries)
@@ -178,7 +183,7 @@ final class WorkerPilotScreen extends ConsumerWidget {
                       ? null
                       : () => _requestOwnCorrection(context, ref, entry.id),
                   icon: const Icon(Icons.edit_note_outlined),
-                  label: const Text('Solicitar correcao'),
+                  label: Text(context.tr('supervisor.requestCorrection')),
                 ),
               ),
         ],
@@ -187,12 +192,16 @@ final class WorkerPilotScreen extends ConsumerWidget {
   }
 
   Future<void> _submitOwnTime(BuildContext context, WidgetRef ref) async {
-    final note = await _textDialog(context, 'Observacao', 'Nota opcional');
+    final note = await _textDialog(
+      context,
+      context.tr('supervisor.observation'),
+      context.tr('supervisor.optionalNote'),
+    );
     if (note == null) return;
     ref
         .read(supervisorCenterProvider.notifier)
         .submitOwnTime(clockOut: '5:00 PM', note: note);
-    if (context.mounted) _snack(context, 'Horas enviadas.');
+    if (context.mounted) _snack(context, context.tr('supervisor.hoursSent'));
   }
 
   Future<void> _requestOwnCorrection(
@@ -200,8 +209,11 @@ final class WorkerPilotScreen extends ConsumerWidget {
     WidgetRef ref,
     String entryId,
   ) async {
-    final reason =
-        await _textDialog(context, 'Solicitar correcao', 'Motivo da correcao');
+    final reason = await _textDialog(
+      context,
+      context.tr('supervisor.requestCorrection'),
+      context.tr('supervisor.correctionReason'),
+    );
     if (reason?.trim().isEmpty != false) return;
     ref
         .read(supervisorCenterProvider.notifier)
@@ -221,7 +233,7 @@ final class PilotProfileSelector extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Modo de teste',
+            Text(context.tr('supervisor.testMode'),
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: AppSpacing.sm),
             DropdownButtonFormField<PilotRole>(
@@ -229,18 +241,18 @@ final class PilotProfileSelector extends ConsumerWidget {
               decoration: const InputDecoration(
                 prefixIcon: Icon(Icons.manage_accounts_outlined),
               ),
-              items: const [
+              items: [
                 DropdownMenuItem(
                   value: PilotRole.supervisor,
-                  child: Text('Supervisor'),
+                  child: Text(context.tr('supervisor.supervisor')),
                 ),
                 DropdownMenuItem(
                   value: PilotRole.employee,
-                  child: Text('Employee'),
+                  child: Text(context.tr('supervisor.employee')),
                 ),
                 DropdownMenuItem(
                   value: PilotRole.contractor,
-                  child: Text('Contractor'),
+                  child: Text(context.tr('supervisor.contractor')),
                 ),
               ],
               onChanged: (value) {
@@ -250,7 +262,7 @@ final class PilotProfileSelector extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'A interface atualiza imediatamente conforme RBAC.',
+              context.tr('supervisor.rbacUpdates'),
               style: Theme.of(context)
                   .textTheme
                   .bodySmall
@@ -283,23 +295,29 @@ final class _ManagementDashboard extends ConsumerWidget {
           minWidth: 180,
           children: [
             JkddSummaryCard(
-              label: 'Horas pendentes',
+              label: context.tr('supervisor.pendingHours'),
               value: '$pending',
               icon: Icons.pending_actions,
               color: AppColors.amber,
             ),
             JkddSummaryCard(
-              label: 'Obras ativas',
+              label: context.tr('supervisor.activeJobs'),
               value:
                   '${state.jobs.where((job) => job.status == JobStatus.active).length}',
               icon: Icons.apartment,
               color: AppColors.blue,
             ),
             JkddSummaryCard(
-              label: 'Trabalhando agora',
+              label: context.tr('supervisor.workingNow'),
               value: '$working',
               icon: Icons.groups_outlined,
               color: AppColors.green,
+            ),
+            JkddSummaryCard(
+              label: context.tr('nav.employees'),
+              value: '${state.users.length}',
+              icon: Icons.badge_outlined,
+              color: AppColors.purple,
             ),
           ],
         ),
@@ -308,34 +326,44 @@ final class _ManagementDashboard extends ConsumerWidget {
           minWidth: 240,
           children: [
             _ActionCard(
-              title: 'Aprovar Horas',
-              subtitle: 'Review submitted records',
+              title: context.tr('supervisor.approveTime'),
+              subtitle: context.tr('supervisor.reviewSubmittedRecords'),
               icon: Icons.fact_check_outlined,
               onTap: () => onOpen(SupervisorCenterView.approveTime),
             ),
             _ActionCard(
-              title: 'Programacao',
-              subtitle: 'Supervisor daily route',
+              title: context.tr('supervisor.schedule'),
+              subtitle: context.tr('supervisor.dailyRoute'),
               icon: Icons.event_note_outlined,
               onTap: () => onOpen(SupervisorCenterView.schedule),
             ),
             _ActionCard(
-              title: 'Obras',
-              subtitle: 'Jobs and job details',
+              title: context.tr('supervisor.jobs'),
+              subtitle: context.tr('supervisor.jobsAndDetails'),
               icon: Icons.apartment_outlined,
               onTap: () => onOpen(SupervisorCenterView.jobs),
             ),
             _ActionCard(
-              title: 'Pessoas por Obra',
-              subtitle: 'Daily job allocation',
+              title: context.tr('supervisor.peopleByJob'),
+              subtitle: context.tr('supervisor.dailyAllocation'),
               icon: Icons.assignment_ind_outlined,
               onTap: () => onOpen(SupervisorCenterView.peopleByJob),
             ),
             _ActionCard(
-              title: 'Trabalhando Agora',
-              subtitle: 'Open clock-ins',
+              title: context.tr('supervisor.workingNow'),
+              subtitle: context.tr('supervisor.openClockIns'),
               icon: Icons.engineering_outlined,
               onTap: () => onOpen(SupervisorCenterView.workingNow),
+            ),
+            _ActionCard(
+              title: context.tr('employees.management'),
+              subtitle: context.tr('employees.subtitle'),
+              icon: Icons.badge_outlined,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const EmployeesManagementScreen(),
+                ),
+              ),
             ),
           ],
         ),
@@ -390,11 +418,10 @@ final class ApproveTimeView extends ConsumerWidget {
             ),
           ),
         if (entries.isEmpty)
-          const JkddEmptyState(
+          JkddEmptyState(
             icon: Icons.fact_check_outlined,
-            title: 'Sem registros enviados',
-            message:
-                'Registros pendentes de Employee e Contractor aparecem aqui.',
+            title: context.tr('approval.noSubmittedRecords'),
+            message: context.tr('approval.noSubmittedRecordsHelp'),
           ),
       ],
     );
@@ -424,13 +451,16 @@ final class _ScheduleViewState extends ConsumerState<ScheduleView> {
               selected: {_filter},
               onSelectionChanged: (value) =>
                   setState(() => _filter = value.first),
-              segments: const [
-                ButtonSegment(value: ScheduleFilter.today, label: Text('Hoje')),
+              segments: [
                 ButtonSegment(
-                    value: ScheduleFilter.week, label: Text('Semana')),
+                    value: ScheduleFilter.today,
+                    label: Text(context.tr('supervisor.today'))),
+                ButtonSegment(
+                    value: ScheduleFilter.week,
+                    label: Text(context.tr('supervisor.week'))),
                 ButtonSegment(
                   value: ScheduleFilter.calendar,
-                  label: Text('Calendario'),
+                  label: Text(context.tr('supervisor.calendar')),
                 ),
               ],
             ),
@@ -453,22 +483,24 @@ final class JobsManagementView extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         JkddSectionHeader(
-          title: 'Lista de obras',
-          subtitle: 'Sem equipes fixas: alocacao por data e obra.',
+          title: context.tr('jobs.listTitle'),
+          subtitle: context.tr('jobs.fixedTeamsDisabled'),
           trailing: FilledButton.icon(
             onPressed: state.hasPermission(PilotPermission.createJob)
                 ? () => _newJob(context, ref)
                 : null,
             icon: const Icon(Icons.add),
-            label: const Text('Nova Obra'),
+            label: Text(context.tr('jobs.newJob')),
           ),
         ),
         const SizedBox(height: AppSpacing.md),
         Card(
           child: SwitchListTile(
             secondary: const Icon(Icons.admin_panel_settings_outlined),
-            title: const Text('Permitir que Supervisor cadastre obras'),
-            subtitle: Text(state.allowSupervisorCreateJobs ? 'Sim' : 'Nao'),
+            title: Text(context.tr('jobs.allowSupervisorCreateJobs')),
+            subtitle: Text(state.allowSupervisorCreateJobs
+                ? context.tr('common.yes')
+                : context.tr('common.no')),
             value: state.allowSupervisorCreateJobs,
             onChanged: state.currentRole == PilotRole.supervisor
                 ? null
@@ -515,16 +547,16 @@ final class _JobDetailScreenState extends ConsumerState<JobDetailScreen>
     final job = state.jobById(widget.jobId);
     return Scaffold(
       appBar: AppBar(
-        title: Text(job.displayName),
+        title: Text(_jobDisplayName(context, job)),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
-          tabs: const [
-            Tab(text: 'Resumo'),
-            Tab(text: 'Pessoas de Hoje'),
-            Tab(text: 'Horas'),
-            Tab(text: 'Historico'),
-            Tab(text: 'Informacoes'),
+          tabs: [
+            Tab(text: context.tr('supervisor.summary')),
+            Tab(text: context.tr('supervisor.peopleToday')),
+            Tab(text: context.tr('supervisor.hours')),
+            Tab(text: context.tr('supervisor.history')),
+            Tab(text: context.tr('supervisor.jobInfo')),
           ],
         ),
       ),
@@ -553,7 +585,12 @@ final class PeopleByJobView extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _FilterCard(labels: ['Data', 'Obra', 'Pessoa', 'Status']),
+        _FilterCard(labels: [
+          context.tr('supervisor.date'),
+          context.tr('supervisor.job'),
+          context.tr('supervisor.person'),
+          context.tr('supervisor.status'),
+        ]),
         const SizedBox(height: AppSpacing.md),
         for (final job in state.jobs)
           Card(
@@ -563,10 +600,10 @@ final class PeopleByJobView extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(job.displayName,
+                  Text(_jobDisplayName(context, job),
                       style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: AppSpacing.sm),
-                  const Text('Alocacao de pessoas por data e obra.'),
+                  Text(context.tr('supervisor.dailyAllocation')),
                   const Divider(height: 24),
                   Wrap(
                     spacing: AppSpacing.sm,
@@ -574,17 +611,29 @@ final class PeopleByJobView extends ConsumerWidget {
                     children: [
                       Chip(
                         label: Text(
-                          '${_assignmentsFor(state, job.id).length} pessoas programadas',
+                          context.tr('common.peopleScheduled', {
+                            'count': _assignmentsFor(state, job.id).length,
+                          }),
                         ),
                       ),
                       Chip(
                         label: Text(
-                          '${_assignmentsFor(state, job.id).where((a) => a.status == AssignmentStatus.working).length} trabalhando',
+                          context.tr('common.peopleWorking', {
+                            'count': _assignmentsFor(state, job.id)
+                                .where(
+                                    (a) => a.status == AssignmentStatus.working)
+                                .length,
+                          }),
                         ),
                       ),
                       Chip(
                         label: Text(
-                          '${_assignmentsFor(state, job.id).where((a) => a.status == AssignmentStatus.noEntry).length} sem entrada',
+                          context.tr('common.noEntryCount', {
+                            'count': _assignmentsFor(state, job.id)
+                                .where(
+                                    (a) => a.status == AssignmentStatus.noEntry)
+                                .length,
+                          }),
                         ),
                       ),
                     ],
@@ -617,20 +666,20 @@ final class WorkingNowView extends ConsumerWidget {
               children: [
                 TextButton(
                   onPressed: () => _reviewEntry(context, ref, entry),
-                  child: const Text('Ver Registro'),
+                  child: Text(context.tr('supervisor.viewRecord')),
                 ),
                 FilledButton(
                   onPressed: () => _openJob(context, entry.jobId),
-                  child: const Text('Ver Obra'),
+                  child: Text(context.tr('supervisor.viewJob')),
                 ),
               ],
             ),
           ),
         if (open.isEmpty)
-          const JkddEmptyState(
+          JkddEmptyState(
             icon: Icons.engineering_outlined,
-            title: 'Ninguem trabalhando agora',
-            message: 'Entradas abertas aparecem aqui.',
+            title: context.tr('supervisor.nobodyWorking'),
+            message: context.tr('supervisor.openEntriesAppear'),
           ),
       ],
     );
@@ -678,51 +727,63 @@ final class _TimeEntryCard extends ConsumerWidget {
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.xs,
               children: [
-                Chip(label: Text(roleLabel(user.role))),
-                Chip(label: Text(job.displayName)),
+                Chip(label: Text(_roleLabel(context, user.role))),
+                Chip(label: Text(_jobDisplayName(context, job))),
                 Chip(label: Text(job.city)),
               ],
             ),
             const Divider(height: 28),
             _InfoWrap(
               children: [
-                JkddInfoRow(label: 'Data', value: _date(entry.date)),
-                JkddInfoRow(label: 'Entrada', value: entry.clockIn),
-                JkddInfoRow(label: 'Saida', value: entry.clockOut ?? 'Aberta'),
                 JkddInfoRow(
-                  label: 'Intervalo',
+                    label: context.tr('supervisor.date'),
+                    value: _date(entry.date)),
+                JkddInfoRow(
+                    label: context.tr('supervisor.clockIn'),
+                    value: entry.clockIn),
+                JkddInfoRow(
+                    label: context.tr('supervisor.clockOut'),
+                    value:
+                        entry.clockOut ?? context.tr('supervisor.openStatus')),
+                JkddInfoRow(
+                  label: context.tr('supervisor.interval'),
                   value: '${entry.breakMinutes} min',
                 ),
-                JkddInfoRow(label: 'Total', value: _entryHours(entry)),
                 JkddInfoRow(
-                  label: 'Travel Bonus',
+                    label: context.tr('supervisor.total'),
+                    value: _entryHours(entry)),
+                JkddInfoRow(
+                  label: context.tr('approval.travelBonus'),
                   value: '${entry.travelBonusHours.toStringAsFixed(2)} h',
                 ),
               ],
             ),
             if (entry.employeeNote.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.md),
-              Text('Observacao do funcionario: ${entry.employeeNote}'),
+              Text(
+                  '${context.tr('supervisor.employeeNote')}: ${entry.employeeNote}'),
             ],
             if (entry.supervisorNote.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.sm),
-              Text('Observacao supervisor: ${entry.supervisorNote}'),
+              Text(
+                  '${context.tr('supervisor.supervisorNote')}: ${entry.supervisorNote}'),
             ],
             if (entry.rejectionReason?.trim().isNotEmpty == true) ...[
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Motivo da rejeicao: ${entry.rejectionReason}',
+                '${context.tr('supervisor.rejectionReason')}: ${entry.rejectionReason}',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ],
             if (entry.reviewNote?.trim().isNotEmpty == true) ...[
               const SizedBox(height: AppSpacing.sm),
-              Text('Solicitacao de revisao: ${entry.reviewNote}'),
+              Text(
+                  '${context.tr('supervisor.reviewRequest')}: ${entry.reviewNote}'),
             ],
             if (reviews.isNotEmpty) ...[
               const Divider(height: 28),
               Text(
-                'Historico',
+                context.tr('approval.history'),
                 style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: AppSpacing.xs),
@@ -730,8 +791,8 @@ final class _TimeEntryCard extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Text(
-                    '${reviewStatusLabel(review.previousStatus)} -> '
-                    '${reviewStatusLabel(review.newStatus)} | '
+                    '${_localizedReviewStatus(context, review.previousStatus)} -> '
+                    '${_localizedReviewStatus(context, review.newStatus)} | '
                     '${state.userById(review.reviewerId).name} | '
                     '${_date(review.reviewedAt)} ${_time(review.reviewedAt)} | '
                     '${review.reason}'
@@ -787,11 +848,55 @@ String _localizedReviewStatus(BuildContext context, TimeReviewStatus status) {
     TimeReviewStatus.approved => context.tr('approval.approved'),
     TimeReviewStatus.rejected => context.tr('approval.rejected'),
     TimeReviewStatus.underReview => context.tr('approval.underReview'),
+    TimeReviewStatus.correctionRequested =>
+      context.tr('approval.correctionRequested'),
     TimeReviewStatus.corrected => context.tr('approval.corrected'),
     TimeReviewStatus.resubmitted => context.tr('approval.resubmitted'),
-    _ => reviewStatusLabel(status),
+    TimeReviewStatus.closed => context.tr('approval.closed'),
+    TimeReviewStatus.working => context.tr('approval.working'),
   };
 }
+
+String _roleLabel(BuildContext context, PilotRole role) => switch (role) {
+      PilotRole.owner => context.tr('supervisor.owner'),
+      PilotRole.administrator => context.tr('supervisor.administrator'),
+      PilotRole.coordinator => context.tr('supervisor.coordinator'),
+      PilotRole.supervisor => context.tr('supervisor.supervisor'),
+      PilotRole.employee => context.tr('supervisor.employee'),
+      PilotRole.contractor => context.tr('supervisor.contractor'),
+    };
+
+String _jobDisplayName(BuildContext context, SupervisorJob job) =>
+    '${context.tr('supervisor.job')} ${job.number} - ${job.name}';
+
+String _auditFieldLabel(BuildContext context, String fieldName) =>
+    switch (fieldName) {
+      'clockIn' => context.tr('approval.clockIn'),
+      'clockOut' => context.tr('approval.clockOut'),
+      'breakMinutes' => context.tr('approval.breakMinutes'),
+      'travelBonusHours' => context.tr('approval.travelBonus'),
+      'supervisorNote' => context.tr('supervisor.supervisorNote'),
+      _ => fieldName,
+    };
+
+String _jobStatusLabel(BuildContext context, JobStatus status) =>
+    switch (status) {
+      JobStatus.planned => context.tr('jobStatus.planned'),
+      JobStatus.active => context.tr('jobStatus.active'),
+      JobStatus.paused => context.tr('jobStatus.paused'),
+      JobStatus.completed => context.tr('jobStatus.completed'),
+      JobStatus.cancelled => context.tr('jobStatus.cancelled'),
+    };
+
+String _assignmentStatusLabel(BuildContext context, AssignmentStatus status) =>
+    switch (status) {
+      AssignmentStatus.scheduled => context.tr('assignment.scheduled'),
+      AssignmentStatus.working => context.tr('assignment.working'),
+      AssignmentStatus.breakTime => context.tr('assignment.breakTime'),
+      AssignmentStatus.finished => context.tr('assignment.finished'),
+      AssignmentStatus.noEntry => context.tr('assignment.noEntry'),
+      AssignmentStatus.absent => context.tr('assignment.absent'),
+    };
 
 final class _ScheduleCard extends ConsumerWidget {
   const _ScheduleCard({required this.schedule});
@@ -808,20 +913,23 @@ final class _ScheduleCard extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: ListTile(
         leading: const Icon(Icons.event_note_outlined, color: AppColors.blue),
-        title: Text('${schedule.time} - Obra ${job.number} - ${job.name}'),
+        title: Text(
+            '${schedule.time} - ${context.tr('supervisor.job')} ${job.number} - ${job.name}'),
         subtitle: Text(
-            '${job.address}, ${job.city} - $people pessoas - ${schedule.note}'),
+            '${job.address}, ${job.city} - ${context.tr('common.peopleCount', {
+              'count': people
+            })} - ${schedule.note}'),
         trailing: Wrap(
           spacing: AppSpacing.sm,
           children: [
             TextButton(
               onPressed: () => _openJob(context, job.id),
-              child: const Text('Abrir Obra'),
+              child: Text(context.tr('jobs.openJob')),
             ),
             FilledButton.icon(
               onPressed: null,
               icon: const Icon(Icons.route_outlined),
-              label: const Text('Abrir Rota'),
+              label: Text(context.tr('supervisor.openRoute')),
             ),
           ],
         ),
@@ -852,11 +960,11 @@ final class _JobListCard extends ConsumerWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(job.displayName,
+                  child: Text(_jobDisplayName(context, job),
                       style: Theme.of(context).textTheme.titleMedium),
                 ),
                 JkddStatusChip(
-                  label: jobStatusLabel(job.status),
+                  label: _jobStatusLabel(context, job.status),
                   icon: Icons.apartment_outlined,
                   tone: job.status == JobStatus.active
                       ? JkddStatusTone.success
@@ -867,23 +975,25 @@ final class _JobListCard extends ConsumerWidget {
             const Divider(height: 28),
             _InfoWrap(
               children: [
-                JkddInfoRow(label: 'Cliente', value: job.client),
-                JkddInfoRow(label: 'Endereco', value: job.address),
-                JkddInfoRow(label: 'Cidade', value: job.city),
                 JkddInfoRow(
-                  label: 'Supervisor',
+                    label: context.tr('supervisor.client'), value: job.client),
+                JkddInfoRow(
+                    label: context.tr('jobs.address'), value: job.address),
+                JkddInfoRow(label: context.tr('jobs.city'), value: job.city),
+                JkddInfoRow(
+                  label: context.tr('supervisor.supervisor'),
                   value: state.userById(job.supervisorId).name,
                 ),
                 JkddInfoRow(
-                  label: 'Programadas hoje',
+                  label: context.tr('supervisor.scheduledToday'),
                   value: '${assigned.length}',
                 ),
                 JkddInfoRow(
-                  label: 'Trabalhando agora',
+                  label: context.tr('supervisor.workingNow'),
                   value: '${working.length}',
                 ),
                 JkddInfoRow(
-                  label: 'Horas hoje',
+                  label: context.tr('supervisor.hoursToday'),
                   value: _hours(entries.fold<double>(
                     0,
                     (total, entry) => total + _entryHoursValue(entry),
@@ -897,7 +1007,7 @@ final class _JobListCard extends ConsumerWidget {
               child: FilledButton.icon(
                 onPressed: () => _openJob(context, job.id),
                 icon: const Icon(Icons.open_in_new),
-                label: const Text('Ver Obra'),
+                label: Text(context.tr('supervisor.viewJob')),
               ),
             ),
           ],
@@ -924,27 +1034,27 @@ final class _JobSummary extends ConsumerWidget {
           minWidth: 180,
           children: [
             JkddSummaryCard(
-              label: 'Pessoas programadas',
+              label: context.tr('supervisor.peopleScheduled'),
               value: '${assignments.length}',
               icon: Icons.groups_outlined,
               color: AppColors.blue,
             ),
             JkddSummaryCard(
-              label: 'Pessoas trabalhando',
+              label: context.tr('supervisor.peopleWorking'),
               value:
                   '${assignments.where((a) => a.status == AssignmentStatus.working).length}',
               icon: Icons.engineering_outlined,
               color: AppColors.green,
             ),
             JkddSummaryCard(
-              label: 'Sem entrada',
+              label: context.tr('supervisor.withoutClockIn'),
               value:
                   '${assignments.where((a) => a.status == AssignmentStatus.noEntry).length}',
               icon: Icons.person_off_outlined,
               color: AppColors.amber,
             ),
             JkddSummaryCard(
-              label: 'Horas pendentes',
+              label: context.tr('supervisor.pendingHours'),
               value:
                   '${entries.where((e) => e.status == TimeReviewStatus.pending).length}',
               icon: Icons.pending_actions,
@@ -958,15 +1068,19 @@ final class _JobSummary extends ConsumerWidget {
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: _InfoWrap(
               children: [
-                JkddInfoRow(label: 'Numero', value: job.number),
-                JkddInfoRow(label: 'Endereco', value: job.address),
-                JkddInfoRow(label: 'Status', value: jobStatusLabel(job.status)),
                 JkddInfoRow(
-                  label: 'Supervisor',
+                    label: context.tr('supervisor.number'), value: job.number),
+                JkddInfoRow(
+                    label: context.tr('jobs.address'), value: job.address),
+                JkddInfoRow(
+                    label: context.tr('jobs.status'),
+                    value: _jobStatusLabel(context, job.status)),
+                JkddInfoRow(
+                  label: context.tr('supervisor.supervisor'),
                   value: state.userById(job.supervisorId).name,
                 ),
                 JkddInfoRow(
-                  label: 'Total de horas do dia',
+                  label: context.tr('supervisor.totalDayHours'),
                   value: _hours(entries.fold<double>(
                     0,
                     (sum, entry) => sum + _entryHoursValue(entry),
@@ -993,13 +1107,13 @@ final class _JobPeopleToday extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Pessoas programadas hoje',
+        Text(context.tr('supervisor.peopleScheduledToday'),
             style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.sm),
         for (final assignment in assignments)
           _AssignmentCard(assignment: assignment),
         const SizedBox(height: AppSpacing.lg),
-        Text('Pessoas trabalhando agora',
+        Text(context.tr('supervisor.peopleWorkingNow'),
             style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.sm),
         for (final assignment in assignments
@@ -1028,8 +1142,8 @@ final class _JobHours extends ConsumerWidget {
             onPressed: () async {
               final reason = await _textDialog(
                 context,
-                'Aprovar todos',
-                'Justificativa',
+                context.tr('approval.approveAll'),
+                context.tr('approval.requiredJustification'),
               );
               if (reason?.trim().isEmpty != false) return;
               ref
@@ -1037,7 +1151,7 @@ final class _JobHours extends ConsumerWidget {
                   .approveAllValidForJob(job.id, reason!);
             },
             icon: const Icon(Icons.done_all),
-            label: const Text('Aprovar todos validos'),
+            label: Text(context.tr('approval.approveAllValid')),
           ),
         ),
         const SizedBox(height: AppSpacing.md),
@@ -1050,21 +1164,21 @@ final class _JobHours extends ConsumerWidget {
               children: [
                 TextButton(
                   onPressed: () => _reviewEntry(context, ref, entry),
-                  child: const Text('Revisar'),
+                  child: Text(context.tr('approval.review')),
                 ),
                 FilledButton(
                   onPressed: () async {
                     final reason = await _textDialog(
                       context,
-                      'Aprovar registro',
-                      'Justificativa',
+                      context.tr('approval.approve'),
+                      context.tr('approval.requiredJustification'),
                     );
                     if (reason?.trim().isEmpty != false) return;
                     ref
                         .read(supervisorCenterProvider.notifier)
                         .approveEntry(entry.id, reason!);
                   },
-                  child: const Text('Aprovar'),
+                  child: Text(context.tr('approval.approve')),
                 ),
               ],
             ),
@@ -1093,17 +1207,19 @@ final class _JobHistory extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: Text(
-              '${_date(DateTime.now())} - ${entries.length} pessoas - ${_hours(entries.fold<double>(0, (sum, entry) => sum + _entryHoursValue(entry)))} - Supervisor ${state.userById(job.supervisorId).name}',
+              '${_date(DateTime.now())} - ${context.tr('common.peopleCount', {
+                    'count': entries.length
+                  })} - ${_hours(entries.fold<double>(0, (sum, entry) => sum + _entryHoursValue(entry)))} - ${context.tr('supervisor.supervisor')} ${state.userById(job.supervisorId).name}',
             ),
           ),
         ),
         const SizedBox(height: AppSpacing.md),
         for (final log in logs) _AuditLogTile(log: log),
         if (logs.isEmpty)
-          const JkddEmptyState(
+          JkddEmptyState(
             icon: Icons.history_outlined,
-            title: 'Sem alteracoes',
-            message: 'Alteracoes e aprovacoes aparecem aqui.',
+            title: context.tr('supervisor.noChanges'),
+            message: context.tr('supervisor.noChangesHelp'),
           ),
       ],
     );
@@ -1126,25 +1242,34 @@ final class _JobInfo extends ConsumerWidget {
           children: [
             _InfoWrap(
               children: [
-                JkddInfoRow(label: 'Numero da obra', value: job.number),
-                JkddInfoRow(label: 'Cliente', value: job.client),
-                JkddInfoRow(label: 'Endereco', value: job.address),
-                JkddInfoRow(label: 'Cidade', value: job.city),
                 JkddInfoRow(
-                    label: 'Data de inicio', value: _date(job.startDate)),
+                    label: context.tr('jobs.jobNumber'), value: job.number),
                 JkddInfoRow(
-                    label: 'Horario previsto', value: job.scheduledTime),
-                JkddInfoRow(label: 'Observacoes', value: job.notes),
-                JkddInfoRow(label: 'Status', value: jobStatusLabel(job.status)),
+                    label: context.tr('supervisor.client'), value: job.client),
+                JkddInfoRow(
+                    label: context.tr('jobs.address'), value: job.address),
+                JkddInfoRow(label: context.tr('jobs.city'), value: job.city),
+                JkddInfoRow(
+                    label: context.tr('supervisor.startDate'),
+                    value: _date(job.startDate)),
+                JkddInfoRow(
+                    label: context.tr('supervisor.scheduledTime'),
+                    value: job.scheduledTime),
+                JkddInfoRow(
+                    label: context.tr('supervisor.notes'), value: job.notes),
+                JkddInfoRow(
+                    label: context.tr('jobs.status'),
+                    value: _jobStatusLabel(context, job.status)),
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
             FilledButton.icon(
               onPressed: state.hasPermission(PilotPermission.editJob)
-                  ? () => _snack(context, 'Edicao visual habilitada no piloto.')
+                  ? () => _snack(
+                      context, context.tr('supervisor.visualEditEnabled'))
                   : null,
               icon: const Icon(Icons.edit_outlined),
-              label: const Text('Editar conforme permissao'),
+              label: Text(context.tr('supervisor.editByPermission')),
             ),
           ],
         ),
@@ -1174,13 +1299,13 @@ final class _AssignmentCard extends ConsumerWidget {
           user.isContractor ? Icons.engineering_outlined : Icons.badge_outlined,
           color: AppColors.blue,
         ),
-        title: Text('${user.name} - ${roleLabel(user.role)}'),
+        title: Text('${user.name} - ${_roleLabel(context, user.role)}'),
         subtitle: Text(
-          '${job.displayName} - ${assignment.scheduledStart} - ${assignment.scheduledEnd}\n'
-          'Entrada: ${entry?.clockIn ?? "--"} | Saida: ${entry?.clockOut ?? "--"} | Total: ${entry == null ? "--" : _entryHours(entry)}',
+          '${_jobDisplayName(context, job)} - ${assignment.scheduledStart} - ${assignment.scheduledEnd}\n'
+          '${context.tr('supervisor.clockIn')}: ${entry?.clockIn ?? "--"} | ${context.tr('supervisor.clockOut')}: ${entry?.clockOut ?? "--"} | ${context.tr('supervisor.total')}: ${entry == null ? "--" : _entryHours(entry)}',
         ),
         trailing: JkddStatusChip(
-          label: assignmentStatusLabel(assignment.status),
+          label: _assignmentStatusLabel(context, assignment.status),
           icon: Icons.circle,
           tone: assignment.status == AssignmentStatus.working
               ? JkddStatusTone.success
@@ -1203,8 +1328,11 @@ final class _AuditLogTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: AppSpacing.sm),
         child: ListTile(
           leading: const Icon(Icons.history_outlined, color: AppColors.purple),
-          title:
-              Text('${log.fieldName}: ${log.originalValue} -> ${log.newValue}'),
+          title: Text(
+            '${_auditFieldLabel(context, log.fieldName)}: '
+            '${_localizedFeedback(context, log.originalValue)} -> '
+            '${_localizedFeedback(context, log.newValue)}',
+          ),
           subtitle: Text(
             '${log.changedBy} - ${_date(log.changedAt)} ${_time(log.changedAt)}\n${log.justification}',
           ),
@@ -1356,7 +1484,7 @@ Future<void> _reviewEntry(
   final action = await showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Revisar registro'),
+      title: Text(context.tr('approval.reviewEntry')),
       content: SizedBox(
         width: 520,
         child: SingleChildScrollView(
@@ -1365,37 +1493,42 @@ Future<void> _reviewEntry(
             children: [
               TextField(
                 controller: clockIn,
-                decoration: const InputDecoration(labelText: 'Entrada'),
+                decoration:
+                    InputDecoration(labelText: context.tr('approval.clockIn')),
               ),
               const SizedBox(height: AppSpacing.sm),
               TextField(
                 controller: clockOut,
-                decoration: const InputDecoration(labelText: 'Saida'),
+                decoration:
+                    InputDecoration(labelText: context.tr('approval.clockOut')),
               ),
               const SizedBox(height: AppSpacing.sm),
               TextField(
                 controller: breakMinutes,
-                decoration: const InputDecoration(labelText: 'Intervalo min'),
+                decoration: InputDecoration(
+                    labelText: context.tr('approval.breakMinutes')),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: AppSpacing.sm),
               TextField(
                 controller: bonus,
-                decoration: const InputDecoration(labelText: 'Travel Bonus h'),
+                decoration: InputDecoration(
+                    labelText: context.tr('approval.travelBonus')),
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: AppSpacing.sm),
               TextField(
                 controller: note,
-                decoration: const InputDecoration(labelText: 'Observacao'),
+                decoration: InputDecoration(
+                    labelText: context.tr('approval.observation')),
                 minLines: 2,
                 maxLines: 4,
               ),
               const SizedBox(height: AppSpacing.sm),
               TextField(
                 controller: justification,
-                decoration: const InputDecoration(
-                  labelText: 'Justificativa obrigatoria',
+                decoration: InputDecoration(
+                  labelText: context.tr('approval.requiredJustification'),
                 ),
                 minLines: 2,
                 maxLines: 4,
@@ -1407,23 +1540,23 @@ Future<void> _reviewEntry(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
+          child: Text(context.tr('common.cancel')),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, 'correction'),
-          child: const Text('Solicitar correcao'),
+          child: Text(context.tr('supervisor.requestCorrection')),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, 'reject'),
-          child: const Text('Rejeitar'),
+          child: Text(context.tr('approval.reject')),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, 'approve'),
-          child: const Text('Aprovar'),
+          child: Text(context.tr('approval.approve')),
         ),
         FilledButton.tonal(
           onPressed: () => Navigator.pop(context, 'save'),
-          child: const Text('Salvar revisao'),
+          child: Text(context.tr('approval.saveReview')),
         ),
       ],
     ),
@@ -1477,24 +1610,23 @@ Future<void> _approveEntry(
 ) async {
   final confirmed = await _confirmDialog(
     context,
-    title: 'Aprovar registro?',
-    message:
-        'O registro sera marcado como Aprovado, bloqueado para edicoes comuns e liberado para Timesheet e relatorios.',
-    confirmLabel: 'Aprovar',
+    title: context.tr('approval.confirmApprove'),
+    message: context.tr('approval.approveMessage'),
+    confirmLabel: context.tr('approval.approve'),
   );
   if (confirmed != true) return;
   if (!context.mounted) return;
   final reason = await _textDialog(
     context,
-    'Confirmar aprovacao',
-    'Observacao da aprovacao',
+    context.tr('approval.confirmApproveTitle'),
+    context.tr('approval.approvalObservation'),
     requiredValue: false,
   );
   if (reason == null) return;
+  if (!context.mounted) return;
   try {
-    ref
-        .read(supervisorCenterProvider.notifier)
-        .approveEntry(entry.id, reason.trim().isEmpty ? 'Aprovado' : reason);
+    ref.read(supervisorCenterProvider.notifier).approveEntry(entry.id,
+        reason.trim().isEmpty ? context.tr('approval.approved') : reason);
   } on StateError catch (error) {
     if (context.mounted) _snack(context, error.message);
   }
@@ -1507,16 +1639,16 @@ Future<void> _rejectEntry(
 ) async {
   final reason = await _textDialog(
     context,
-    'Rejeitar registro',
-    'Motivo obrigatorio da rejeicao',
+    context.tr('approval.rejectRecord'),
+    context.tr('approval.rejectionReasonRequired'),
   );
   if (reason?.trim().isEmpty != false) return;
   if (!context.mounted) return;
   final confirmed = await _confirmDialog(
     context,
-    title: 'Rejeitar registro?',
-    message: 'O registro sera devolvido ao colaborador com o motivo informado.',
-    confirmLabel: 'Rejeitar',
+    title: context.tr('approval.confirmReject'),
+    message: context.tr('approval.rejectMessage'),
+    confirmLabel: context.tr('approval.reject'),
     destructive: true,
   );
   if (confirmed != true) return;
@@ -1558,7 +1690,7 @@ Future<void> _newJob(BuildContext context, WidgetRef ref) async {
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        title: const Text('Nova Obra'),
+        title: Text(context.tr('jobs.newJob')),
         content: SizedBox(
           width: 560,
           child: SingleChildScrollView(
@@ -1567,37 +1699,43 @@ Future<void> _newJob(BuildContext context, WidgetRef ref) async {
               children: [
                 TextField(
                     controller: number,
-                    decoration:
-                        const InputDecoration(labelText: 'Numero da obra')),
+                    decoration: InputDecoration(
+                        labelText: context.tr('jobs.jobNumber'))),
                 const SizedBox(height: AppSpacing.sm),
                 TextField(
                     controller: name,
                     decoration:
-                        const InputDecoration(labelText: 'Nome da obra')),
+                        InputDecoration(labelText: context.tr('jobs.jobName'))),
                 const SizedBox(height: AppSpacing.sm),
                 TextField(
                     controller: client,
-                    decoration: const InputDecoration(labelText: 'Cliente')),
+                    decoration: InputDecoration(
+                        labelText: context.tr('supervisor.client'))),
                 const SizedBox(height: AppSpacing.sm),
                 TextField(
                     controller: address,
-                    decoration: const InputDecoration(labelText: 'Endereco')),
+                    decoration:
+                        InputDecoration(labelText: context.tr('jobs.address'))),
                 const SizedBox(height: AppSpacing.sm),
                 TextField(
                     controller: city,
-                    decoration: const InputDecoration(labelText: 'Cidade')),
+                    decoration:
+                        InputDecoration(labelText: context.tr('jobs.city'))),
                 const SizedBox(height: AppSpacing.sm),
                 TextField(
                     controller: zip,
-                    decoration: const InputDecoration(labelText: 'ZIP Code')),
+                    decoration:
+                        InputDecoration(labelText: context.tr('jobs.zipCode'))),
                 const SizedBox(height: AppSpacing.sm),
                 DropdownButtonFormField<JobStatus>(
                   initialValue: status,
-                  decoration: const InputDecoration(labelText: 'Status'),
+                  decoration:
+                      InputDecoration(labelText: context.tr('jobs.status')),
                   items: [
                     for (final item in JobStatus.values)
                       DropdownMenuItem(
-                          value: item, child: Text(jobStatusLabel(item))),
+                          value: item,
+                          child: Text(_jobStatusLabel(context, item))),
                   ],
                   onChanged: (value) =>
                       setState(() => status = value ?? status),
@@ -1605,8 +1743,8 @@ Future<void> _newJob(BuildContext context, WidgetRef ref) async {
                 const SizedBox(height: AppSpacing.sm),
                 TextField(
                     controller: notes,
-                    decoration:
-                        const InputDecoration(labelText: 'Observacoes')),
+                    decoration: InputDecoration(
+                        labelText: context.tr('supervisor.notes'))),
               ],
             ),
           ),
@@ -1614,20 +1752,24 @@ Future<void> _newJob(BuildContext context, WidgetRef ref) async {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancelar')),
+              child: Text(context.tr('common.cancel'))),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Salvar')),
+              child: Text(context.tr('common.save'))),
         ],
       ),
     ),
   );
   if (saved == true) {
+    if (!context.mounted) return;
+    final supervisorId = ref.read(supervisorCenterProvider).currentUser.id;
     ref.read(supervisorCenterProvider.notifier).addJob(
           SupervisorJob(
             id: 'job-${DateTime.now().millisecondsSinceEpoch}',
             number: number.text.trim().isEmpty ? 'NEW' : number.text.trim(),
-            name: name.text.trim().isEmpty ? 'Nova Obra' : name.text.trim(),
+            name: name.text.trim().isEmpty
+                ? context.tr('jobs.newJob')
+                : name.text.trim(),
             client: client.text.trim(),
             address: address.text.trim(),
             city: city.text.trim(),
@@ -1635,7 +1777,7 @@ Future<void> _newJob(BuildContext context, WidgetRef ref) async {
             zipCode: zip.text.trim(),
             startDate: DateTime.now(),
             scheduledTime: '7:00 AM',
-            supervisorId: 'joukin',
+            supervisorId: supervisorId,
             notes: notes.text.trim(),
             status: status,
           ),
@@ -1670,13 +1812,13 @@ Future<String?> _textDialog(
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar')),
+            child: Text(context.tr('common.cancel'))),
         FilledButton(
           onPressed: () {
             if (requiredValue && controller.text.trim().isEmpty) return;
             Navigator.pop(context, controller.text);
           },
-          child: const Text('Salvar'),
+          child: Text(context.tr('common.save')),
         ),
       ],
     ),
@@ -1691,7 +1833,7 @@ Future<_ReviewRequest?> _reviewRequestDialog(BuildContext context) async {
   final value = await showDialog<_ReviewRequest>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Revisar registro'),
+      title: Text(context.tr('approval.reviewRecord')),
       content: SizedBox(
         width: 480,
         child: Column(
@@ -1699,8 +1841,8 @@ Future<_ReviewRequest?> _reviewRequestDialog(BuildContext context) async {
           children: [
             TextField(
               controller: reason,
-              decoration: const InputDecoration(
-                labelText: 'Correcao ou conferencia solicitada',
+              decoration: InputDecoration(
+                labelText: context.tr('approval.reviewRequest'),
               ),
               minLines: 2,
               maxLines: 4,
@@ -1708,8 +1850,8 @@ Future<_ReviewRequest?> _reviewRequestDialog(BuildContext context) async {
             const SizedBox(height: AppSpacing.sm),
             TextField(
               controller: observation,
-              decoration: const InputDecoration(
-                labelText: 'Observacoes adicionais',
+              decoration: InputDecoration(
+                labelText: context.tr('approval.additionalObservations'),
               ),
               minLines: 2,
               maxLines: 4,
@@ -1720,7 +1862,7 @@ Future<_ReviewRequest?> _reviewRequestDialog(BuildContext context) async {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancelar'),
+          child: Text(context.tr('common.cancel')),
         ),
         FilledButton(
           onPressed: () {
@@ -1733,7 +1875,7 @@ Future<_ReviewRequest?> _reviewRequestDialog(BuildContext context) async {
               ),
             );
           },
-          child: const Text('Enviar para revisao'),
+          child: Text(context.tr('approval.sendToReview')),
         ),
       ],
     ),
@@ -1758,7 +1900,7 @@ Future<bool?> _confirmDialog(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancelar'),
+          child: Text(context.tr('common.cancel')),
         ),
         FilledButton(
           style: destructive
@@ -1788,7 +1930,15 @@ void _openJob(BuildContext context, String jobId) {
 void _snack(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
+    ..showSnackBar(
+      SnackBar(content: Text(_localizedFeedback(context, message))),
+    );
+}
+
+String _localizedFeedback(BuildContext context, String text) {
+  final isTranslationKey =
+      RegExp(r'^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z0-9]+)+$').hasMatch(text);
+  return isTranslationKey ? context.tr(text) : text;
 }
 
 List<JobAssignment> _assignmentsFor(
