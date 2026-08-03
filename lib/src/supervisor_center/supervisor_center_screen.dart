@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_colors.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_spacing.dart';
+import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_controller.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_models.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_empty_state.dart';
@@ -359,10 +360,33 @@ final class ApproveTimeView extends ConsumerWidget {
           _TimeEntryCard(
             entry: entry,
             showReviewButton: true,
-            trailing: FilledButton.icon(
-              onPressed: () => _reviewEntry(context, ref, entry),
-              icon: const Icon(Icons.rate_review_outlined),
-              label: const Text('Revisar'),
+            trailing: Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              alignment: WrapAlignment.end,
+              children: [
+                FilledButton.icon(
+                  onPressed: entry.isLocked
+                      ? null
+                      : () => _approveEntry(context, ref, entry),
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: Text(context.tr('approval.approve')),
+                ),
+                OutlinedButton.icon(
+                  onPressed: entry.isLocked
+                      ? null
+                      : () => _rejectEntry(context, ref, entry),
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: Text(context.tr('approval.reject')),
+                ),
+                TextButton.icon(
+                  onPressed: entry.isLocked
+                      ? null
+                      : () => _sendToReview(context, ref, entry),
+                  icon: const Icon(Icons.rate_review_outlined),
+                  label: Text(context.tr('approval.review')),
+                ),
+              ],
             ),
           ),
         if (entries.isEmpty)
@@ -629,6 +653,10 @@ final class _TimeEntryCard extends ConsumerWidget {
     final state = ref.watch(supervisorCenterProvider);
     final user = state.userById(entry.userId);
     final job = state.jobById(entry.jobId);
+    final reviews = state.reviews
+        .where((review) => review.timeEntryId == entry.id)
+        .toList(growable: false)
+      ..sort((left, right) => right.reviewedAt.compareTo(left.reviewedAt));
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Padding(
@@ -680,6 +708,37 @@ final class _TimeEntryCard extends ConsumerWidget {
               const SizedBox(height: AppSpacing.sm),
               Text('Observacao supervisor: ${entry.supervisorNote}'),
             ],
+            if (entry.rejectionReason?.trim().isNotEmpty == true) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Motivo da rejeicao: ${entry.rejectionReason}',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ],
+            if (entry.reviewNote?.trim().isNotEmpty == true) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text('Solicitacao de revisao: ${entry.reviewNote}'),
+            ],
+            if (reviews.isNotEmpty) ...[
+              const Divider(height: 28),
+              Text(
+                'Historico',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              for (final review in reviews.take(3))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(
+                    '${reviewStatusLabel(review.previousStatus)} -> '
+                    '${reviewStatusLabel(review.newStatus)} | '
+                    '${state.userById(review.reviewerId).name} | '
+                    '${_date(review.reviewedAt)} ${_time(review.reviewedAt)} | '
+                    '${review.reason}'
+                    '${review.observation.isEmpty ? '' : ' | ${review.observation}'}',
+                  ),
+                ),
+            ],
             if (trailing != null) ...[
               const SizedBox(height: AppSpacing.md),
               Align(alignment: Alignment.centerRight, child: trailing!),
@@ -698,11 +757,13 @@ final class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => JkddStatusChip(
-        label: reviewStatusLabel(status),
+        label: _localizedReviewStatus(context, status),
         icon: switch (status) {
           TimeReviewStatus.approved => Icons.check_circle_outline,
           TimeReviewStatus.rejected => Icons.cancel_outlined,
           TimeReviewStatus.correctionRequested => Icons.edit_note_outlined,
+          TimeReviewStatus.corrected => Icons.task_alt_outlined,
+          TimeReviewStatus.resubmitted => Icons.upload_file_outlined,
           TimeReviewStatus.closed => Icons.lock_outline,
           TimeReviewStatus.working => Icons.play_circle_outline,
           _ => Icons.pending_actions,
@@ -711,11 +772,25 @@ final class _StatusChip extends StatelessWidget {
           TimeReviewStatus.approved => JkddStatusTone.success,
           TimeReviewStatus.rejected => JkddStatusTone.danger,
           TimeReviewStatus.underReview => JkddStatusTone.info,
+          TimeReviewStatus.corrected => JkddStatusTone.info,
+          TimeReviewStatus.resubmitted => JkddStatusTone.warning,
           TimeReviewStatus.closed => JkddStatusTone.neutral,
           TimeReviewStatus.working => JkddStatusTone.success,
           _ => JkddStatusTone.warning,
         },
       );
+}
+
+String _localizedReviewStatus(BuildContext context, TimeReviewStatus status) {
+  return switch (status) {
+    TimeReviewStatus.pending => context.tr('approval.pending'),
+    TimeReviewStatus.approved => context.tr('approval.approved'),
+    TimeReviewStatus.rejected => context.tr('approval.rejected'),
+    TimeReviewStatus.underReview => context.tr('approval.underReview'),
+    TimeReviewStatus.corrected => context.tr('approval.corrected'),
+    TimeReviewStatus.resubmitted => context.tr('approval.resubmitted'),
+    _ => reviewStatusLabel(status),
+  };
 }
 
 final class _ScheduleCard extends ConsumerWidget {
@@ -1395,6 +1470,81 @@ Future<void> _reviewEntry(
   }
 }
 
+Future<void> _approveEntry(
+  BuildContext context,
+  WidgetRef ref,
+  TimeEntry entry,
+) async {
+  final confirmed = await _confirmDialog(
+    context,
+    title: 'Aprovar registro?',
+    message:
+        'O registro sera marcado como Aprovado, bloqueado para edicoes comuns e liberado para Timesheet e relatorios.',
+    confirmLabel: 'Aprovar',
+  );
+  if (confirmed != true) return;
+  if (!context.mounted) return;
+  final reason = await _textDialog(
+    context,
+    'Confirmar aprovacao',
+    'Observacao da aprovacao',
+    requiredValue: false,
+  );
+  if (reason == null) return;
+  try {
+    ref
+        .read(supervisorCenterProvider.notifier)
+        .approveEntry(entry.id, reason.trim().isEmpty ? 'Aprovado' : reason);
+  } on StateError catch (error) {
+    if (context.mounted) _snack(context, error.message);
+  }
+}
+
+Future<void> _rejectEntry(
+  BuildContext context,
+  WidgetRef ref,
+  TimeEntry entry,
+) async {
+  final reason = await _textDialog(
+    context,
+    'Rejeitar registro',
+    'Motivo obrigatorio da rejeicao',
+  );
+  if (reason?.trim().isEmpty != false) return;
+  if (!context.mounted) return;
+  final confirmed = await _confirmDialog(
+    context,
+    title: 'Rejeitar registro?',
+    message: 'O registro sera devolvido ao colaborador com o motivo informado.',
+    confirmLabel: 'Rejeitar',
+    destructive: true,
+  );
+  if (confirmed != true) return;
+  try {
+    ref.read(supervisorCenterProvider.notifier).rejectEntry(entry.id, reason!);
+  } on StateError catch (error) {
+    if (context.mounted) _snack(context, error.message);
+  }
+}
+
+Future<void> _sendToReview(
+  BuildContext context,
+  WidgetRef ref,
+  TimeEntry entry,
+) async {
+  final request = await _reviewRequestDialog(context);
+  if (request == null) return;
+  try {
+    ref.read(supervisorCenterProvider.notifier).correctionRequestedBySupervisor(
+          entry.id,
+          request.reason,
+          observation: request.observation,
+        );
+  } on StateError catch (error) {
+    if (context.mounted) _snack(context, error.message);
+  }
+}
+
 Future<void> _newJob(BuildContext context, WidgetRef ref) async {
   final number = TextEditingController();
   final name = TextEditingController();
@@ -1503,8 +1653,9 @@ Future<void> _newJob(BuildContext context, WidgetRef ref) async {
 Future<String?> _textDialog(
   BuildContext context,
   String title,
-  String label,
-) async {
+  String label, {
+  bool requiredValue = true,
+}) async {
   final controller = TextEditingController();
   final value = await showDialog<String>(
     context: context,
@@ -1521,13 +1672,111 @@ Future<String?> _textDialog(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancelar')),
         FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Salvar')),
+          onPressed: () {
+            if (requiredValue && controller.text.trim().isEmpty) return;
+            Navigator.pop(context, controller.text);
+          },
+          child: const Text('Salvar'),
+        ),
       ],
     ),
   );
   controller.dispose();
   return value;
+}
+
+Future<_ReviewRequest?> _reviewRequestDialog(BuildContext context) async {
+  final reason = TextEditingController();
+  final observation = TextEditingController();
+  final value = await showDialog<_ReviewRequest>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Revisar registro'),
+      content: SizedBox(
+        width: 480,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: reason,
+              decoration: const InputDecoration(
+                labelText: 'Correcao ou conferencia solicitada',
+              ),
+              minLines: 2,
+              maxLines: 4,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: observation,
+              decoration: const InputDecoration(
+                labelText: 'Observacoes adicionais',
+              ),
+              minLines: 2,
+              maxLines: 4,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (reason.text.trim().isEmpty) return;
+            Navigator.pop(
+              context,
+              _ReviewRequest(
+                reason: reason.text.trim(),
+                observation: observation.text.trim(),
+              ),
+            );
+          },
+          child: const Text('Enviar para revisao'),
+        ),
+      ],
+    ),
+  );
+  reason.dispose();
+  observation.dispose();
+  return value;
+}
+
+Future<bool?> _confirmDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required String confirmLabel,
+  bool destructive = false,
+}) {
+  return showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          style: destructive
+              ? FilledButton.styleFrom(backgroundColor: AppColors.red)
+              : null,
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(confirmLabel),
+        ),
+      ],
+    ),
+  );
+}
+
+final class _ReviewRequest {
+  const _ReviewRequest({required this.reason, required this.observation});
+
+  final String reason;
+  final String observation;
 }
 
 void _openJob(BuildContext context, String jobId) {

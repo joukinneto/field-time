@@ -4,11 +4,14 @@ import 'package:jkdd_field_time_records_production/core/theme/app_colors.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_spacing.dart';
 import 'package:jkdd_field_time_records_production/src/application/field_time_controller.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
+import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
+import 'package:jkdd_field_time_records_production/src/timesheet/timesheet_pdf_service.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_empty_state.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_info_row.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_section_header.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_status_chip.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_summary_card.dart';
+import 'package:printing/printing.dart';
 
 final class TimesheetScreen extends ConsumerStatefulWidget {
   const TimesheetScreen({super.key, this.embedded = false});
@@ -30,7 +33,7 @@ final class _TimesheetScreenState extends ConsumerState<TimesheetScreen> {
     );
     if (widget.embedded) return content;
     return Scaffold(
-      appBar: AppBar(title: const Text('Timesheet')),
+      appBar: AppBar(title: Text(context.tr('timesheet.title'))),
       body: SafeArea(child: content),
     );
   }
@@ -49,6 +52,7 @@ final class _TimesheetContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final snapshot = ref.watch(fieldTimeControllerProvider).snapshot;
     final service = ref.watch(fieldTimeApplicationServiceProvider);
+    const pdfService = TimesheetPdfService();
     final days = service.timesheet(snapshot, period, DateTime.now());
     final segments = days.expand((day) => day.segments).toList();
     final receipts = snapshot.receipts.where(
@@ -89,13 +93,22 @@ final class _TimesheetContent extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 JkddSectionHeader(
-                  title: 'Timesheet',
-                  subtitle:
-                      'Review hours, jobs, receipts and export readiness.',
-                  trailing: FilledButton.icon(
-                    onPressed: null,
-                    icon: const Icon(Icons.picture_as_pdf_outlined),
-                    label: const Text('GENERATE PDF'),
+                  title: context.tr('timesheet.title'),
+                  subtitle: context.tr('timesheet.subtitle'),
+                  trailing: Wrap(
+                    spacing: AppSpacing.sm,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => _sharePdf(snapshot, pdfService),
+                        icon: const Icon(Icons.ios_share_outlined),
+                        label: const Text('Share'),
+                      ),
+                      FilledButton.icon(
+                        onPressed: () => _previewPdf(snapshot, pdfService),
+                        icon: const Icon(Icons.picture_as_pdf_outlined),
+                        label: Text(context.tr('timesheet.generatePdf')),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
@@ -129,7 +142,7 @@ final class _TimesheetContent extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        'Daily records',
+                        context.tr('timesheet.dailyRecords'),
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
@@ -142,10 +155,10 @@ final class _TimesheetContent extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 if (segments.isEmpty)
-                  const JkddEmptyState(
+                  JkddEmptyState(
                     icon: Icons.table_chart_outlined,
-                    title: 'No records for this period',
-                    message: 'Clocked work periods will appear here.',
+                    title: context.tr('timesheet.noRecords'),
+                    message: context.tr('timesheet.noRecordsHelp'),
                   )
                 else
                   for (final day in days)
@@ -166,6 +179,33 @@ final class _TimesheetContent extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _previewPdf(
+    FieldTimeSnapshot snapshot,
+    TimesheetPdfService pdfService,
+  ) async {
+    await Printing.layoutPdf(
+      name: 'field_time_timesheet.pdf',
+      onLayout: (_) => pdfService.buildWeeklyTimesheetPdf(
+        snapshot: snapshot,
+        anchorDate: DateTime.now(),
+      ),
+    );
+  }
+
+  Future<void> _sharePdf(
+    FieldTimeSnapshot snapshot,
+    TimesheetPdfService pdfService,
+  ) async {
+    final bytes = await pdfService.buildWeeklyTimesheetPdf(
+      snapshot: snapshot,
+      anchorDate: DateTime.now(),
+    );
+    await Printing.sharePdf(
+      bytes: bytes,
+      filename: 'field_time_timesheet.pdf',
     );
   }
 }
@@ -190,19 +230,28 @@ final class _TimesheetFilters extends StatelessWidget {
           crossAxisAlignment: WrapCrossAlignment.center,
           alignment: WrapAlignment.spaceBetween,
           children: [
-            Text('Period', style: Theme.of(context).textTheme.titleMedium),
+            Text(context.tr('timesheet.period'),
+                style: Theme.of(context).textTheme.titleMedium),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SegmentedButton<TimesheetPeriod>(
-                segments: const [
+                segments: [
                   ButtonSegment(
-                      value: TimesheetPeriod.today, label: Text('Today')),
+                    value: TimesheetPeriod.today,
+                    label: Text(context.tr('timesheet.today')),
+                  ),
                   ButtonSegment(
-                      value: TimesheetPeriod.week, label: Text('Week')),
+                    value: TimesheetPeriod.week,
+                    label: Text(context.tr('timesheet.week')),
+                  ),
                   ButtonSegment(
-                      value: TimesheetPeriod.month, label: Text('Month')),
+                    value: TimesheetPeriod.month,
+                    label: Text(context.tr('timesheet.month')),
+                  ),
                   ButtonSegment(
-                      value: TimesheetPeriod.year, label: Text('Year')),
+                    value: TimesheetPeriod.year,
+                    label: Text(context.tr('timesheet.year')),
+                  ),
                 ],
                 selected: {period},
                 onSelectionChanged: (value) => onPeriodChanged(value.first),

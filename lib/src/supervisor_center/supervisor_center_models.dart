@@ -35,6 +35,8 @@ enum TimeReviewStatus {
   approved,
   rejected,
   correctionRequested,
+  corrected,
+  resubmitted,
   closed,
   working,
 }
@@ -179,6 +181,15 @@ final class TimeEntry {
     required this.status,
     this.travelBonusHours = 0,
     this.supervisorNote = '',
+    this.approvedAt,
+    this.approvedBy,
+    this.rejectedAt,
+    this.rejectedBy,
+    this.rejectionReason,
+    this.reviewRequestedAt,
+    this.reviewRequestedBy,
+    this.reviewNote,
+    this.resubmittedAt,
   });
 
   final String id;
@@ -192,8 +203,18 @@ final class TimeEntry {
   final TimeReviewStatus status;
   final double travelBonusHours;
   final String supervisorNote;
+  final DateTime? approvedAt;
+  final String? approvedBy;
+  final DateTime? rejectedAt;
+  final String? rejectedBy;
+  final String? rejectionReason;
+  final DateTime? reviewRequestedAt;
+  final String? reviewRequestedBy;
+  final String? reviewNote;
+  final DateTime? resubmittedAt;
 
   bool get isOpen => clockOut == null;
+  bool get isLocked => status == TimeReviewStatus.approved;
 
   TimeEntry copyWith({
     String? clockIn,
@@ -203,6 +224,18 @@ final class TimeEntry {
     TimeReviewStatus? status,
     double? travelBonusHours,
     String? supervisorNote,
+    DateTime? approvedAt,
+    String? approvedBy,
+    DateTime? rejectedAt,
+    String? rejectedBy,
+    String? rejectionReason,
+    DateTime? reviewRequestedAt,
+    String? reviewRequestedBy,
+    String? reviewNote,
+    DateTime? resubmittedAt,
+    bool clearApproval = false,
+    bool clearRejection = false,
+    bool clearReviewRequest = false,
   }) =>
       TimeEntry(
         id: id,
@@ -216,6 +249,20 @@ final class TimeEntry {
         status: status ?? this.status,
         travelBonusHours: travelBonusHours ?? this.travelBonusHours,
         supervisorNote: supervisorNote ?? this.supervisorNote,
+        approvedAt: clearApproval ? null : approvedAt ?? this.approvedAt,
+        approvedBy: clearApproval ? null : approvedBy ?? this.approvedBy,
+        rejectedAt: clearRejection ? null : rejectedAt ?? this.rejectedAt,
+        rejectedBy: clearRejection ? null : rejectedBy ?? this.rejectedBy,
+        rejectionReason:
+            clearRejection ? null : rejectionReason ?? this.rejectionReason,
+        reviewRequestedAt: clearReviewRequest
+            ? null
+            : reviewRequestedAt ?? this.reviewRequestedAt,
+        reviewRequestedBy: clearReviewRequest
+            ? null
+            : reviewRequestedBy ?? this.reviewRequestedBy,
+        reviewNote: clearReviewRequest ? null : reviewNote ?? this.reviewNote,
+        resubmittedAt: resubmittedAt ?? this.resubmittedAt,
       );
 }
 
@@ -224,16 +271,20 @@ final class TimeEntryReview {
     required this.id,
     required this.timeEntryId,
     required this.reviewerId,
-    required this.status,
-    required this.note,
+    required this.previousStatus,
+    required this.newStatus,
+    required this.reason,
+    required this.observation,
     required this.reviewedAt,
   });
 
   final String id;
   final String timeEntryId;
   final String reviewerId;
-  final TimeReviewStatus status;
-  final String note;
+  final TimeReviewStatus previousStatus;
+  final TimeReviewStatus newStatus;
+  final String reason;
+  final String observation;
   final DateTime reviewedAt;
 }
 
@@ -568,10 +619,12 @@ String assignmentStatusLabel(AssignmentStatus status) => switch (status) {
 
 String reviewStatusLabel(TimeReviewStatus status) => switch (status) {
       TimeReviewStatus.pending => 'Pendente',
-      TimeReviewStatus.underReview => 'Em analise',
+      TimeReviewStatus.underReview => 'Em revisao',
       TimeReviewStatus.approved => 'Aprovado',
       TimeReviewStatus.rejected => 'Rejeitado',
       TimeReviewStatus.correctionRequested => 'Correcao solicitada',
+      TimeReviewStatus.corrected => 'Corrigido',
+      TimeReviewStatus.resubmitted => 'Reenviado',
       TimeReviewStatus.closed => 'Fechado',
       TimeReviewStatus.working => 'Trabalhando',
     };

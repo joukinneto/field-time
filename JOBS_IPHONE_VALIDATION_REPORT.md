@@ -1,59 +1,49 @@
-# JOBS IPHONE VALIDATION REPORT
+# Field Time - Jobs iPhone Validation Report
 
-- Product: Field Time
-- Date: 2026-08-02
-- Jobs source: assets/data/jobs.json
-- Source workbook: JKDD_Banco_de_Dados_Obras.xlsx
-- Source sheet: Obras JKDD
+Generated: 2026-08-02 20:39:20 -04:00
+
+Project:
+`C:\Users\SANTANA\Documents\Codex\JKDD_FIELD\001_SOURCE_CODE\009_JKDD_FIELD_TIME_RECORDS_PRODUCTION`
 
 ## Jobs Database
 
-- Total jobs imported: 23
-- Active jobs: 23
-- Inactive jobs: 0
-- Duplicate Job_ID records: 0
-- Duplicate Job_Number records: 0
-- Ignored rows: 0
-- Required missing fields: 0
-- Fictional jobs detected: none
+Source file:
+`assets/data/jobs.json`
 
-## Required Company Data
+Bundled file:
+`build/web/assets/assets/data/jobs.json`
 
-- Client company shown in app: EWW
-- Subcontractor shown in app: JKDD Finish & Remodeling Corp
-- Jobs JSON metadata client: EWW
-- Jobs JSON metadata subcontractor: JKDD Finish & Remodeling Corp
+Validation:
 
-## Asset Loading
+- Source jobs: 23.
+- Bundled jobs: 23.
+- Active jobs: 23.
+- Inactive jobs: 0.
+- Client: EWW.
+- Worker/subcontractor: JKDD Finish & Remodeling Corp.
+- No fictitious jobs were found in the imported database.
 
-- Source asset exists: assets/data/jobs.json
-- Build asset exists: build/web/assets/assets/data/jobs.json
-- Build asset loaded locally over HTTP 200.
-- Build asset contained 23 jobs.
+## Repository Flow
 
-## Selector Validation
+The app controller loads jobs through `JobAssetRepository`, converts them into Field Time domain jobs and keeps them available offline from the bundled JSON asset.
 
-- The clock-in job selector was opened in the iPad web viewport.
-- The selector displayed:
-  - job number
-  - job name
-  - full address
-  - city
-  - status
-- The Jobs tab was opened in the iPhone-width viewport and displayed real imported jobs.
-- Inactive jobs are filtered out of the clock-in selector by default.
+The clock-in selector filters by `job.active`, so inactive jobs are not shown by default.
 
-## Defaulted Import Values
+## iPhone-Width UI
 
-- Job_ID was set from Job_Number when Job_ID was absent.
-- Job_Name was set as Obra {Job_Number} when Job_Name was absent.
-- Client was set to EWW when Client was absent.
-- Status was set to active when Status was absent.
-- Full_Address was generated from Address, City, State, and ZIP_Code.
+Local mobile-width validation confirmed that the Jobs screen displays:
 
-## Evidence
+- Job number.
+- Job name.
+- Full address including city/state/ZIP.
+- Status badge.
 
-- Import report: data_import/reports/JOBS_IMPORT_REPORT.md
-- iPhone jobs screenshot: visual_qa/iphone_web_jobs_tab_390.png
-- iPad selector screenshot: visual_qa/ipad_web_job_selector.png
+Observed examples:
 
+- `217 - Obra 217`, `217 Gregory Rd, West Palm Beach, FL, 33405`, Active.
+- `315 - Obra 315`, `315 Ellamar Rd, West Palm Beach, FL, 33405`, Active.
+- `330 - Obra 330`, `330 Apache Ln, Boca Raton, FL, 33487`, Active.
+
+## Result
+
+Jobs database preservation and iPhone-width jobs UI validation passed locally.

@@ -60,6 +60,13 @@ final class SupervisorCenterController
         state.assignments
             .firstWhere((assignment) => assignment.userId == user.id)
             .jobId;
+    final resubmitting = existing != null &&
+        {
+          TimeReviewStatus.rejected,
+          TimeReviewStatus.underReview,
+          TimeReviewStatus.correctionRequested,
+          TimeReviewStatus.corrected,
+        }.contains(existing.status);
     final entry = existing == null
         ? TimeEntry(
             id: 'entry-${user.id}-${DateTime.now().millisecondsSinceEpoch}',
@@ -74,8 +81,13 @@ final class SupervisorCenterController
           )
         : existing.copyWith(
             clockOut: clockOut,
-            status: TimeReviewStatus.pending,
+            status: resubmitting
+                ? TimeReviewStatus.resubmitted
+                : TimeReviewStatus.pending,
             supervisorNote: note,
+            resubmittedAt:
+                resubmitting ? DateTime.now() : existing.resubmittedAt,
+            clearApproval: true,
           );
     state = state.copyWith(
       timeEntries: existing == null
@@ -84,7 +96,9 @@ final class SupervisorCenterController
               for (final current in state.timeEntries)
                 if (current.id == entry.id) entry else current,
             ],
-      message: 'Horas enviadas para aprovacao.',
+      message: resubmitting
+          ? 'Horas corrigidas e reenviadas para aprovacao.'
+          : 'Horas enviadas para aprovacao.',
     );
   }
 
@@ -95,9 +109,9 @@ final class SupervisorCenterController
     }
     _mutateEntry(
       entryId,
-      status: TimeReviewStatus.correctionRequested,
+      status: TimeReviewStatus.corrected,
       note: justification,
-      success: 'Solicitacao de correcao enviada.',
+      success: 'Correcao enviada para nova revisao.',
     );
   }
 
@@ -119,12 +133,17 @@ final class SupervisorCenterController
     );
   }
 
-  void correctionRequestedBySupervisor(String entryId, String justification) {
+  void correctionRequestedBySupervisor(
+    String entryId,
+    String justification, {
+    String observation = '',
+  }) {
     _review(
       entryId,
-      TimeReviewStatus.correctionRequested,
+      TimeReviewStatus.underReview,
       justification,
-      'Correcao solicitada.',
+      'Registro enviado para revisao.',
+      observation: observation,
     );
   }
 
@@ -138,10 +157,13 @@ final class SupervisorCenterController
     required String justification,
   }) {
     _require(PilotPermission.approveTime);
+    final entry = state.timeEntries.firstWhere((item) => item.id == entryId);
+    if (entry.isLocked) {
+      throw StateError('Registro aprovado esta bloqueado para edicoes comuns.');
+    }
     if (justification.trim().isEmpty) {
       throw StateError('Toda alteracao precisa de justificativa.');
     }
-    final entry = state.timeEntries.firstWhere((item) => item.id == entryId);
     final updated = entry.copyWith(
       clockIn: clockIn,
       clockOut: clockOut,
@@ -201,11 +223,19 @@ final class SupervisorCenterController
             entry.status != TimeReviewStatus.approved)
         .map((entry) => entry.id)
         .toSet();
+    final now = DateTime.now();
+    final reviewer = state.currentUser;
     state = state.copyWith(
       timeEntries: [
         for (final entry in state.timeEntries)
           if (validIds.contains(entry.id))
-            entry.copyWith(status: TimeReviewStatus.approved)
+            entry.copyWith(
+              status: TimeReviewStatus.approved,
+              approvedAt: now,
+              approvedBy: reviewer.name,
+              clearRejection: true,
+              clearReviewRequest: true,
+            )
           else
             entry,
       ],
@@ -216,31 +246,37 @@ final class SupervisorCenterController
             id: 'review-${DateTime.now().microsecondsSinceEpoch}-$id',
             timeEntryId: id,
             reviewerId: state.currentUser.id,
-            status: TimeReviewStatus.approved,
-            note: justification,
-            reviewedAt: DateTime.now(),
+            previousStatus:
+                state.timeEntries.firstWhere((entry) => entry.id == id).status,
+            newStatus: TimeReviewStatus.approved,
+            reason: justification,
+            observation: '',
+            reviewedAt: now,
           ),
       ],
       message: '${validIds.length} registros validos aprovados.',
     );
   }
 
-  void _review(
-    String entryId,
-    TimeReviewStatus status,
-    String justification,
-    String success,
-  ) {
+  void _review(String entryId, TimeReviewStatus status, String justification,
+      String success,
+      {String observation = ''}) {
     _require(PilotPermission.approveTime);
     if (justification.trim().isEmpty) {
       throw StateError('Informe a justificativa da revisao.');
+    }
+    final entry = state.timeEntries.firstWhere((item) => item.id == entryId);
+    if (status == TimeReviewStatus.rejected && justification.trim().isEmpty) {
+      throw StateError('Informe o motivo da rejeicao.');
     }
     final review = TimeEntryReview(
       id: 'review-${DateTime.now().microsecondsSinceEpoch}',
       timeEntryId: entryId,
       reviewerId: state.currentUser.id,
-      status: status,
-      note: justification.trim(),
+      previousStatus: entry.status,
+      newStatus: status,
+      reason: justification.trim(),
+      observation: observation.trim(),
       reviewedAt: DateTime.now(),
     );
     _mutateEntry(
@@ -259,11 +295,33 @@ final class SupervisorCenterController
     required String success,
     TimeEntryReview? review,
   }) {
+    final now = DateTime.now();
+    final reviewer = state.currentUser;
     state = state.copyWith(
       timeEntries: [
         for (final entry in state.timeEntries)
           if (entry.id == entryId)
-            entry.copyWith(status: status, supervisorNote: note.trim())
+            entry.copyWith(
+              status: status,
+              supervisorNote: note.trim(),
+              approvedAt: status == TimeReviewStatus.approved ? now : null,
+              approvedBy:
+                  status == TimeReviewStatus.approved ? reviewer.name : null,
+              rejectedAt: status == TimeReviewStatus.rejected ? now : null,
+              rejectedBy:
+                  status == TimeReviewStatus.rejected ? reviewer.name : null,
+              rejectionReason:
+                  status == TimeReviewStatus.rejected ? note.trim() : null,
+              reviewRequestedAt:
+                  status == TimeReviewStatus.underReview ? now : null,
+              reviewRequestedBy:
+                  status == TimeReviewStatus.underReview ? reviewer.name : null,
+              reviewNote:
+                  status == TimeReviewStatus.underReview ? note.trim() : null,
+              clearApproval: status != TimeReviewStatus.approved,
+              clearRejection: status != TimeReviewStatus.rejected,
+              clearReviewRequest: status != TimeReviewStatus.underReview,
+            )
           else
             entry,
       ],

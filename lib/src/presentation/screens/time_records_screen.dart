@@ -11,6 +11,7 @@ import 'package:jkdd_field_time_records_production/core/theme/app_spacing.dart';
 import 'package:jkdd_field_time_records_production/features/jobs/presentation/jobs_import_screen.dart';
 import 'package:jkdd_field_time_records_production/src/application/field_time_controller.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
+import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
 import 'package:jkdd_field_time_records_production/src/presentation/dialogs/receipt_dialog.dart';
 import 'package:jkdd_field_time_records_production/src/presentation/screens/timesheet_screen.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_controller.dart';
@@ -98,7 +99,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
                   ),
                   items: [
                     for (final destination in destinations)
-                      _bottomItem(destination),
+                      _bottomItem(context, destination),
                   ],
                 ),
           body: SafeArea(
@@ -132,31 +133,34 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
         _Destination.settings,
       ];
 
-  BottomNavigationBarItem _bottomItem(_Destination destination) =>
+  BottomNavigationBarItem _bottomItem(
+    BuildContext context,
+    _Destination destination,
+  ) =>
       switch (destination) {
-        _Destination.home => const BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Home',
+        _Destination.home => BottomNavigationBarItem(
+            icon: const Icon(Icons.dashboard),
+            label: context.tr('nav.home'),
           ),
-        _Destination.timesheet => const BottomNavigationBarItem(
-            icon: Icon(Icons.table_chart),
-            label: 'Timesheet',
+        _Destination.timesheet => BottomNavigationBarItem(
+            icon: const Icon(Icons.table_chart),
+            label: context.tr('nav.timesheet'),
           ),
-        _Destination.jobs => const BottomNavigationBarItem(
-            icon: Icon(Icons.apartment),
-            label: 'Jobs',
+        _Destination.jobs => BottomNavigationBarItem(
+            icon: const Icon(Icons.apartment),
+            label: context.tr('nav.jobs'),
           ),
-        _Destination.receipts => const BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: 'Receipts',
+        _Destination.receipts => BottomNavigationBarItem(
+            icon: const Icon(Icons.receipt_long),
+            label: context.tr('nav.receipts'),
           ),
-        _Destination.management => const BottomNavigationBarItem(
-            icon: Icon(Icons.engineering_outlined),
-            label: 'Gestao',
+        _Destination.management => BottomNavigationBarItem(
+            icon: const Icon(Icons.engineering_outlined),
+            label: context.tr('nav.management'),
           ),
-        _Destination.settings => const BottomNavigationBarItem(
-            icon: Icon(Icons.menu),
-            label: 'Menu',
+        _Destination.settings => BottomNavigationBarItem(
+            icon: const Icon(Icons.menu),
+            label: context.tr('nav.menu'),
           ),
       };
 
@@ -190,9 +194,14 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
         _Destination.settings => _SettingsView(
             currentVersion: 'v1.0.0',
             onJobsImport: _openJobsImport,
-            onLanguageSelected: () => _message(
-              'Language switching is a pending functional requirement.',
-            ),
+            currentLanguage: ref.watch(appLanguageControllerProvider),
+            onLanguageChanged: (language) async {
+              final savedMessage = context.tr('settings.saved');
+              await ref
+                  .read(appLanguageControllerProvider.notifier)
+                  .setLanguage(language);
+              if (mounted) _message(savedMessage);
+            },
           ),
       };
 
@@ -486,7 +495,7 @@ final class _DesktopNavigation extends StatelessWidget {
               onDestinationSelected: (index) => onSelected(destinations[index]),
               destinations: [
                 for (final destination in destinations)
-                  _railDestination(destination),
+                  _railDestination(context, destination),
               ],
             ),
           ),
@@ -503,37 +512,40 @@ final class _DesktopNavigation extends StatelessWidget {
     );
   }
 
-  NavigationRailDestination _railDestination(_Destination destination) =>
+  NavigationRailDestination _railDestination(
+    BuildContext context,
+    _Destination destination,
+  ) =>
       switch (destination) {
-        _Destination.home => const NavigationRailDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: Text('Home'),
+        _Destination.home => NavigationRailDestination(
+            icon: const Icon(Icons.dashboard_outlined),
+            selectedIcon: const Icon(Icons.dashboard),
+            label: Text(context.tr('nav.home')),
           ),
-        _Destination.timesheet => const NavigationRailDestination(
-            icon: Icon(Icons.table_chart_outlined),
-            selectedIcon: Icon(Icons.table_chart),
-            label: Text('Timesheet'),
+        _Destination.timesheet => NavigationRailDestination(
+            icon: const Icon(Icons.table_chart_outlined),
+            selectedIcon: const Icon(Icons.table_chart),
+            label: Text(context.tr('nav.timesheet')),
           ),
-        _Destination.jobs => const NavigationRailDestination(
-            icon: Icon(Icons.apartment_outlined),
-            selectedIcon: Icon(Icons.apartment),
-            label: Text('Jobs'),
+        _Destination.jobs => NavigationRailDestination(
+            icon: const Icon(Icons.apartment_outlined),
+            selectedIcon: const Icon(Icons.apartment),
+            label: Text(context.tr('nav.jobs')),
           ),
-        _Destination.receipts => const NavigationRailDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: Text('Receipts'),
+        _Destination.receipts => NavigationRailDestination(
+            icon: const Icon(Icons.receipt_long_outlined),
+            selectedIcon: const Icon(Icons.receipt_long),
+            label: Text(context.tr('nav.receipts')),
           ),
-        _Destination.management => const NavigationRailDestination(
-            icon: Icon(Icons.engineering_outlined),
-            selectedIcon: Icon(Icons.engineering),
-            label: Text('Gestao'),
+        _Destination.management => NavigationRailDestination(
+            icon: const Icon(Icons.engineering_outlined),
+            selectedIcon: const Icon(Icons.engineering),
+            label: Text(context.tr('nav.management')),
           ),
-        _Destination.settings => const NavigationRailDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: Text('Settings'),
+        _Destination.settings => NavigationRailDestination(
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings),
+            label: Text(context.tr('settings.title')),
           ),
       };
 }
@@ -1304,12 +1316,14 @@ final class _SettingsView extends StatelessWidget {
   const _SettingsView({
     required this.currentVersion,
     required this.onJobsImport,
-    required this.onLanguageSelected,
+    required this.currentLanguage,
+    required this.onLanguageChanged,
   });
 
   final String currentVersion;
   final VoidCallback onJobsImport;
-  final VoidCallback onLanguageSelected;
+  final AppLanguage currentLanguage;
+  final ValueChanged<AppLanguage> onLanguageChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1317,9 +1331,9 @@ final class _SettingsView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const JkddSectionHeader(
-            title: 'Settings',
-            subtitle: 'Profile, pilot controls and app preferences.',
+          JkddSectionHeader(
+            title: context.tr('settings.title'),
+            subtitle: context.tr('settings.subtitle'),
           ),
           const SizedBox(height: AppSpacing.lg),
           const PilotProfileSelector(),
@@ -1345,9 +1359,12 @@ final class _SettingsView extends StatelessWidget {
             ],
           ),
           _SettingsSection(
-            title: 'Preferences',
+            title: context.tr('settings.preferences'),
             children: [
-              _LanguageTile(onTap: onLanguageSelected),
+              _LanguageTile(
+                currentLanguage: currentLanguage,
+                onChanged: onLanguageChanged,
+              ),
               const _SettingsTile(
                   'Theme', Icons.dark_mode_outlined, 'System default'),
               const _SettingsTile(
@@ -1459,54 +1476,57 @@ final class _SettingsActionTile extends StatelessWidget {
 }
 
 final class _LanguageTile extends StatelessWidget {
-  const _LanguageTile({required this.onTap});
+  const _LanguageTile({
+    required this.currentLanguage,
+    required this.onChanged,
+  });
 
-  final VoidCallback onTap;
+  final AppLanguage currentLanguage;
+  final ValueChanged<AppLanguage> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(top: 2),
-              child: Icon(Icons.language, color: AppColors.blue),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Icon(Icons.language, color: AppColors.blue),
+          ),
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(context.tr('settings.language'),
+                    style: Theme.of(context).textTheme.bodyLarge),
+                const SizedBox(height: 4),
+                Text(
+                  context.tr('settings.languageHelp'),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: AppColors.gray),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    for (final language in AppLanguage.values)
+                      ChoiceChip(
+                        label: Text(language.label),
+                        selected: currentLanguage == language,
+                        onSelected: (_) => onChanged(language),
+                      ),
+                  ],
+                ),
+              ],
             ),
-            const SizedBox(width: AppSpacing.lg),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Language',
-                      style: Theme.of(context).textTheme.bodyLarge),
-                  const SizedBox(height: 4),
-                  Text(
-                    'English is the visual base. Switching is Coming Soon.',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
-                        ?.copyWith(color: AppColors.gray),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  const Wrap(
-                    spacing: AppSpacing.xs,
-                    runSpacing: AppSpacing.xs,
-                    children: [
-                      Chip(label: Text('English')),
-                      Chip(label: Text('Português')),
-                      Chip(label: Text('Español')),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
