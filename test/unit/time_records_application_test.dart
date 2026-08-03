@@ -127,7 +127,139 @@ void main() {
     expect(result.reimbursements.single.amount, 120);
     expect(result.approvals.single.status, ApprovalStatus.pending);
   });
+
+  test(
+      'accidental same job clock-out and clock-in does not duplicate travel bonus',
+      () {
+    var snapshot = _snapshotWithTravelBonusJobs();
+    snapshot = service.clockIn(
+      snapshot: snapshot,
+      job: snapshot.jobs[0],
+      at: DateTime.utc(2026, 8, 1, 8),
+      location: location,
+    );
+    snapshot = service.endDay(
+      snapshot: snapshot,
+      at: DateTime.utc(2026, 8, 1, 9),
+      location: location,
+    );
+    snapshot = service.clockIn(
+      snapshot: snapshot,
+      job: snapshot.jobs[0],
+      at: DateTime.utc(2026, 8, 1, 9, 5),
+      location: location,
+    );
+
+    final day = snapshot.activeWorkDay!;
+    expect(day.segments, hasLength(2));
+    expect(day.travelBonusHours, 1);
+    expect(day.travelBonusSegments, hasLength(1));
+  });
+
+  test('several records on same job without displacement keep one travel bonus',
+      () {
+    var snapshot = _snapshotWithTravelBonusJobs();
+    snapshot = service.clockIn(
+      snapshot: snapshot,
+      job: snapshot.jobs[0],
+      at: DateTime.utc(2026, 8, 1, 8),
+      location: location,
+    );
+    snapshot = service.endDay(
+      snapshot: snapshot,
+      at: DateTime.utc(2026, 8, 1, 10),
+      location: location,
+    );
+    snapshot = service.clockIn(
+      snapshot: snapshot,
+      job: snapshot.jobs[0],
+      at: DateTime.utc(2026, 8, 1, 10, 15),
+      location: location,
+    );
+
+    expect(snapshot.activeWorkDay!.travelBonusHours, 1);
+  });
+
+  test('switching to a different job applies another travel bonus', () {
+    var snapshot = _snapshotWithTravelBonusJobs();
+    snapshot = service.clockIn(
+      snapshot: snapshot,
+      job: snapshot.jobs[0],
+      at: DateTime.utc(2026, 8, 1, 8),
+      location: location,
+    );
+    snapshot = service.switchJob(
+      snapshot: snapshot,
+      nextJob: snapshot.jobs[1],
+      at: DateTime.utc(2026, 8, 1, 10),
+      location: _farLocation,
+    );
+
+    expect(snapshot.activeWorkDay!.travelBonusHours, 2);
+    expect(snapshot.activeWorkDay!.travelBonusSegments, hasLength(2));
+  });
+
+  test('returning to a previous job after displacement can earn travel bonus',
+      () {
+    var snapshot = _snapshotWithTravelBonusJobs();
+    snapshot = service.clockIn(
+      snapshot: snapshot,
+      job: snapshot.jobs[0],
+      at: DateTime.utc(2026, 8, 1, 8),
+      location: location,
+    );
+    snapshot = service.switchJob(
+      snapshot: snapshot,
+      nextJob: snapshot.jobs[1],
+      at: DateTime.utc(2026, 8, 1, 10),
+      location: _farLocation,
+    );
+    snapshot = service.switchJob(
+      snapshot: snapshot,
+      nextJob: snapshot.jobs[0],
+      at: DateTime.utc(2026, 8, 1, 12),
+      location: location,
+    );
+
+    expect(snapshot.activeWorkDay!.travelBonusHours, 3);
+  });
+
+  test('no real displacement on same job does not add another travel bonus',
+      () {
+    var snapshot = _snapshotWithTravelBonusJobs();
+    snapshot = service.clockIn(
+      snapshot: snapshot,
+      job: snapshot.jobs[0],
+      at: DateTime.utc(2026, 8, 1, 8),
+      location: location,
+    );
+    snapshot = service.endDay(
+      snapshot: snapshot,
+      at: DateTime.utc(2026, 8, 1, 11),
+      location: location,
+    );
+    snapshot = service.clockIn(
+      snapshot: snapshot,
+      job: snapshot.jobs[0],
+      at: DateTime.utc(2026, 8, 1, 11, 30),
+      location: GeoPoint(
+        latitude: 26.36831,
+        longitude: -80.12891,
+        accuracyMeters: 8,
+        capturedAt: DateTime.utc(2026, 8, 1, 11, 30),
+      ),
+    );
+
+    expect(snapshot.activeWorkDay!.travelBonusHours, 1);
+  });
 }
+
+final _farLocation = GeoPoint(
+  latitude: 26.2379,
+  longitude: -80.1248,
+  accuracyMeters: 8,
+  capturedAt: DateTime.utc(2026, 8, 1, 10),
+);
 
 FieldTimeSnapshot _snapshotWithJobs() => FieldTimeSnapshot.seeded().copyWith(
       jobs: const [
@@ -154,6 +286,32 @@ FieldTimeSnapshot _snapshotWithJobs() => FieldTimeSnapshot.seeded().copyWith(
           number: '1003',
           name: 'Imported Job 1003',
           address: 'Parkland, FL',
+        ),
+      ],
+    );
+
+FieldTimeSnapshot _snapshotWithTravelBonusJobs() =>
+    FieldTimeSnapshot.seeded().copyWith(
+      jobs: const [
+        Job(
+          id: 'job-217',
+          companyId: FieldTimeSnapshot.companyIdEww,
+          subcontractorCompanyId: FieldTimeSnapshot.subcontractorIdJkdd,
+          number: '217',
+          name: 'Obra 217',
+          address: '217 Gregory Rd, West Palm Beach, FL',
+          travelBonusEnabled: true,
+          travelBonusHours: 1,
+        ),
+        Job(
+          id: 'job-330',
+          companyId: FieldTimeSnapshot.companyIdEww,
+          subcontractorCompanyId: FieldTimeSnapshot.subcontractorIdJkdd,
+          number: '330',
+          name: 'Obra 330',
+          address: '330 Apache Ln, Boca Raton, FL',
+          travelBonusEnabled: true,
+          travelBonusHours: 1,
         ),
       ],
     );

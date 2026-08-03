@@ -156,7 +156,12 @@ final class JobAssetRepository {
             supervisor: entry.value.supervisor,
             accessInstructions: entry.value.accessInstructions,
             status: entry.value.status,
+            travelBonusEnabled: (entry.value.travelBonusHours ?? 0) > 0,
             travelBonusHours: entry.value.travelBonusHours ?? 0,
+            payPremiumEnabled: false,
+            payPremiumValue: 0,
+            latitude: entry.value.latitude,
+            longitude: entry.value.longitude,
             active: entry.value.isActive,
           ),
       ];

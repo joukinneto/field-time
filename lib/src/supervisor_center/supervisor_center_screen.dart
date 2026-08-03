@@ -244,21 +244,52 @@ final class PilotProfileSelector extends ConsumerWidget {
               ),
               items: [
                 DropdownMenuItem(
+                  value: PilotRole.owner,
+                  child: Text(_roleLabel(context, PilotRole.owner)),
+                ),
+                DropdownMenuItem(
+                  value: PilotRole.administrator,
+                  child: Text(_roleLabel(context, PilotRole.administrator)),
+                ),
+                DropdownMenuItem(
+                  value: PilotRole.coordinator,
+                  child: Text(_roleLabel(context, PilotRole.coordinator)),
+                ),
+                DropdownMenuItem(
                   value: PilotRole.supervisor,
-                  child: Text(context.tr('supervisor.supervisor')),
+                  child: Text(_roleLabel(context, PilotRole.supervisor)),
                 ),
                 DropdownMenuItem(
                   value: PilotRole.employee,
-                  child: Text(context.tr('supervisor.employee')),
+                  child: Text(_roleLabel(context, PilotRole.employee)),
                 ),
                 DropdownMenuItem(
                   value: PilotRole.contractor,
-                  child: Text(context.tr('supervisor.contractor')),
+                  child: Text(_roleLabel(context, PilotRole.contractor)),
                 ),
               ],
-              onChanged: (value) {
+              onChanged: (value) async {
                 if (value == null) return;
-                ref.read(supervisorCenterProvider.notifier).setRole(value);
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text(context.tr('supervisor.testMode')),
+                    content: Text(context.tr('profiles.saveCurrent')),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: Text(context.tr('common.cancel')),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: Text(context.tr('common.save')),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed == true) {
+                  ref.read(supervisorCenterProvider.notifier).setRole(value);
+                }
               },
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -859,7 +890,7 @@ String _localizedReviewStatus(BuildContext context, TimeReviewStatus status) {
 }
 
 String _roleLabel(BuildContext context, PilotRole role) => switch (role) {
-      PilotRole.owner => context.tr('supervisor.owner'),
+      PilotRole.owner => context.tr('supervisor.president'),
       PilotRole.administrator => context.tr('supervisor.administrator'),
       PilotRole.coordinator => context.tr('supervisor.coordinator'),
       PilotRole.supervisor => context.tr('supervisor.supervisor'),
@@ -868,7 +899,7 @@ String _roleLabel(BuildContext context, PilotRole role) => switch (role) {
     };
 
 String _jobDisplayName(BuildContext context, SupervisorJob job) =>
-    '${context.tr('supervisor.job')} ${job.number} - ${job.name}';
+    '${context.tr('supervisor.job')} ${job.number}';
 
 String _auditFieldLabel(BuildContext context, String fieldName) =>
     switch (fieldName) {

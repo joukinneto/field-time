@@ -21,7 +21,7 @@ void main() {
     expect(find.text('REGISTRAR ENTRADA'), findsOneWidget);
     expect(find.text('Trocar obra'), findsOneWidget);
     expect(find.text('Anexar recibo'), findsOneWidget);
-    expect(find.text('Pedir reembolso'), findsOneWidget);
+    expect(find.text('Pedir reembolso'), findsNothing);
     expect(find.text('Meu timesheet'), findsOneWidget);
     expect(find.textContaining('Pause'), findsNothing);
     expect(find.textContaining('Pausa'), findsNothing);

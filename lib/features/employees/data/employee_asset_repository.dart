@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jkdd_field_time_records_production/features/employees/domain/employee.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart'
     as field_time;
+import 'package:shared_preferences/shared_preferences.dart';
 
 final employeeAssetRepositoryProvider =
     Provider((ref) => const EmployeeAssetRepository());
@@ -105,6 +106,8 @@ final class EmployeeAssetRepository {
   const EmployeeAssetRepository(
       {this.assetPath = 'assets/data/employees.json'});
 
+  static const _localEmployeesKey = 'field_time_local_employees';
+
   final String assetPath;
 
   Future<EmployeeCatalog> loadCatalog() async {
@@ -124,9 +127,10 @@ final class EmployeeAssetRepository {
           .map(Employee.fromJson)
           .where((employee) => employee.employeeId.isNotEmpty)
           .toList(growable: false);
+      final localEmployees = await _loadLocalEmployees();
       return EmployeeCatalog(
         metadata: EmployeeCatalogMetadata.fromJson(decoded),
-        employees: employees,
+        employees: localEmployees.isEmpty ? employees : localEmployees,
       );
     } on FlutterError catch (error) {
       throw EmployeeAssetRepositoryException(
@@ -146,6 +150,30 @@ final class EmployeeAssetRepository {
   List<Employee> filter(List<Employee> employees, EmployeeFilters filters) =>
       employees.where(filters.matches).toList(growable: false)
         ..sort((left, right) => left.fullName.compareTo(right.fullName));
+
+  Future<void> saveLocalEmployees(List<Employee> employees) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString(
+      _localEmployeesKey,
+      jsonEncode(employees.map((employee) => employee.toJson()).toList()),
+    );
+  }
+
+  Future<List<Employee>> _loadLocalEmployees() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      final raw = preferences.getString(_localEmployeesKey);
+      if (raw == null || raw.trim().isEmpty) return const [];
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const [];
+      return decoded
+          .whereType<Map<String, dynamic>>()
+          .map(Employee.fromJson)
+          .toList(growable: false);
+    } on Object {
+      return const [];
+    }
+  }
 
   field_time.WorkerProfile toWorkerProfile(Employee employee) =>
       field_time.WorkerProfile(

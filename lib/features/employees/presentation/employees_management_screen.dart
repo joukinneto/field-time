@@ -11,7 +11,6 @@ import 'package:jkdd_field_time_records_production/src/supervisor_center/supervi
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_empty_state.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_info_row.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_section_header.dart';
-import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_status_chip.dart';
 
 final class EmployeesManagementScreen extends ConsumerStatefulWidget {
   const EmployeesManagementScreen({super.key, this.embedded = false});
@@ -62,7 +61,7 @@ final class _EmployeesManagementScreenState
           onRoleChanged: (value) => setState(() => _role = value),
           onAdd: _addEmployee,
           onEdit: _editEmployee,
-          onDeactivate: _deactivateEmployee,
+          onToggleStatus: _toggleEmployeeStatus,
           onDelete: _deleteEmployee,
           onOpenDetails: _openDetails,
           hasHistory: _hasHistory,
@@ -138,7 +137,7 @@ final class _EmployeesManagementScreenState
       );
       return;
     }
-    setState(() => _employees = [...?_employees, employee]);
+    await _saveEmployees([...?_employees, employee]);
   }
 
   Future<void> _editEmployee(Employee employee) async {
@@ -147,24 +146,54 @@ final class _EmployeesManagementScreenState
       builder: (context) => _EmployeeEditorDialog(employee: employee),
     );
     if (updated == null) return;
-    setState(() {
-      _employees = [
-        for (final current in _employees ?? const <Employee>[])
-          if (current.employeeId == employee.employeeId) updated else current,
-      ];
-    });
+    await _saveEmployees([
+      for (final current in _employees ?? const <Employee>[])
+        if (current.employeeId == employee.employeeId) updated else current,
+    ]);
   }
 
-  void _deactivateEmployee(Employee employee) {
-    setState(() {
-      _employees = [
-        for (final current in _employees ?? const <Employee>[])
-          if (current.employeeId == employee.employeeId)
-            current.copyWith(status: 'inactive', active: false)
-          else
-            current,
-      ];
-    });
+  Future<void> _toggleEmployeeStatus(Employee employee) async {
+    final activate = !employee.active;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(activate
+            ? context.tr('employees.setActive')
+            : context.tr('employees.setInactive')),
+        content: Text(activate
+            ? context.tr('employees.confirmActive')
+            : context.tr('employees.confirmInactive')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.tr('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(context.tr('common.save')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _saveEmployees([
+      for (final current in _employees ?? const <Employee>[])
+        if (current.employeeId == employee.employeeId)
+          current.copyWith(
+            status: activate ? 'active' : 'inactive',
+            active: activate,
+            notes: [
+              current.notes,
+              '${DateTime.now().toIso8601String()} - ${employee.displayName}: ${employee.status} -> ${activate ? 'active' : 'inactive'}',
+            ].where((value) => value?.trim().isNotEmpty == true).join('\n'),
+          )
+        else
+          current,
+    ]);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.tr('employees.statusSaved'))),
+    );
   }
 
   void _deleteEmployee(Employee employee) {
@@ -176,12 +205,10 @@ final class _EmployeesManagementScreenState
         );
       return;
     }
-    setState(() {
-      _employees = [
-        for (final current in _employees ?? const <Employee>[])
-          if (current.employeeId != employee.employeeId) current,
-      ];
-    });
+    _saveEmployees([
+      for (final current in _employees ?? const <Employee>[])
+        if (current.employeeId != employee.employeeId) current,
+    ]);
   }
 
   void _openDetails(Employee employee) {
@@ -191,11 +218,19 @@ final class _EmployeesManagementScreenState
           employee: employee,
           hasHistory: _hasHistory(employee),
           onEdit: () => _editEmployee(employee),
-          onDeactivate: () => _deactivateEmployee(employee),
+          onToggleStatus: () => _toggleEmployeeStatus(employee),
           onDelete: () => _deleteEmployee(employee),
         ),
       ),
     );
+  }
+
+  Future<void> _saveEmployees(List<Employee> employees) async {
+    await ref
+        .read(employeeAssetRepositoryProvider)
+        .saveLocalEmployees(employees);
+    if (!mounted) return;
+    setState(() => _employees = employees);
   }
 }
 
@@ -217,7 +252,7 @@ final class _EmployeesContent extends StatelessWidget {
     required this.onRoleChanged,
     required this.onAdd,
     required this.onEdit,
-    required this.onDeactivate,
+    required this.onToggleStatus,
     required this.onDelete,
     required this.onOpenDetails,
     required this.hasHistory,
@@ -239,7 +274,7 @@ final class _EmployeesContent extends StatelessWidget {
   final ValueChanged<String?> onRoleChanged;
   final VoidCallback onAdd;
   final ValueChanged<Employee> onEdit;
-  final ValueChanged<Employee> onDeactivate;
+  final ValueChanged<Employee> onToggleStatus;
   final ValueChanged<Employee> onDelete;
   final ValueChanged<Employee> onOpenDetails;
   final bool Function(Employee employee) hasHistory;
@@ -291,10 +326,6 @@ final class _EmployeesContent extends StatelessWidget {
                   for (final employee in employees)
                     _EmployeeCard(
                       employee: employee,
-                      hasHistory: hasHistory(employee),
-                      onEdit: () => onEdit(employee),
-                      onDeactivate: () => onDeactivate(employee),
-                      onDelete: () => onDelete(employee),
                       onOpenDetails: () => onOpenDetails(employee),
                     ),
               ],
@@ -438,18 +469,10 @@ final class _FilterDropdown extends StatelessWidget {
 final class _EmployeeCard extends StatelessWidget {
   const _EmployeeCard({
     required this.employee,
-    required this.hasHistory,
-    required this.onEdit,
-    required this.onDeactivate,
-    required this.onDelete,
     required this.onOpenDetails,
   });
 
   final Employee employee;
-  final bool hasHistory;
-  final VoidCallback onEdit;
-  final VoidCallback onDeactivate;
-  final VoidCallback onDelete;
   final VoidCallback onOpenDetails;
 
   @override
@@ -463,47 +486,15 @@ final class _EmployeeCard extends StatelessWidget {
           child: const Icon(Icons.badge_outlined),
         ),
         title: Text(
-            '${employee.registrationNumber.isNotEmpty ? employee.registrationNumber : employee.employeeId} - ${employee.displayName}'),
-        subtitle: Text('${employee.company}\n${employee.role ?? '-'}'),
+          employee.displayName,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text('${employee.role ?? '-'}\n${employee.company}'),
         isThreeLine: true,
-        trailing: Wrap(
-          spacing: AppSpacing.sm,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            JkddStatusChip(
-              label: employee.active
-                  ? context.tr('employees.activeStatus')
-                  : context.tr('employees.inactiveStatus'),
-              icon: employee.active
-                  ? Icons.check_circle_outline
-                  : Icons.pause_circle_outline,
-              tone: employee.active
-                  ? JkddStatusTone.success
-                  : JkddStatusTone.warning,
-            ),
-            IconButton(
-              tooltip: context.tr('employees.details'),
-              onPressed: onOpenDetails,
-              icon: const Icon(Icons.open_in_new),
-            ),
-            IconButton(
-              tooltip: context.tr('employees.edit'),
-              onPressed: onEdit,
-              icon: const Icon(Icons.edit_outlined),
-            ),
-            IconButton(
-              tooltip: context.tr('employees.deactivate'),
-              onPressed: employee.active ? onDeactivate : null,
-              icon: const Icon(Icons.person_off_outlined),
-            ),
-            IconButton(
-              tooltip: hasHistory
-                  ? context.tr('employees.deleteBlocked')
-                  : context.tr('employees.delete'),
-              onPressed: hasHistory ? null : onDelete,
-              icon: const Icon(Icons.delete_outline),
-            ),
-          ],
+        trailing: TextButton(
+          onPressed: onOpenDetails,
+          child: Text(context.tr('employees.details')),
         ),
       ),
     );
@@ -516,14 +507,14 @@ final class EmployeeDetailsScreen extends StatelessWidget {
     required this.employee,
     required this.hasHistory,
     required this.onEdit,
-    required this.onDeactivate,
+    required this.onToggleStatus,
     required this.onDelete,
   });
 
   final Employee employee;
   final bool hasHistory;
   final VoidCallback onEdit;
-  final VoidCallback onDeactivate;
+  final VoidCallback onToggleStatus;
   final VoidCallback onDelete;
 
   @override
@@ -556,9 +547,13 @@ final class EmployeeDetailsScreen extends StatelessWidget {
                               label: Text(context.tr('employees.edit')),
                             ),
                             OutlinedButton.icon(
-                              onPressed: employee.active ? onDeactivate : null,
-                              icon: const Icon(Icons.person_off_outlined),
-                              label: Text(context.tr('employees.deactivate')),
+                              onPressed: onToggleStatus,
+                              icon: Icon(employee.active
+                                  ? Icons.person_off_outlined
+                                  : Icons.person_add_alt_1_outlined),
+                              label: Text(employee.active
+                                  ? context.tr('employees.setInactive')
+                                  : context.tr('employees.setActive')),
                             ),
                             OutlinedButton.icon(
                               onPressed: hasHistory ? null : onDelete,

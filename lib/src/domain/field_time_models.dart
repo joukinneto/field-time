@@ -14,6 +14,8 @@ enum SyncOperation { create, update }
 
 enum TimesheetPeriod { today, week, month, year }
 
+enum PayPremiumType { percentage, fixedHourly, doubleTime }
+
 final class Job {
   const Job({
     required this.id,
@@ -30,7 +32,13 @@ final class Job {
     this.supervisor,
     this.accessInstructions,
     this.status = 'active',
+    this.travelBonusEnabled = false,
     this.travelBonusHours = 0,
+    this.payPremiumEnabled = false,
+    this.payPremiumType,
+    this.payPremiumValue = 0,
+    this.latitude,
+    this.longitude,
     this.active = true,
   });
 
@@ -48,10 +56,18 @@ final class Job {
   final String? supervisor;
   final String? accessInstructions;
   final String status;
+  final bool travelBonusEnabled;
   final double travelBonusHours;
+  final bool payPremiumEnabled;
+  final PayPremiumType? payPremiumType;
+  final double payPremiumValue;
+  final double? latitude;
+  final double? longitude;
   final bool active;
 
-  String get displayName => '$number - $name';
+  String get displayName => 'Job $number';
+  bool get hasTravelBonus => travelBonusEnabled && travelBonusHours > 0;
+  bool get hasPayPremium => payPremiumEnabled && payPremiumValue > 0;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -68,7 +84,13 @@ final class Job {
         'supervisor': supervisor,
         'accessInstructions': accessInstructions,
         'status': status,
+        'travelBonusEnabled': travelBonusEnabled,
         'travelBonusHours': travelBonusHours,
+        'payPremiumEnabled': payPremiumEnabled,
+        'payPremiumType': payPremiumType?.name,
+        'payPremiumValue': payPremiumValue,
+        'latitude': latitude,
+        'longitude': longitude,
         'active': active,
       };
 
@@ -88,7 +110,16 @@ final class Job {
         accessInstructions: json['accessInstructions'] as String?,
         status: json['status'] as String? ??
             ((json['active'] as bool? ?? true) ? 'active' : 'inactive'),
+        travelBonusEnabled: json['travelBonusEnabled'] as bool? ??
+            ((json['travelBonusHours'] as num? ?? 0).toDouble() > 0),
         travelBonusHours: (json['travelBonusHours'] as num? ?? 0).toDouble(),
+        payPremiumEnabled: json['payPremiumEnabled'] as bool? ?? false,
+        payPremiumType: json['payPremiumType'] == null
+            ? null
+            : PayPremiumType.values.byName(json['payPremiumType'] as String),
+        payPremiumValue: (json['payPremiumValue'] as num? ?? 0).toDouble(),
+        latitude: (json['latitude'] as num?)?.toDouble(),
+        longitude: (json['longitude'] as num?)?.toDouble(),
         active: json['active'] as bool? ?? true,
       );
 }
@@ -181,6 +212,12 @@ final class WorkSegment {
     this.endedLocation,
     this.notes,
     this.travelBonusHours = 0,
+    this.travelBonusEnabled = false,
+    this.payPremiumEnabled = false,
+    this.payPremiumType,
+    this.payPremiumValue = 0,
+    this.jobLatitude,
+    this.jobLongitude,
   });
 
   final String id;
@@ -198,12 +235,29 @@ final class WorkSegment {
   final String? notes;
   final LaborType laborType;
   final double travelBonusHours;
+  final bool travelBonusEnabled;
+  final bool payPremiumEnabled;
+  final PayPremiumType? payPremiumType;
+  final double payPremiumValue;
+  final double? jobLatitude;
+  final double? jobLongitude;
 
   bool get isOpen => endedAt == null;
+  bool get hasPayPremium => payPremiumEnabled && payPremiumValue > 0;
   Duration duration([DateTime? now]) =>
       (endedAt ?? now ?? DateTime.now()).difference(startedAt);
   double regularHours([DateTime? now]) => duration(now).inMinutes / 60;
   double totalHours([DateTime? now]) => regularHours(now) + travelBonusHours;
+  double payPremiumAmount(double baseHourlyRate, [DateTime? now]) {
+    if (!payPremiumEnabled || payPremiumValue <= 0) return 0;
+    return switch (payPremiumType) {
+      PayPremiumType.percentage =>
+        regularHours(now) * baseHourlyRate * payPremiumValue,
+      PayPremiumType.fixedHourly => regularHours(now) * payPremiumValue,
+      PayPremiumType.doubleTime => regularHours(now) * baseHourlyRate,
+      null => 0,
+    };
+  }
 
   WorkSegment close(DateTime at, GeoPoint location, {String? notes}) =>
       WorkSegment(
@@ -222,6 +276,12 @@ final class WorkSegment {
         notes: notes?.trim().isNotEmpty == true ? notes!.trim() : this.notes,
         laborType: laborType,
         travelBonusHours: travelBonusHours,
+        travelBonusEnabled: travelBonusEnabled,
+        payPremiumEnabled: payPremiumEnabled,
+        payPremiumType: payPremiumType,
+        payPremiumValue: payPremiumValue,
+        jobLatitude: jobLatitude,
+        jobLongitude: jobLongitude,
       );
 
   WorkSegment withNotes(String value) => WorkSegment(
@@ -240,6 +300,12 @@ final class WorkSegment {
         notes: value.trim(),
         laborType: laborType,
         travelBonusHours: travelBonusHours,
+        travelBonusEnabled: travelBonusEnabled,
+        payPremiumEnabled: payPremiumEnabled,
+        payPremiumType: payPremiumType,
+        payPremiumValue: payPremiumValue,
+        jobLatitude: jobLatitude,
+        jobLongitude: jobLongitude,
       );
 
   Map<String, dynamic> toJson() => {
@@ -258,6 +324,12 @@ final class WorkSegment {
         'notes': notes,
         'laborType': laborType.name,
         'travelBonusHours': travelBonusHours,
+        'travelBonusEnabled': travelBonusEnabled,
+        'payPremiumEnabled': payPremiumEnabled,
+        'payPremiumType': payPremiumType?.name,
+        'payPremiumValue': payPremiumValue,
+        'jobLatitude': jobLatitude,
+        'jobLongitude': jobLongitude,
       };
 
   factory WorkSegment.fromJson(Map<String, dynamic> json) => WorkSegment(
@@ -282,6 +354,15 @@ final class WorkSegment {
         notes: json['notes'] as String?,
         laborType: LaborType.values.byName(json['laborType'] as String),
         travelBonusHours: (json['travelBonusHours'] as num? ?? 0).toDouble(),
+        travelBonusEnabled: json['travelBonusEnabled'] as bool? ??
+            ((json['travelBonusHours'] as num? ?? 0).toDouble() > 0),
+        payPremiumEnabled: json['payPremiumEnabled'] as bool? ?? false,
+        payPremiumType: json['payPremiumType'] == null
+            ? null
+            : PayPremiumType.values.byName(json['payPremiumType'] as String),
+        payPremiumValue: (json['payPremiumValue'] as num? ?? 0).toDouble(),
+        jobLatitude: (json['jobLatitude'] as num?)?.toDouble(),
+        jobLongitude: (json['jobLongitude'] as num?)?.toDouble(),
       );
 }
 
@@ -330,17 +411,23 @@ final class WorkDay {
         (total, segment) => total + segment.duration(),
       );
   double get travelBonusHours {
-    final bonusByJob = <String, double>{};
-    for (final segment in segments) {
-      bonusByJob.update(
-        segment.jobId,
-        (value) => value >= segment.travelBonusHours
-            ? value
-            : segment.travelBonusHours,
-        ifAbsent: () => segment.travelBonusHours,
-      );
+    var total = 0.0;
+    for (final segment in travelBonusSegments) {
+      total += segment.travelBonusHours;
     }
-    return bonusByJob.values.fold(0, (total, bonus) => total + bonus);
+    return total;
+  }
+
+  List<WorkSegment> get travelBonusSegments {
+    final qualifying = <WorkSegment>[];
+    WorkSegment? previous;
+    for (final segment in segments) {
+      if (_qualifiesForTravelBonus(previous, segment)) {
+        qualifying.add(segment);
+      }
+      previous = segment;
+    }
+    return qualifying;
   }
 
   double get totalHours => workedDuration.inMinutes / 60 + travelBonusHours;
@@ -352,6 +439,7 @@ final class WorkDay {
     DateTime? completedAt,
     String? notes,
     DateTime? updatedAt,
+    bool clearCompletedAt = false,
   }) =>
       WorkDay(
         id: id,
@@ -362,7 +450,7 @@ final class WorkDay {
         workDate: workDate,
         status: status ?? this.status,
         segments: segments ?? this.segments,
-        completedAt: completedAt ?? this.completedAt,
+        completedAt: clearCompletedAt ? null : completedAt ?? this.completedAt,
         notes: notes ?? this.notes,
         createdAt: createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
@@ -402,6 +490,22 @@ final class WorkDay {
         createdAt: DateTime.parse(json['createdAt'] as String),
         updatedAt: DateTime.parse(json['updatedAt'] as String),
       );
+}
+
+bool _qualifiesForTravelBonus(WorkSegment? previous, WorkSegment current) {
+  if (!current.travelBonusEnabled || current.travelBonusHours <= 0) {
+    return false;
+  }
+  if (previous == null) return true;
+  if (previous.jobId != current.jobId ||
+      previous.jobAddress.trim().toLowerCase() !=
+          current.jobAddress.trim().toLowerCase()) {
+    return true;
+  }
+  final distance = previous.startedLocation.distanceToMeters(
+    current.startedLocation,
+  );
+  return distance >= 804.672;
 }
 
 final class ReceiptItem {

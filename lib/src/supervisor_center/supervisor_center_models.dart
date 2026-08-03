@@ -109,7 +109,7 @@ final class SupervisorJob {
   final String notes;
   final JobStatus status;
 
-  String get displayName => 'Obra $number - $name';
+  String get displayName => 'Job $number';
 
   factory SupervisorJob.placeholder(String id) => SupervisorJob(
         id: id,
@@ -451,6 +451,7 @@ final class SupervisorCenterState {
         supervisor: 'Santana',
         function: 'Responsavel pela JKDD',
       ),
+      ..._homologationUsers,
     ];
     return const SupervisorCenterState(
       currentRole: PilotRole.supervisor,
@@ -472,7 +473,10 @@ final class SupervisorCenterState {
   }) {
     final today = DateTime.now();
     final date = DateTime(today.year, today.month, today.day);
-    final users = employees.map(_pilotUserFromEmployee).toList(growable: false);
+    final users = [
+      ...employees.map(_pilotUserFromEmployee),
+      ..._homologationUsers,
+    ];
     final supervisorId = users.isEmpty ? 'TER-0001' : users.first.id;
     return SupervisorCenterState(
       currentRole: currentRole,
@@ -514,6 +518,63 @@ final class SupervisorCenterState {
     );
   }
 }
+
+const _homologationUsers = [
+  PilotUser(
+    id: 'test-supervisor',
+    registrationNumber: 'TER-9001',
+    name: 'Supervisor Test',
+    role: PilotRole.supervisor,
+    company: 'JKDD TECH - Homologation',
+    category: 'Homologation data',
+    function: 'Supervisor',
+  ),
+  PilotUser(
+    id: 'test-manager',
+    registrationNumber: 'TER-9002',
+    name: 'Manager Test',
+    role: PilotRole.coordinator,
+    company: 'JKDD TECH - Homologation',
+    category: 'Homologation data',
+    function: 'Manager',
+  ),
+  PilotUser(
+    id: 'test-secretary',
+    registrationNumber: 'TER-9003',
+    name: 'Secretary Test',
+    role: PilotRole.administrator,
+    company: 'JKDD TECH - Homologation',
+    category: 'Homologation data',
+    function: 'Secretary / Administrative',
+  ),
+  PilotUser(
+    id: 'test-accountant',
+    registrationNumber: 'TER-9004',
+    name: 'Accountant Test',
+    role: PilotRole.administrator,
+    company: 'JKDD TECH - Homologation',
+    category: 'Homologation data',
+    function: 'Accountant',
+  ),
+  PilotUser(
+    id: 'test-director',
+    registrationNumber: 'TER-9005',
+    name: 'Director Test',
+    role: PilotRole.owner,
+    company: 'JKDD TECH - Homologation',
+    category: 'Homologation data',
+    function: 'Director',
+  ),
+  PilotUser(
+    id: 'test-president',
+    registrationNumber: 'TER-9006',
+    name: 'President Test',
+    role: PilotRole.owner,
+    company: 'JKDD TECH - Homologation',
+    category: 'Homologation data',
+    function: 'President',
+  ),
+];
 
 PilotUser _pilotUserFromEmployee(Employee employee) => PilotUser(
       id: employee.id.isNotEmpty ? employee.id : employee.employeeId,
@@ -587,7 +648,7 @@ Set<PilotPermission> _permissionsFor(PilotRole role) => switch (role) {
     };
 
 String roleLabel(PilotRole role) => switch (role) {
-      PilotRole.owner => 'Owner',
+      PilotRole.owner => 'President',
       PilotRole.administrator => 'Administrator',
       PilotRole.coordinator => 'Coordinator',
       PilotRole.supervisor => 'Supervisor',

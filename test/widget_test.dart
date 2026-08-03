@@ -18,10 +18,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('v1.1.0-test'), findsOneWidget);
-    expect(find.text('EWW'), findsOneWidget);
+    expect(find.text('v1.1.0-test2'), findsOneWidget);
+    expect(find.text('EWW'), findsNothing);
     expect(find.textContaining('Santana'), findsWidgets);
-    expect(find.textContaining('JKDD Finish & Remodeling Corp'), findsWidgets);
+    expect(find.textContaining('JKDD Finish & Remodeling Corp'), findsNothing);
     expect(
         find.byWidgetPredicate(
           (widget) =>

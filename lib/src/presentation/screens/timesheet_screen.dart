@@ -55,10 +55,6 @@ final class _TimesheetContent extends ConsumerWidget {
     const pdfService = TimesheetPdfService();
     final days = service.timesheet(snapshot, period, DateTime.now());
     final segments = days.expand((day) => day.segments).toList();
-    final receipts = snapshot.receipts.where(
-      (receipt) =>
-          days.any((day) => _sameDate(day.workDate, receipt.purchaseDate)),
-    );
     final regularHours = segments.fold<double>(
       0,
       (total, segment) => total + segment.regularHours(),
@@ -66,10 +62,6 @@ final class _TimesheetContent extends ConsumerWidget {
     final bonusHours = days.fold<double>(
       0,
       (total, day) => total + day.travelBonusHours,
-    );
-    final reimbursement = receipts.fold<double>(
-      0,
-      (total, receipt) => total + receipt.total,
     );
     final totalsByJob = <String, double>{};
     for (final segment in segments) {
@@ -107,15 +99,10 @@ final class _TimesheetContent extends ConsumerWidget {
                   trailing: Wrap(
                     spacing: AppSpacing.sm,
                     children: [
-                      OutlinedButton.icon(
-                        onPressed: () => _sharePdf(snapshot, pdfService),
-                        icon: const Icon(Icons.ios_share_outlined),
-                        label: Text(context.tr('timesheet.share')),
-                      ),
                       FilledButton.icon(
                         onPressed: () => _previewPdf(snapshot, pdfService),
                         icon: const Icon(Icons.picture_as_pdf_outlined),
-                        label: Text(context.tr('timesheet.generatePdf')),
+                        label: Text(context.tr('timesheet.generateTimesheet')),
                       ),
                     ],
                   ),
@@ -144,20 +131,18 @@ final class _TimesheetContent extends ConsumerWidget {
                         Icons.access_time_filled,
                         AppColors.green),
                     _TotalItem(
+                        context.tr('timesheet.payPremium'),
+                        segments
+                            .where((item) => item.hasPayPremium)
+                            .length
+                            .toString(),
+                        Icons.workspace_premium_outlined,
+                        AppColors.purple),
+                    _TotalItem(
                         context.tr('timesheet.jobs'),
                         totalsByJob.length.toString(),
                         Icons.apartment_outlined,
                         AppColors.purple),
-                    _TotalItem(
-                        context.tr('timesheet.receipts'),
-                        receipts.length.toString(),
-                        Icons.receipt_long_outlined,
-                        AppColors.amber),
-                    _TotalItem(
-                        context.tr('timesheet.reimbursements'),
-                        _money(reimbursement),
-                        Icons.payments_outlined,
-                        AppColors.green),
                   ],
                 ),
                 if (totalsByJob.isNotEmpty) ...[
@@ -228,21 +213,6 @@ final class _TimesheetContent extends ConsumerWidget {
       ),
     );
   }
-
-  Future<void> _sharePdf(
-    FieldTimeSnapshot snapshot,
-    TimesheetPdfService pdfService,
-  ) async {
-    const reportStrings = AppStrings(AppLanguage.en);
-    final bytes = await pdfService.buildWeeklyTimesheetPdf(
-      snapshot: snapshot,
-      anchorDate: DateTime.now(),
-    );
-    await Printing.sharePdf(
-      bytes: bytes,
-      filename: reportStrings.t('timesheet.fileName'),
-    );
-  }
 }
 
 final class _TimesheetFilters extends StatelessWidget {
@@ -308,9 +278,9 @@ final class _TotalsGrid extends StatelessWidget {
   Widget build(BuildContext context) => LayoutBuilder(
         builder: (context, constraints) {
           final count = constraints.maxWidth >= 1040
-              ? 6
+              ? 5
               : constraints.maxWidth >= 720
-                  ? 3
+                  ? 5
                   : 2;
           return GridView.count(
             crossAxisCount: count,
@@ -318,7 +288,7 @@ final class _TotalsGrid extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: AppSpacing.md,
             crossAxisSpacing: AppSpacing.md,
-            childAspectRatio: count == 2 ? 1.15 : 1.05,
+            childAspectRatio: count == 2 ? 1.9 : 1.55,
             children: [
               for (final item in items)
                 JkddSummaryCard(
@@ -505,17 +475,7 @@ final class _TravelBonusCard extends StatelessWidget {
 }
 
 List<WorkSegment> _bonusSegments(WorkDay day) {
-  final byJob = <String, WorkSegment>{};
-  for (final segment in day.segments) {
-    if (segment.travelBonusHours <= 0) continue;
-    final current = byJob[segment.jobId];
-    if (current == null ||
-        current.travelBonusHours < segment.travelBonusHours) {
-      byJob[segment.jobId] = segment;
-    }
-  }
-  return byJob.values.toList(growable: false)
-    ..sort((left, right) => left.jobNumber.compareTo(right.jobNumber));
+  return day.travelBonusSegments;
 }
 
 bool _sameDate(DateTime left, DateTime right) =>
@@ -533,5 +493,3 @@ String _hours(double value) {
   final minutes = (value * 60).round();
   return '${minutes ~/ 60}h ${minutes.remainder(60).toString().padLeft(2, '0')}m';
 }
-
-String _money(double value) => '\$${value.toStringAsFixed(2)}';

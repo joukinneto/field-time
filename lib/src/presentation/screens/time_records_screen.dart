@@ -23,9 +23,9 @@ import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_app_bar.d
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_buttons.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_empty_state.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_info_row.dart';
+import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_job_navigation_button.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_section_header.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_status_chip.dart';
-import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_summary_card.dart';
 
 enum _Destination {
   home,
@@ -206,7 +206,10 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
                 setState(() => _destination = _Destination.timesheet),
           ),
         _Destination.timesheet => const TimesheetScreen(embedded: true),
-        _Destination.jobs => _JobsView(snapshot: state.snapshot),
+        _Destination.jobs => _JobsView(
+            snapshot: state.snapshot,
+            canCreateJob: pilotState.hasPermission(PilotPermission.createJob),
+          ),
         _Destination.receipts => _ReceiptsView(
             snapshot: state.snapshot,
             onReceipt: _receipt,
@@ -215,7 +218,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
           const EmployeesManagementScreen(embedded: true),
         _Destination.management => const SupervisorCenterScreen(),
         _Destination.settings => _SettingsView(
-            currentVersion: 'v1.1.0-test',
+            currentVersion: 'v1.1.0-test2',
             onJobsImport: _openJobsImport,
             currentLanguage: ref.watch(appLanguageControllerProvider),
             onLanguageChanged: (language) async {
@@ -659,19 +662,6 @@ final class _HomeView extends StatelessWidget {
     final snapshot = state.snapshot;
     final activeSegment = state.activeSegment;
     final working = activeSegment != null;
-    final todaySegments = _todaySegments(snapshot, now);
-    final worked = todaySegments.fold(
-      Duration.zero,
-      (total, segment) => total + segment.duration(now),
-    );
-    final bonusHours = todaySegments.fold<double>(
-      0,
-      (total, segment) => total + segment.travelBonusHours,
-    );
-    final reimbursementTotal = snapshot.reimbursements.fold<double>(
-      0,
-      (sum, item) => sum + item.amount,
-    );
 
     return _PageFrame(
       child: LayoutBuilder(
@@ -681,7 +671,19 @@ final class _HomeView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _GreetingBand(state: state, now: now),
-              const SizedBox(height: AppSpacing.xl),
+              const SizedBox(height: AppSpacing.md),
+              _ActionCenter(
+                working: working,
+                loading: state.loading,
+                onClockIn: onClockIn,
+                onEndDay: onEndDay,
+                onSwitchJob: onSwitchJob,
+                onReceipt: onReceipt,
+                onPhoto: onPhoto,
+                onObservation: onObservation,
+                onTimesheet: onTimesheet,
+              ),
+              const SizedBox(height: AppSpacing.md),
               if (wide)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -695,102 +697,15 @@ final class _HomeView extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: AppSpacing.xl),
-                    Expanded(
-                      flex: 4,
-                      child: _ActionCenter(
-                        working: working,
-                        loading: state.loading,
-                        onClockIn: onClockIn,
-                        onEndDay: onEndDay,
-                        onSwitchJob: onSwitchJob,
-                        onReceipt: onReceipt,
-                        onPhoto: onPhoto,
-                        onObservation: onObservation,
-                        onTimesheet: onTimesheet,
-                      ),
-                    ),
+                    Expanded(child: _ReceiptOverview(snapshot: snapshot)),
                   ],
                 )
-              else ...[
+              else
                 _CurrentStatusCard(
                   state: state,
                   now: now,
                   activeSegment: activeSegment,
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                _ActionCenter(
-                  working: working,
-                  loading: state.loading,
-                  onClockIn: onClockIn,
-                  onEndDay: onEndDay,
-                  onSwitchJob: onSwitchJob,
-                  onReceipt: onReceipt,
-                  onPhoto: onPhoto,
-                  onObservation: onObservation,
-                  onTimesheet: onTimesheet,
-                ),
-              ],
-              const SizedBox(height: AppSpacing.xl),
-              JkddSectionHeader(
-                title: context.tr('home.dailySummary'),
-                subtitle: _date(now),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              _SummaryGrid(
-                items: [
-                  _SummarySpec(context.tr('home.hoursWorked'),
-                      _duration(worked), Icons.schedule, AppColors.blue),
-                  _SummarySpec(context.tr('home.bonusHours'),
-                      _hours(bonusHours), Icons.route_outlined, AppColors.teal),
-                  _SummarySpec(
-                    context.tr('home.jobsVisited'),
-                    todaySegments
-                        .map((item) => item.jobId)
-                        .toSet()
-                        .length
-                        .toString(),
-                    Icons.apartment_outlined,
-                    AppColors.purple,
-                  ),
-                  _SummarySpec(
-                    context.tr('home.receipts'),
-                    snapshot.receipts.length.toString(),
-                    Icons.receipt_long_outlined,
-                    AppColors.amber,
-                  ),
-                  _SummarySpec(
-                    context.tr('home.reimbursements'),
-                    _money(reimbursementTotal),
-                    Icons.payments_outlined,
-                    AppColors.green,
-                  ),
-                  _SummarySpec(
-                    context.tr('home.pendingSync'),
-                    state.pendingItems.toString(),
-                    Icons.sync_problem_outlined,
-                    state.pendingItems == 0 ? AppColors.green : AppColors.amber,
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              if (wide)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _TodayTimeline(segments: todaySegments, now: now),
-                    ),
-                    const SizedBox(width: AppSpacing.xl),
-                    Expanded(
-                      child: _ReceiptOverview(snapshot: snapshot),
-                    ),
-                  ],
-                )
-              else ...[
-                _TodayTimeline(segments: todaySegments, now: now),
-                const SizedBox(height: AppSpacing.xl),
-                _ReceiptOverview(snapshot: snapshot),
-              ],
             ],
           );
         },
@@ -833,7 +748,7 @@ final class _GreetingBand extends StatelessWidget {
   Widget build(BuildContext context) {
     final working = state.activeSegment != null;
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.xl),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.navy,
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -850,16 +765,14 @@ final class _GreetingBand extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Image.asset(AppAssets.fieldTimeLogoDark, height: 58),
-                const SizedBox(height: AppSpacing.lg),
                 Text(
                   '${_greeting(context, now)}, ${state.snapshot.worker.displayName.isEmpty ? 'Santana' : state.snapshot.worker.displayName}.',
                   style: Theme.of(context)
                       .textTheme
-                      .headlineLarge
+                      .headlineSmall
                       ?.copyWith(color: AppColors.white),
                 ),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
                   '${_date(now)} - ${working ? context.tr('home.workdayInProgress') : context.tr('home.readyToClockIn')}',
                   style: Theme.of(context)
@@ -949,47 +862,50 @@ final class _CurrentStatusCard extends StatelessWidget {
             Text(
               segment == null
                   ? context.tr('home.noActiveJob')
-                  : '${segment.jobNumber} - ${segment.jobName}',
+                  : _jobLabel(context, segment.jobNumber),
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: AppSpacing.sm),
-            Text(
-              segment?.jobAddress ?? context.tr('home.selectJobWhenClockingIn'),
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyLarge
-                  ?.copyWith(color: AppColors.gray),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    segment?.jobAddress ??
+                        context.tr('home.selectJobWhenClockingIn'),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyLarge
+                        ?.copyWith(color: AppColors.gray),
+                  ),
+                ),
+                if (segment != null)
+                  JkddJobNavigationButton(
+                    address: segment.jobAddress,
+                    latitude: segment.jobLatitude,
+                    longitude: segment.jobLongitude,
+                  ),
+              ],
             ),
             const Divider(height: 36),
-            _InfoGrid(
+            Row(
               children: [
-                JkddInfoRow(
-                  icon: Icons.login,
-                  label: context.tr('home.clockInTime'),
-                  value: _time(segment?.startedAt),
+                Expanded(
+                  child: JkddInfoRow(
+                    icon: Icons.login,
+                    label: context.tr('home.clockInTime'),
+                    value: _time(segment?.startedAt),
+                  ),
                 ),
-                JkddInfoRow(
-                  icon: Icons.timer_outlined,
-                  label: context.tr('home.workedTime'),
-                  value: segment == null
-                      ? '00h 00m'
-                      : _duration(segment.duration(now)),
-                ),
-                JkddInfoRow(
-                  icon: Icons.gps_fixed,
-                  label: context.tr('home.gps'),
-                  value: _gps(
-                      context, state.lastLocation ?? segment?.startedLocation),
-                ),
-                JkddInfoRow(
-                  icon: Icons.business_outlined,
-                  label: context.tr('home.clientCompany'),
-                  value: state.snapshot.companyName,
-                ),
-                JkddInfoRow(
-                  icon: Icons.engineering_outlined,
-                  label: context.tr('home.subcontractor'),
-                  value: state.snapshot.subcontractor.displayName,
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: JkddInfoRow(
+                    icon: Icons.timer_outlined,
+                    label: context.tr('home.workedTime'),
+                    value: segment == null
+                        ? '00h 00m'
+                        : _duration(segment.duration(now)),
+                  ),
                 ),
               ],
             ),
@@ -1068,8 +984,6 @@ final class _ActionCenter extends StatelessWidget {
                     enabled: working),
                 _ActionSpec(context.tr('home.attachReceipt'),
                     Icons.receipt_long_outlined, onReceipt),
-                _ActionSpec(context.tr('home.requestReimbursement'),
-                    Icons.payments_outlined, onReceipt),
                 _ActionSpec(context.tr('home.addPhoto'),
                     Icons.add_a_photo_outlined, onPhoto,
                     enabled: working),
@@ -1129,91 +1043,6 @@ final class _ActionButtonGrid extends StatelessWidget {
   }
 }
 
-final class _SummarySpec {
-  const _SummarySpec(this.label, this.value, this.icon, this.color);
-
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-}
-
-final class _SummaryGrid extends StatelessWidget {
-  const _SummaryGrid({required this.items});
-
-  final List<_SummarySpec> items;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final count = constraints.maxWidth >= 1040
-            ? 6
-            : constraints.maxWidth >= 760
-                ? 3
-                : 2;
-        return GridView.count(
-          crossAxisCount: count,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: AppSpacing.md,
-          crossAxisSpacing: AppSpacing.md,
-          childAspectRatio: count == 2 ? 1.2 : 1.05,
-          children: [
-            for (final item in items)
-              JkddSummaryCard(
-                label: item.label,
-                value: item.value,
-                icon: item.icon,
-                color: item.color,
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-final class _TodayTimeline extends StatelessWidget {
-  const _TodayTimeline({required this.segments, required this.now});
-
-  final List<WorkSegment> segments;
-  final DateTime now;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        JkddSectionHeader(
-          title: context.tr('home.todayTimesheet'),
-          subtitle: context.tr('home.todayTimeline'),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        if (segments.isEmpty)
-          JkddEmptyState(
-            icon: Icons.timeline_outlined,
-            title: context.tr('home.noWorkPeriods'),
-            message: context.tr('home.noWorkPeriodsHelp'),
-          )
-        else
-          for (final segment in segments)
-            Card(
-              margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: ListTile(
-                leading:
-                    const Icon(Icons.apartment_outlined, color: AppColors.blue),
-                title: Text('${segment.jobNumber} - ${segment.jobName}'),
-                subtitle: Text(
-                    '${_time(segment.startedAt)} - ${_time(segment.endedAt)}'),
-                trailing: Text(_duration(segment.duration(now))),
-              ),
-            ),
-      ],
-    );
-  }
-}
-
 final class _ReceiptOverview extends StatelessWidget {
   const _ReceiptOverview({required this.snapshot});
 
@@ -1259,34 +1088,13 @@ final class _ReceiptOverview extends StatelessWidget {
   }
 }
 
-final class _InfoGrid extends StatelessWidget {
-  const _InfoGrid({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth >= 620 ? 260.0 : double.infinity;
-        return Wrap(
-          spacing: AppSpacing.xl,
-          runSpacing: AppSpacing.lg,
-          children: [
-            for (final child in children) SizedBox(width: width, child: child),
-          ],
-        );
-      },
-    );
-  }
-}
-
 enum _JobFilter { active, inactive, withBonus, all }
 
 final class _JobsView extends StatefulWidget {
-  const _JobsView({required this.snapshot});
+  const _JobsView({required this.snapshot, required this.canCreateJob});
 
   final FieldTimeSnapshot snapshot;
+  final bool canCreateJob;
 
   @override
   State<_JobsView> createState() => _JobsViewState();
@@ -1333,11 +1141,13 @@ final class _JobsViewState extends State<_JobsView> {
           JkddSectionHeader(
             title: context.tr('jobs.title'),
             subtitle: context.tr('jobs.subtitle'),
-            trailing: FilledButton.icon(
-              onPressed: _showNewJobRequest,
-              icon: const Icon(Icons.add_business_outlined),
-              label: Text(context.tr('jobs.newJobRequest')),
-            ),
+            trailing: widget.canCreateJob
+                ? FilledButton.icon(
+                    onPressed: _showNewJobRequest,
+                    icon: const Icon(Icons.add_business_outlined),
+                    label: Text(context.tr('jobs.newJobRequest')),
+                  )
+                : null,
           ),
           const SizedBox(height: AppSpacing.lg),
           Card(
@@ -1421,9 +1231,6 @@ final class _JobsViewState extends State<_JobsView> {
   }
 
   Future<void> _showJobDetails(Job job) async {
-    final mapSearch = Uri.encodeComponent(
-      [job.address, job.city].whereType<String>().join(' '),
-    );
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -1442,7 +1249,7 @@ final class _JobsViewState extends State<_JobsView> {
             children: [
               JkddSectionHeader(
                 title: context.tr('jobs.details'),
-                subtitle: job.displayName,
+                subtitle: _jobLabel(context, job.number),
               ),
               const SizedBox(height: AppSpacing.lg),
               JkddInfoRow(
@@ -1460,7 +1267,7 @@ final class _JobsViewState extends State<_JobsView> {
               JkddInfoRow(
                 icon: Icons.apartment_outlined,
                 label: context.tr('jobs.jobName'),
-                value: job.name,
+                value: _jobLabel(context, job.number),
               ),
               JkddInfoRow(
                 icon: Icons.location_on_outlined,
@@ -1482,9 +1289,16 @@ final class _JobsViewState extends State<_JobsView> {
               JkddInfoRow(
                 icon: Icons.route_outlined,
                 label: context.tr('jobs.travelBonus'),
-                value: job.travelBonusHours > 0
+                value: job.hasTravelBonus
                     ? _hours(job.travelBonusHours)
                     : context.tr('common.none'),
+              ),
+              JkddInfoRow(
+                icon: Icons.workspace_premium_outlined,
+                label: context.tr('jobs.payPremium'),
+                value: job.hasPayPremium
+                    ? _payPremiumLabel(context, job)
+                    : context.tr('jobs.noPayPremium'),
               ),
               JkddInfoRow(
                 icon: Icons.business_outlined,
@@ -1507,12 +1321,12 @@ final class _JobsViewState extends State<_JobsView> {
                   label: context.tr('jobs.accessInstructions'),
                   value: job.accessInstructions!,
                 ),
-              const Divider(height: 28),
-              Text(context.tr('jobs.openMap'),
-                  style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: AppSpacing.xs),
-              SelectableText(
-                'https://www.google.com/maps/search/?api=1&query=$mapSearch',
+              const SizedBox(height: AppSpacing.md),
+              JkddJobNavigationButton(
+                compact: false,
+                address: [job.address, job.city].whereType<String>().join(' '),
+                latitude: job.latitude,
+                longitude: job.longitude,
               ),
               const SizedBox(height: AppSpacing.lg),
               FilledButton.icon(
@@ -1647,7 +1461,7 @@ final class _JobCompactTile extends StatelessWidget {
           ),
           leading: const Icon(Icons.apartment_outlined, color: AppColors.blue),
           title: Text(
-            '${job.number} - ${job.name}',
+            _jobLabel(context, job.number),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -1667,16 +1481,38 @@ final class _JobCompactTile extends StatelessWidget {
               ),
               if (job.travelBonusHours > 0)
                 JkddStatusChip(
-                  label: context.tr('jobs.travelBonus'),
+                  label: context.tr(
+                    'jobs.travelBonusValue',
+                    {'hours': _hours(job.travelBonusHours)},
+                  ),
                   icon: Icons.route_outlined,
                   tone: JkddStatusTone.warning,
                 ),
+              if (job.hasPayPremium)
+                JkddStatusChip(
+                  label: context.tr(
+                    'jobs.payPremiumValue',
+                    {'value': _payPremiumLabel(context, job)},
+                  ),
+                  icon: Icons.workspace_premium_outlined,
+                  tone: JkddStatusTone.info,
+                ),
             ],
           ),
-          trailing: IconButton(
-            tooltip: context.tr('common.details'),
-            icon: const Icon(Icons.chevron_right),
-            onPressed: onTap,
+          trailing: Wrap(
+            spacing: AppSpacing.xs,
+            children: [
+              JkddJobNavigationButton(
+                address: [job.address, job.city].whereType<String>().join(' '),
+                latitude: job.latitude,
+                longitude: job.longitude,
+              ),
+              IconButton(
+                tooltip: context.tr('common.details'),
+                icon: const Icon(Icons.chevron_right),
+                onPressed: onTap,
+              ),
+            ],
           ),
           onTap: onTap,
         ),
@@ -2039,14 +1875,6 @@ final class _SummaryLine extends StatelessWidget {
       );
 }
 
-List<WorkSegment> _todaySegments(FieldTimeSnapshot snapshot, DateTime now) {
-  final today = DateTime(now.year, now.month, now.day);
-  return snapshot.workDays
-      .where((day) => _sameDate(day.workDate, today))
-      .expand((day) => day.segments)
-      .toList(growable: false);
-}
-
 bool _sameDate(DateTime left, DateTime right) =>
     left.year == right.year &&
     left.month == right.month &&
@@ -2074,6 +1902,25 @@ String _hours(double value) =>
 
 String _money(double value) => '\$${value.toStringAsFixed(2)}';
 
+String _jobLabel(BuildContext context, String number) {
+  final title = context.tr('jobs.title').toLowerCase().startsWith('job')
+      ? 'Job'
+      : context.tr('jobs.title').replaceAll('s', '');
+  return '$title $number';
+}
+
+String _payPremiumLabel(BuildContext context, Job job) {
+  if (!job.hasPayPremium) return context.tr('jobs.noPayPremium');
+  return switch (job.payPremiumType) {
+    PayPremiumType.percentage =>
+      '+${(job.payPremiumValue * 100).toStringAsFixed(0)}%',
+    PayPremiumType.fixedHourly =>
+      '+\$${job.payPremiumValue.toStringAsFixed(2)}/h',
+    PayPremiumType.doubleTime => '2x',
+    null => context.tr('jobs.noPayPremium'),
+  };
+}
+
 String _cityStateZip(BuildContext context, Job job) {
   final value = [
     job.city,
@@ -2081,13 +1928,6 @@ String _cityStateZip(BuildContext context, Job job) {
     job.zipCode,
   ].whereType<String>().where((item) => item.trim().isNotEmpty).join(', ');
   return value.isEmpty ? context.tr('common.unavailable') : value;
-}
-
-String _gps(BuildContext context, dynamic point) {
-  if (point == null || point.isOfflineFallback == true) {
-    return context.tr('common.unavailable');
-  }
-  return '${point.latitude.toStringAsFixed(5)}, ${point.longitude.toStringAsFixed(5)}';
 }
 
 String _receiptStatus(BuildContext context, ReceiptStatus status) =>

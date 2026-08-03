@@ -24,6 +24,23 @@ final class FieldTimeApplicationService {
       throw StateError('fieldTime.openPeriodExists');
     }
     final segment = _newSegment(snapshot, job, at, location, notes);
+    final previousSameDay = _lastSameDay(snapshot, at);
+    if (previousSameDay != null) {
+      final reopened = previousSameDay.copyWith(
+        status: WorkDayStatus.open,
+        clearCompletedAt: true,
+        updatedAt: at,
+        segments: [...previousSameDay.segments, segment],
+      );
+      return snapshot.copyWith(
+        workDays: _replaceDay(snapshot.workDays, reopened),
+        syncQueue: [
+          ...snapshot.syncQueue,
+          _queue(snapshot, 'WorkDay', reopened.id, SyncOperation.update, at),
+          _queue(snapshot, 'WorkSegment', segment.id, SyncOperation.create, at),
+        ],
+      );
+    }
     final timesheetSequence = _nextRegistrationSequence(
       snapshot,
       RegistrationRecordType.timesheet,
@@ -342,7 +359,23 @@ final class FieldTimeApplicationService {
         notes: notes?.trim().isEmpty == true ? null : notes?.trim(),
         laborType: snapshot.worker.laborType,
         travelBonusHours: job.travelBonusHours,
+        travelBonusEnabled: job.hasTravelBonus,
+        payPremiumEnabled: job.hasPayPremium,
+        payPremiumType: job.payPremiumType,
+        payPremiumValue: job.payPremiumValue,
+        jobLatitude: job.latitude,
+        jobLongitude: job.longitude,
       );
+
+  WorkDay? _lastSameDay(FieldTimeSnapshot snapshot, DateTime at) {
+    final date = DateTime(at.year, at.month, at.day);
+    for (final day in snapshot.workDays.reversed) {
+      if (day.workDate == date && day.status == WorkDayStatus.completed) {
+        return day;
+      }
+    }
+    return null;
+  }
 
   int _nextRegistrationSequence(
     FieldTimeSnapshot snapshot,
