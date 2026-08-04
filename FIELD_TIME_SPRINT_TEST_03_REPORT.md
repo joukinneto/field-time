@@ -122,7 +122,17 @@ Sprint Test 03 implemented a real local homologation login, removed the manual p
 
 ## Deployment
 
-- Commit: pending.
-- GitHub Actions: pending.
-- Published URL: pending.
+- Implementation commit: a4623f4ede062a2701f6832dc4b1f564cc0fbdb5.
+- Implementation commit message: Implement Field Time Test 03 login and operational controls.
+- GitHub Actions run: 30873829105.
+- GitHub Actions result: success.
+- Published URL: https://joukinneto.github.io/field-time/?v=1.1.0-test3.
+- Published URL status: HTTP 200.
+- Published jobs asset: HTTP 200.
+- Published employees asset: HTTP 200.
+- Published logo asset: HTTP 200.
+- Published manifest: start_url=/field-time/, scope=/field-time/, display=standalone.
+- Published Service Worker: HTTP 200.
+- Published bundle contains v1.1.0-test3: yes.
+- Published bundle contains homologation login accounts: yes.
 - Expected URL: https://joukinneto.github.io/field-time/?v=1.1.0-test3
