@@ -19,6 +19,8 @@ final class TimesheetWeek {
   }
 }
 
+typedef TimesheetRange = TimesheetWeek;
+
 final class TimesheetPdfService {
   const TimesheetPdfService();
 
@@ -26,6 +28,22 @@ final class TimesheetPdfService {
     final day = DateTime(value.year, value.month, value.day);
     final start = day.subtract(Duration(days: day.weekday - 1));
     return TimesheetWeek(start: start, end: start.add(const Duration(days: 6)));
+  }
+
+  TimesheetRange rangeFor(TimesheetPeriod period, DateTime value) {
+    final day = DateTime(value.year, value.month, value.day);
+    return switch (period) {
+      TimesheetPeriod.today => TimesheetRange(start: day, end: day),
+      TimesheetPeriod.week => weekFor(value),
+      TimesheetPeriod.month => TimesheetRange(
+          start: DateTime(value.year, value.month),
+          end: DateTime(value.year, value.month + 1, 0),
+        ),
+      TimesheetPeriod.year => TimesheetRange(
+          start: DateTime(value.year),
+          end: DateTime(value.year, 12, 31),
+        ),
+    };
   }
 
   double decimalHours(Duration duration) => duration.inMinutes / 60;
@@ -36,11 +54,12 @@ final class TimesheetPdfService {
   Future<Uint8List> buildWeeklyTimesheetPdf({
     required FieldTimeSnapshot snapshot,
     required DateTime anchorDate,
+    TimesheetPeriod period = TimesheetPeriod.week,
     AppLanguage language = AppLanguage.en,
     String? employerName,
   }) async {
     const strings = AppStrings(AppLanguage.en);
-    final week = weekFor(anchorDate);
+    final week = rangeFor(period, anchorDate);
     final days = snapshot.workDays
         .where((day) => week.contains(day.workDate))
         .toList(growable: false)
@@ -217,7 +236,7 @@ final class TimesheetPdfService {
         rows.add([
           _date(day.workDate),
           _weekDay(day.workDate),
-          '${segment.jobNumber} - ${segment.jobName}',
+          'Job ${segment.jobNumber}',
           segment.jobAddress,
           _time(segment.startedAt),
           segment.endedAt == null ? '--:--' : _time(segment.endedAt!),
@@ -233,7 +252,7 @@ final class TimesheetPdfService {
         rows.add([
           _date(day.workDate),
           _weekDay(day.workDate),
-          '${segment.jobNumber} - ${segment.jobName}',
+          'Job ${segment.jobNumber}',
           segment.jobAddress,
           '',
           '',
@@ -298,7 +317,6 @@ final class TimesheetPdfService {
       headers: [
         'Registration Number',
         strings.t('receipts.date'),
-        strings.t('receipts.amount'),
         strings.t('receipts.merchant'),
         strings.t('timesheet.job'),
         strings.t('jobs.address'),
@@ -311,7 +329,6 @@ final class TimesheetPdfService {
           [
             receipt.registrationNumber,
             _date(receipt.purchaseDate),
-            '\$${receipt.total.toStringAsFixed(2)}',
             receipt.merchant,
             _jobLabel(snapshot, receipt.jobId),
             _jobAddress(snapshot, receipt.jobId),
@@ -391,7 +408,7 @@ List<WorkSegment> _bonusSegments(WorkDay day) {
 
 String _jobLabel(FieldTimeSnapshot snapshot, String jobId) {
   final job = snapshot.jobs.firstWhere((job) => job.id == jobId);
-  return '${job.number} - ${job.name}';
+  return 'Job ${job.number}';
 }
 
 String _jobAddress(FieldTimeSnapshot snapshot, String jobId) {

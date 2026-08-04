@@ -42,7 +42,7 @@ final class JkddAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
             const SizedBox(width: 12),
             Text(
-              'v1.1.0-test2',
+              'v1.1.0-test3',
               style: Theme.of(context)
                   .textTheme
                   .labelMedium

@@ -11,6 +11,7 @@ import 'package:jkdd_field_time_records_production/core/theme/app_spacing.dart';
 import 'package:jkdd_field_time_records_production/features/employees/presentation/employees_management_screen.dart';
 import 'package:jkdd_field_time_records_production/features/jobs/presentation/jobs_import_screen.dart';
 import 'package:jkdd_field_time_records_production/src/application/field_time_controller.dart';
+import 'package:jkdd_field_time_records_production/src/auth/auth_session.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
 import 'package:jkdd_field_time_records_production/src/domain/registration_number.dart';
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
@@ -70,6 +71,18 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(fieldTimeControllerProvider);
     final pilotState = ref.watch(supervisorCenterProvider);
+    final session = ref.watch(authSessionProvider);
+
+    ref.listen(authSessionProvider, (previous, next) {
+      final user = next.user;
+      if (user == null || previous?.user?.role == user.role) return;
+      ref.read(supervisorCenterProvider.notifier).setRole(user.role);
+    });
+    if (session.user != null && pilotState.currentRole != session.user!.role) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(supervisorCenterProvider.notifier).setRole(session.user!.role);
+      });
+    }
 
     ref.listen(fieldTimeControllerProvider, (previous, next) {
       final text = next.error ?? next.message;
@@ -191,8 +204,6 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
     _Destination selected,
   ) =>
       switch (selected) {
-        _Destination.home when pilotState.currentUser.isWorker =>
-          const WorkerPilotScreen(),
         _Destination.home => _HomeView(
             state: state,
             now: _now,
@@ -218,8 +229,9 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
           const EmployeesManagementScreen(embedded: true),
         _Destination.management => const SupervisorCenterScreen(),
         _Destination.settings => _SettingsView(
-            currentVersion: 'v1.1.0-test2',
+            currentVersion: 'v1.1.0-test3',
             onJobsImport: _openJobsImport,
+            onLogout: _logout,
             currentLanguage: ref.watch(appLanguageControllerProvider),
             onLanguageChanged: (language) async {
               final savedMessage = context.tr('settings.saved');
@@ -230,6 +242,28 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
             },
           ),
       };
+
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.tr('auth.logout')),
+        content: Text(context.tr('auth.logoutConfirm')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.tr('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(context.tr('auth.logout')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(authSessionProvider.notifier).logout();
+  }
 
   Future<void> _clockIn() async {
     final snapshot = ref.read(fieldTimeControllerProvider).snapshot;
@@ -1145,7 +1179,7 @@ final class _JobsViewState extends State<_JobsView> {
                 ? FilledButton.icon(
                     onPressed: _showNewJobRequest,
                     icon: const Icon(Icons.add_business_outlined),
-                    label: Text(context.tr('jobs.newJobRequest')),
+                    label: Text(context.tr('jobs.newJobAdmin')),
                   )
                 : null,
           ),
@@ -1362,7 +1396,7 @@ final class _JobsViewState extends State<_JobsView> {
     final submitted = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(context.tr('jobs.newJobRequest')),
+        title: Text(context.tr('jobs.newJobAdmin')),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1576,12 +1610,14 @@ final class _SettingsView extends StatelessWidget {
   const _SettingsView({
     required this.currentVersion,
     required this.onJobsImport,
+    required this.onLogout,
     required this.currentLanguage,
     required this.onLanguageChanged,
   });
 
   final String currentVersion;
   final VoidCallback onJobsImport;
+  final VoidCallback onLogout;
   final AppLanguage currentLanguage;
   final ValueChanged<AppLanguage> onLanguageChanged;
 
@@ -1596,8 +1632,6 @@ final class _SettingsView extends StatelessWidget {
             subtitle: context.tr('settings.subtitle'),
           ),
           const SizedBox(height: AppSpacing.lg),
-          const PilotProfileSelector(),
-          const SizedBox(height: AppSpacing.xl),
           _SettingsSection(
             title: context.tr('settings.data'),
             children: [
@@ -1620,6 +1654,12 @@ final class _SettingsView extends StatelessWidget {
                   context.tr('settings.permissions'),
                   Icons.verified_user_outlined,
                   context.tr('common.comingSoon')),
+              _SettingsActionTile(
+                title: context.tr('auth.logout'),
+                icon: Icons.logout_outlined,
+                value: context.tr('auth.logoutHelp'),
+                onTap: onLogout,
+              ),
             ],
           ),
           _SettingsSection(

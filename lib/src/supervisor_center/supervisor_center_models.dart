@@ -72,8 +72,7 @@ final class PilotUser {
   final bool active;
 
   bool get isContractor => role == PilotRole.contractor;
-  bool get isWorker =>
-      role == PilotRole.employee || role == PilotRole.contractor;
+  bool get isWorker => role == PilotRole.employee;
 }
 
 final class SupervisorJob {
@@ -92,6 +91,9 @@ final class SupervisorJob {
     required this.notes,
     required this.status,
     this.registrationNumber = '',
+    this.travelBonusHours = 0,
+    this.payPremiumEnabled = false,
+    this.payPremiumLabel = '',
   });
 
   final String id;
@@ -108,6 +110,9 @@ final class SupervisorJob {
   final String supervisorId;
   final String notes;
   final JobStatus status;
+  final double travelBonusHours;
+  final bool payPremiumEnabled;
+  final String payPremiumLabel;
 
   String get displayName => 'Job $number';
 
@@ -126,6 +131,9 @@ final class SupervisorJob {
         supervisorId: '9d48bb6e-52cb-48a8-84f2-7e9a3ef8f001',
         notes: '',
         status: JobStatus.active,
+        travelBonusHours: 0,
+        payPremiumEnabled: false,
+        payPremiumLabel: '',
       );
 
   SupervisorJob copyWith({
@@ -143,6 +151,9 @@ final class SupervisorJob {
     String? supervisorId,
     String? notes,
     JobStatus? status,
+    double? travelBonusHours,
+    bool? payPremiumEnabled,
+    String? payPremiumLabel,
   }) =>
       SupervisorJob(
         id: id ?? this.id,
@@ -159,6 +170,9 @@ final class SupervisorJob {
         supervisorId: supervisorId ?? this.supervisorId,
         notes: notes ?? this.notes,
         status: status ?? this.status,
+        travelBonusHours: travelBonusHours ?? this.travelBonusHours,
+        payPremiumEnabled: payPremiumEnabled ?? this.payPremiumEnabled,
+        payPremiumLabel: payPremiumLabel ?? this.payPremiumLabel,
       );
 }
 
@@ -378,10 +392,10 @@ final class SupervisorCenterState {
   PilotUser get currentUser {
     if (users.isEmpty) {
       return const PilotUser(
-        id: '9d48bb6e-52cb-48a8-84f2-7e9a3ef8f001',
+        id: 'TER-0001',
         registrationNumber: 'TER-0001',
         name: 'Santana',
-        role: PilotRole.supervisor,
+        role: PilotRole.employee,
         company: 'JKDD Finish & Remodeling Corp.',
         active: true,
       );
@@ -442,10 +456,10 @@ final class SupervisorCenterState {
   factory SupervisorCenterState.seeded() {
     const users = [
       PilotUser(
-        id: '9d48bb6e-52cb-48a8-84f2-7e9a3ef8f001',
+        id: 'TER-0001',
         registrationNumber: 'TER-0001',
         name: 'Santana',
-        role: PilotRole.supervisor,
+        role: PilotRole.employee,
         company: 'JKDD Finish & Remodeling Corp.',
         category: 'Terceirizado de Mao de Obra',
         supervisor: 'Santana',
@@ -454,7 +468,7 @@ final class SupervisorCenterState {
       ..._homologationUsers,
     ];
     return const SupervisorCenterState(
-      currentRole: PilotRole.supervisor,
+      currentRole: PilotRole.employee,
       users: users,
       jobs: [],
       assignments: [],
@@ -507,6 +521,9 @@ final class SupervisorCenterState {
           supervisorId: supervisorId,
           notes: job.notes ?? '',
           status: _jobStatusFromText(job.status),
+          travelBonusHours: job.travelBonusHours ?? 0,
+          payPremiumEnabled: false,
+          payPremiumLabel: '',
         );
       }).toList(growable: false),
       assignments: const [],
@@ -530,49 +547,13 @@ const _homologationUsers = [
     function: 'Supervisor',
   ),
   PilotUser(
-    id: 'test-manager',
-    registrationNumber: 'TER-9002',
-    name: 'Manager Test',
-    role: PilotRole.coordinator,
-    company: 'JKDD TECH - Homologation',
-    category: 'Homologation data',
-    function: 'Manager',
-  ),
-  PilotUser(
-    id: 'test-secretary',
-    registrationNumber: 'TER-9003',
-    name: 'Secretary Test',
-    role: PilotRole.administrator,
-    company: 'JKDD TECH - Homologation',
-    category: 'Homologation data',
-    function: 'Secretary / Administrative',
-  ),
-  PilotUser(
-    id: 'test-accountant',
-    registrationNumber: 'TER-9004',
-    name: 'Accountant Test',
-    role: PilotRole.administrator,
-    company: 'JKDD TECH - Homologation',
-    category: 'Homologation data',
-    function: 'Accountant',
-  ),
-  PilotUser(
     id: 'test-director',
-    registrationNumber: 'TER-9005',
+    registrationNumber: 'TER-9002',
     name: 'Director Test',
     role: PilotRole.owner,
     company: 'JKDD TECH - Homologation',
     category: 'Homologation data',
     function: 'Director',
-  ),
-  PilotUser(
-    id: 'test-president',
-    registrationNumber: 'TER-9006',
-    name: 'President Test',
-    role: PilotRole.owner,
-    company: 'JKDD TECH - Homologation',
-    category: 'Homologation data',
-    function: 'President',
   ),
 ];
 
@@ -591,6 +572,7 @@ PilotUser _pilotUserFromEmployee(Employee employee) => PilotUser(
     );
 
 PilotRole _roleFromEmployee(Employee employee) {
+  if (employee.employeeId == 'TER-0001') return PilotRole.employee;
   final text = [
     employee.role,
     employee.category,
@@ -636,6 +618,8 @@ Set<PilotPermission> _permissionsFor(PilotRole role) => switch (role) {
           PilotPermission.createJob,
           PilotPermission.viewAllTime,
           PilotPermission.editJob,
+          PilotPermission.clockOwnTime,
+          PilotPermission.requestCorrection,
         },
       PilotRole.employee => {
           PilotPermission.clockOwnTime,
@@ -648,12 +632,12 @@ Set<PilotPermission> _permissionsFor(PilotRole role) => switch (role) {
     };
 
 String roleLabel(PilotRole role) => switch (role) {
-      PilotRole.owner => 'President',
+      PilotRole.owner => 'Director',
       PilotRole.administrator => 'Administrator',
       PilotRole.coordinator => 'Coordinator',
       PilotRole.supervisor => 'Supervisor',
-      PilotRole.employee => 'Employee',
-      PilotRole.contractor => 'Contractor',
+      PilotRole.employee => 'Collaborator',
+      PilotRole.contractor => 'Collaborator',
     };
 
 String jobStatusLabel(JobStatus status) => switch (status) {

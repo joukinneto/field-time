@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_theme.dart';
+import 'package:jkdd_field_time_records_production/src/auth/auth_session.dart';
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
+import 'package:jkdd_field_time_records_production/src/presentation/screens/login_screen.dart';
 import 'package:jkdd_field_time_records_production/src/presentation/screens/time_records_screen.dart';
 
 void main() {
@@ -15,6 +17,7 @@ final class FieldTimeApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final language = ref.watch(appLanguageControllerProvider);
+    final session = ref.watch(authSessionProvider);
     final strings = AppStrings(language);
     return MaterialApp(
       title: strings.t('app.title'),
@@ -23,7 +26,20 @@ final class FieldTimeApp extends ConsumerWidget {
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
       locale: Locale(language.code),
-      home: const TimeRecordsScreen(),
+      home: session.loading
+          ? const _AppLoadingScreen()
+          : session.authenticated
+              ? const TimeRecordsScreen()
+              : const LoginScreen(),
     );
   }
+}
+
+final class _AppLoadingScreen extends StatelessWidget {
+  const _AppLoadingScreen();
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
 }

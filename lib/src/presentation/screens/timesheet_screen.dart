@@ -100,7 +100,12 @@ final class _TimesheetContent extends ConsumerWidget {
                     spacing: AppSpacing.sm,
                     children: [
                       FilledButton.icon(
-                        onPressed: () => _previewPdf(snapshot, pdfService),
+                        onPressed: () => _previewPdf(
+                          context,
+                          snapshot,
+                          pdfService,
+                          days,
+                        ),
                         icon: const Icon(Icons.picture_as_pdf_outlined),
                         label: Text(context.tr('timesheet.generateTimesheet')),
                       ),
@@ -201,17 +206,41 @@ final class _TimesheetContent extends ConsumerWidget {
   }
 
   Future<void> _previewPdf(
+    BuildContext context,
     FieldTimeSnapshot snapshot,
     TimesheetPdfService pdfService,
+    List<WorkDay> days,
   ) async {
+    if (days.expand((day) => day.segments).isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('timesheet.noRecordsForPeriod'))),
+      );
+      return;
+    }
     const reportStrings = AppStrings(AppLanguage.en);
-    await Printing.layoutPdf(
-      name: reportStrings.t('timesheet.fileName'),
-      onLayout: (_) => pdfService.buildWeeklyTimesheetPdf(
-        snapshot: snapshot,
-        anchorDate: DateTime.now(),
-      ),
-    );
+    try {
+      await Printing.layoutPdf(
+        name: reportStrings.t('timesheet.fileName'),
+        onLayout: (_) => pdfService.buildWeeklyTimesheetPdf(
+          snapshot: snapshot,
+          anchorDate: DateTime.now(),
+          period: period,
+        ),
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.tr('timesheet.generatedSuccess'))),
+        );
+      }
+    } on Exception catch (error) {
+      // Keep a technical trace for Safari/Web diagnostics while showing a user-safe message.
+      debugPrint('Timesheet PDF generation failed: $error');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.tr('timesheet.generationError'))),
+        );
+      }
+    }
   }
 }
 
@@ -288,7 +317,7 @@ final class _TotalsGrid extends StatelessWidget {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: AppSpacing.md,
             crossAxisSpacing: AppSpacing.md,
-            childAspectRatio: count == 2 ? 1.9 : 1.55,
+            childAspectRatio: count == 2 ? 1.55 : 1.45,
             children: [
               for (final item in items)
                 JkddSummaryCard(
@@ -366,7 +395,7 @@ final class _SegmentCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '${segment.jobNumber} - ${segment.jobName}',
+                      _jobLabel(context, segment.jobNumber),
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
@@ -463,9 +492,12 @@ final class _TravelBonusCard extends StatelessWidget {
         child: ListTile(
           leading: const Icon(Icons.route_outlined, color: AppColors.amber),
           title: Text(
-            '${segment.jobNumber} - ${context.tr('timesheet.travelBonusLine')}',
+            context.tr('timesheet.travelBonusLine'),
           ),
-          subtitle: Text('${_date(day.workDate)} - ${segment.jobAddress}'),
+          subtitle: Text(
+            '${_jobLabel(context, segment.jobNumber)}\n'
+            '${_date(day.workDate)} - ${segment.jobAddress}',
+          ),
           trailing: Text(
             _hours(segment.travelBonusHours),
             style: Theme.of(context).textTheme.titleMedium,
@@ -482,6 +514,13 @@ bool _sameDate(DateTime left, DateTime right) =>
     left.year == right.year &&
     left.month == right.month &&
     left.day == right.day;
+
+String _jobLabel(BuildContext context, String number) {
+  final title = context.tr('jobs.title').toLowerCase().startsWith('job')
+      ? 'Job'
+      : context.tr('jobs.title').replaceAll('s', '');
+  return '$title $number';
+}
 
 String _date(DateTime value) => '${value.month.toString().padLeft(2, '0')}/'
     '${value.day.toString().padLeft(2, '0')}/${value.year}';

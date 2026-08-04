@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_colors.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_spacing.dart';
 import 'package:jkdd_field_time_records_production/features/employees/presentation/employees_management_screen.dart';
+import 'package:jkdd_field_time_records_production/src/application/field_time_controller.dart';
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
 import 'package:jkdd_field_time_records_production/src/domain/registration_number.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_controller.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_models.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_empty_state.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_info_row.dart';
+import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_job_navigation_button.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_section_header.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_status_chip.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_summary_card.dart';
@@ -222,91 +224,6 @@ final class WorkerPilotScreen extends ConsumerWidget {
   }
 }
 
-final class PilotProfileSelector extends ConsumerWidget {
-  const PilotProfileSelector({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(supervisorCenterProvider);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(context.tr('supervisor.testMode'),
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: AppSpacing.sm),
-            DropdownButtonFormField<PilotRole>(
-              initialValue: state.currentRole,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.manage_accounts_outlined),
-              ),
-              items: [
-                DropdownMenuItem(
-                  value: PilotRole.owner,
-                  child: Text(_roleLabel(context, PilotRole.owner)),
-                ),
-                DropdownMenuItem(
-                  value: PilotRole.administrator,
-                  child: Text(_roleLabel(context, PilotRole.administrator)),
-                ),
-                DropdownMenuItem(
-                  value: PilotRole.coordinator,
-                  child: Text(_roleLabel(context, PilotRole.coordinator)),
-                ),
-                DropdownMenuItem(
-                  value: PilotRole.supervisor,
-                  child: Text(_roleLabel(context, PilotRole.supervisor)),
-                ),
-                DropdownMenuItem(
-                  value: PilotRole.employee,
-                  child: Text(_roleLabel(context, PilotRole.employee)),
-                ),
-                DropdownMenuItem(
-                  value: PilotRole.contractor,
-                  child: Text(_roleLabel(context, PilotRole.contractor)),
-                ),
-              ],
-              onChanged: (value) async {
-                if (value == null) return;
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: Text(context.tr('supervisor.testMode')),
-                    content: Text(context.tr('profiles.saveCurrent')),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: Text(context.tr('common.cancel')),
-                      ),
-                      FilledButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: Text(context.tr('common.save')),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirmed == true) {
-                  ref.read(supervisorCenterProvider.notifier).setRole(value);
-                }
-              },
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              context.tr('supervisor.rbacUpdates'),
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: AppColors.gray),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 final class _ManagementDashboard extends ConsumerWidget {
   const _ManagementDashboard({required this.onOpen});
 
@@ -411,7 +328,10 @@ final class ApproveTimeView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(supervisorCenterProvider);
     final entries = state.timeEntries
-        .where((entry) => entry.status != TimeReviewStatus.working)
+        .where((entry) =>
+            entry.status != TimeReviewStatus.working &&
+            entry.status != TimeReviewStatus.approved &&
+            entry.userId != state.currentUser.id)
         .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -685,10 +605,31 @@ final class WorkingNowView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(supervisorCenterProvider);
+    final fieldTime = ref.watch(fieldTimeControllerProvider);
     final open = state.timeEntries.where((entry) => entry.clockOut == null);
+    final activeSegment = fieldTime.activeSegment;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (activeSegment != null)
+          Card(
+            margin: const EdgeInsets.only(bottom: AppSpacing.md),
+            child: ListTile(
+              leading: const Icon(Icons.engineering_outlined,
+                  color: AppColors.green),
+              title: const Text('Santana'),
+              subtitle: Text(
+                '${context.tr('approval.working')} - '
+                '${_jobNumberLabel(context, activeSegment.jobNumber)}\n'
+                '${context.tr('supervisor.clockIn')}: ${_time(activeSegment.startedAt)}',
+              ),
+              trailing: JkddStatusChip(
+                label: context.tr('approval.working'),
+                icon: Icons.play_circle_outline,
+                tone: JkddStatusTone.success,
+              ),
+            ),
+          ),
         for (final entry in open)
           _TimeEntryCard(
             entry: entry,
@@ -707,7 +648,7 @@ final class WorkingNowView extends ConsumerWidget {
               ],
             ),
           ),
-        if (open.isEmpty)
+        if (open.isEmpty && activeSegment == null)
           JkddEmptyState(
             icon: Icons.engineering_outlined,
             title: context.tr('supervisor.nobodyWorking'),
@@ -765,6 +706,27 @@ final class _TimeEntryCard extends ConsumerWidget {
               ],
             ),
             const Divider(height: 28),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                if (job.travelBonusHours > 0)
+                  JkddStatusChip(
+                    label:
+                        '${context.tr('jobs.travelBonus')}: ${job.travelBonusHours.toStringAsFixed(2)} h',
+                    icon: Icons.route_outlined,
+                    tone: JkddStatusTone.warning,
+                  ),
+                if (job.payPremiumEnabled)
+                  JkddStatusChip(
+                    label:
+                        '${context.tr('jobs.payPremium')}: ${job.payPremiumLabel}',
+                    icon: Icons.workspace_premium_outlined,
+                    tone: JkddStatusTone.info,
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
             _InfoWrap(
               children: [
                 JkddInfoRow(
@@ -890,16 +852,19 @@ String _localizedReviewStatus(BuildContext context, TimeReviewStatus status) {
 }
 
 String _roleLabel(BuildContext context, PilotRole role) => switch (role) {
-      PilotRole.owner => context.tr('supervisor.president'),
+      PilotRole.owner => context.tr('supervisor.director'),
       PilotRole.administrator => context.tr('supervisor.administrator'),
       PilotRole.coordinator => context.tr('supervisor.coordinator'),
       PilotRole.supervisor => context.tr('supervisor.supervisor'),
-      PilotRole.employee => context.tr('supervisor.employee'),
-      PilotRole.contractor => context.tr('supervisor.contractor'),
+      PilotRole.employee => context.tr('auth.roleCollaborator'),
+      PilotRole.contractor => context.tr('auth.roleCollaborator'),
     };
 
 String _jobDisplayName(BuildContext context, SupervisorJob job) =>
     '${context.tr('supervisor.job')} ${job.number}';
+
+String _jobNumberLabel(BuildContext context, String number) =>
+    '${context.tr('supervisor.job')} $number';
 
 String _auditFieldLabel(BuildContext context, String fieldName) =>
     switch (fieldName) {
@@ -958,10 +923,9 @@ final class _ScheduleCard extends ConsumerWidget {
               onPressed: () => _openJob(context, job.id),
               child: Text(context.tr('jobs.openJob')),
             ),
-            FilledButton.icon(
-              onPressed: null,
-              icon: const Icon(Icons.route_outlined),
-              label: Text(context.tr('supervisor.openRoute')),
+            JkddJobNavigationButton(
+              address: '${job.address} ${job.city} ${job.state} ${job.zipCode}',
+              compact: false,
             ),
           ],
         ),
@@ -1036,10 +1000,28 @@ final class _JobListCard extends ConsumerWidget {
             const SizedBox(height: AppSpacing.md),
             Align(
               alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: () => _openJob(context, job.id),
-                icon: const Icon(Icons.open_in_new),
-                label: Text(context.tr('supervisor.viewJob')),
+              child: Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  JkddJobNavigationButton(
+                    address:
+                        '${job.address} ${job.city} ${job.state} ${job.zipCode}',
+                    compact: false,
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: state.hasPermission(PilotPermission.editJob)
+                        ? () => _editJobOperations(context, ref, job)
+                        : null,
+                    icon: const Icon(Icons.tune_outlined),
+                    label: Text(context.tr('common.saveChanges')),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () => _openJob(context, job.id),
+                    icon: const Icon(Icons.open_in_new),
+                    label: Text(context.tr('supervisor.viewJob')),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1847,6 +1829,105 @@ Future<void> _newJob(BuildContext context, WidgetRef ref) async {
   city.dispose();
   zip.dispose();
   notes.dispose();
+}
+
+Future<void> _editJobOperations(
+  BuildContext context,
+  WidgetRef ref,
+  SupervisorJob job,
+) async {
+  final state = ref.read(supervisorCenterProvider);
+  final canEditPayPremium = state.currentRole == PilotRole.owner;
+  final bonus = TextEditingController(
+    text: job.travelBonusHours.toStringAsFixed(2),
+  );
+  final payLabel = TextEditingController(text: job.payPremiumLabel);
+  var payPremiumEnabled = job.payPremiumEnabled;
+  final reason = TextEditingController();
+  final saved = await showDialog<bool>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: Text(_jobDisplayName(context, job)),
+        content: SizedBox(
+          width: 480,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: bonus,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: context.tr('approval.travelBonus'),
+                    helperText: '0, 1.00, 2.00',
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(context.tr('jobs.payPremium')),
+                  subtitle: Text(canEditPayPremium
+                      ? context.tr('auth.roleDirector')
+                      : context.tr('supervisor.permissionDenied')),
+                  value: payPremiumEnabled,
+                  onChanged: canEditPayPremium
+                      ? (value) => setState(() => payPremiumEnabled = value)
+                      : null,
+                ),
+                TextField(
+                  controller: payLabel,
+                  enabled: canEditPayPremium && payPremiumEnabled,
+                  decoration: InputDecoration(
+                    labelText: context.tr('jobs.payPremiumValue',
+                        {'value': '+25%, +\$5.00/h, 2x'}),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                TextField(
+                  controller: reason,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    labelText: context.tr('approval.requiredJustification'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(context.tr('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (reason.text.trim().isEmpty) return;
+              Navigator.pop(context, true);
+            },
+            child: Text(context.tr('common.save')),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (saved == true) {
+    final updated = job.copyWith(
+      travelBonusHours: double.tryParse(bonus.text.trim()) ?? 0,
+      payPremiumEnabled: canEditPayPremium && payPremiumEnabled,
+      payPremiumLabel:
+          canEditPayPremium && payPremiumEnabled ? payLabel.text.trim() : '',
+    );
+    ref.read(supervisorCenterProvider.notifier).updateJob(updated);
+    if (context.mounted) {
+      _snack(context, context.tr('supervisor.travelBonusUpdatedSuccess'));
+    }
+  }
+  bonus.dispose();
+  payLabel.dispose();
+  reason.dispose();
 }
 
 Future<String?> _textDialog(

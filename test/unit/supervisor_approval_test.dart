@@ -3,6 +3,21 @@ import 'package:jkdd_field_time_records_production/src/supervisor_center/supervi
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_models.dart';
 
 void main() {
+  test('three sprint roles expose expected permissions', () {
+    final collaborator = SupervisorCenterState.seeded();
+    expect(collaborator.currentRole, PilotRole.employee);
+    expect(collaborator.hasPermission(PilotPermission.viewManagement), isFalse);
+
+    final supervisor = collaborator.copyWith(currentRole: PilotRole.supervisor);
+    expect(supervisor.hasPermission(PilotPermission.viewManagement), isTrue);
+    expect(supervisor.hasPermission(PilotPermission.approveTime), isTrue);
+
+    final director = collaborator.copyWith(currentRole: PilotRole.owner);
+    expect(director.hasPermission(PilotPermission.viewManagement), isTrue);
+    expect(director.hasPermission(PilotPermission.editJob), isTrue);
+    expect(director.hasPermission(PilotPermission.approveTime), isTrue);
+  });
+
   test('approval records supervisor, timestamp, history and locks entry', () {
     final controller = _controllerWithEntries();
     const entryId = 'entry-ter-0002';
@@ -56,7 +71,7 @@ void main() {
 
     final entry =
         controller.state.timeEntries.firstWhere((item) => item.id == entryId);
-    expect(entry.status, TimeReviewStatus.underReview);
+    expect(entry.status, TimeReviewStatus.correctionRequested);
     expect(entry.reviewRequestedBy, 'Santana');
     expect(entry.reviewNote, 'Please confirm break minutes.');
     expect(entry.clockIn, '7:10 AM');
@@ -80,6 +95,16 @@ void main() {
         supervisorNote: 'Change after approval',
         justification: 'Testing lock',
       ),
+      throwsA(isA<StateError>()),
+    );
+  });
+
+  test('reviewer cannot approve own time record', () {
+    final controller =
+        _controllerWithEntries(currentRole: PilotRole.supervisor);
+
+    expect(
+      () => controller.approveEntry('entry-ter-0001', 'Approving myself.'),
       throwsA(isA<StateError>()),
     );
   });
@@ -164,6 +189,17 @@ SupervisorCenterController _controllerWithEntries({
     ],
     schedules: const [],
     timeEntries: [
+      TimeEntry(
+        id: 'entry-ter-0001',
+        userId: 'TER-0001',
+        jobId: 'job-real',
+        date: date,
+        clockIn: '7:00 AM',
+        clockOut: '4:00 PM',
+        breakMinutes: 30,
+        employeeNote: 'Supervisor own time.',
+        status: TimeReviewStatus.pending,
+      ),
       TimeEntry(
         id: 'entry-ter-0002',
         userId: 'TER-0002',
