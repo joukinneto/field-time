@@ -16,6 +16,8 @@ import 'package:jkdd_field_time_records_production/src/domain/field_time_models.
 import 'package:jkdd_field_time_records_production/src/domain/registration_number.dart';
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
 import 'package:jkdd_field_time_records_production/src/presentation/dialogs/receipt_dialog.dart';
+import 'package:jkdd_field_time_records_production/src/presentation/navigation/app_tab.dart';
+import 'package:jkdd_field_time_records_production/src/presentation/navigation/tab_navigator.dart';
 import 'package:jkdd_field_time_records_production/src/presentation/screens/timesheet_screen.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_controller.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_models.dart';
@@ -27,16 +29,6 @@ import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_info_row.
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_job_navigation_button.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_section_header.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_status_chip.dart';
-
-enum _Destination {
-  home,
-  timesheet,
-  jobs,
-  receipts,
-  employees,
-  management,
-  settings
-}
 
 enum _EndDayReceiptChoice { attachNow, noReceipts, back }
 
@@ -51,7 +43,16 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
   final _picker = ImagePicker();
   Timer? _ticker;
   DateTime _now = DateTime.now();
-  _Destination _destination = _Destination.home;
+  AppTab _currentTab = AppTab.home;
+  final _navigatorKeys = {
+    for (final tab in AppTab.values) tab: GlobalKey<NavigatorState>(),
+  };
+  final _rootResetCounters = {
+    AppTab.timesheet: 0,
+    AppTab.jobs: 0,
+    AppTab.employees: 0,
+    AppTab.management: 0,
+  };
 
   @override
   void initState() {
@@ -102,32 +103,25 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final desktop = constraints.maxWidth >= 1024;
-        final destinations = _visibleDestinations(pilotState);
-        final selected = destinations.contains(_destination)
-            ? _destination
-            : _Destination.home;
-        final child = _selectedScreen(state, pilotState, selected);
+        final tabs = _visibleTabs(pilotState);
+        final selected = tabs.contains(_currentTab) ? _currentTab : AppTab.home;
         return Scaffold(
           appBar: JkddAppBar(
             online: state.online,
             pendingItems: state.pendingItems,
-            onSettings: () =>
-                setState(() => _destination = _Destination.settings),
+            onSettings: () => _selectTab(AppTab.settings),
           ),
           bottomNavigationBar: desktop
               ? null
               : BottomNavigationBar(
                   type: BottomNavigationBarType.fixed,
-                  currentIndex: destinations.indexOf(selected),
+                  currentIndex: tabs.indexOf(selected),
                   selectedItemColor: AppColors.blue,
                   unselectedItemColor: AppColors.gray,
                   showUnselectedLabels: true,
-                  onTap: (index) => setState(
-                    () => _destination = destinations[index],
-                  ),
+                  onTap: (index) => _selectTab(tabs[index]),
                   items: [
-                    for (final destination in destinations)
-                      _bottomItem(context, destination),
+                    for (final tab in tabs) _bottomItem(context, tab),
                   ],
                 ),
           body: SafeArea(
@@ -137,74 +131,114 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
                     children: [
                       _DesktopNavigation(
                         selected: selected,
-                        destinations: destinations,
-                        onSelected: (value) =>
-                            setState(() => _destination = value),
+                        destinations: tabs,
+                        onSelected: _selectTab,
                       ),
-                      Expanded(child: child),
+                      Expanded(
+                        child: IndexedStack(
+                          index: tabs.indexOf(selected),
+                          children: [
+                            for (final tab in tabs)
+                              TabNavigator(
+                                navigatorKey: _navigatorKeys[tab]!,
+                                pages: _buildTabPages(tab, state, pilotState),
+                                onPopPage: _onPopPage,
+                              ),
+                          ],
+                        ),
+                      ),
                     ],
                   )
-                : child,
+                : IndexedStack(
+                    index: tabs.indexOf(selected),
+                    children: [
+                      for (final tab in tabs)
+                        TabNavigator(
+                          navigatorKey: _navigatorKeys[tab]!,
+                          pages: _buildTabPages(tab, state, pilotState),
+                          onPopPage: _onPopPage,
+                        ),
+                    ],
+                  ),
           ),
         );
       },
     );
   }
 
-  List<_Destination> _visibleDestinations(SupervisorCenterState pilotState) => [
-        _Destination.home,
-        _Destination.timesheet,
-        _Destination.jobs,
-        _Destination.receipts,
+  List<AppTab> _visibleTabs(SupervisorCenterState pilotState) => [
+        AppTab.home,
+        AppTab.timesheet,
+        AppTab.jobs,
+        AppTab.receipts,
         if (pilotState.hasPermission(PilotPermission.viewManagement))
-          _Destination.employees,
+          AppTab.employees,
         if (pilotState.hasPermission(PilotPermission.viewManagement))
-          _Destination.management,
-        _Destination.settings,
+          AppTab.management,
+        AppTab.settings,
       ];
 
   BottomNavigationBarItem _bottomItem(
     BuildContext context,
-    _Destination destination,
+    AppTab tab,
   ) =>
-      switch (destination) {
-        _Destination.home => BottomNavigationBarItem(
+      switch (tab) {
+        AppTab.home => BottomNavigationBarItem(
             icon: const Icon(Icons.dashboard),
             label: context.tr('nav.home'),
           ),
-        _Destination.timesheet => BottomNavigationBarItem(
+        AppTab.timesheet => BottomNavigationBarItem(
             icon: const Icon(Icons.table_chart),
             label: context.tr('nav.timesheet'),
           ),
-        _Destination.jobs => BottomNavigationBarItem(
+        AppTab.jobs => BottomNavigationBarItem(
             icon: const Icon(Icons.apartment),
             label: context.tr('nav.jobs'),
           ),
-        _Destination.receipts => BottomNavigationBarItem(
+        AppTab.receipts => BottomNavigationBarItem(
             icon: const Icon(Icons.receipt_long),
             label: context.tr('nav.receipts'),
           ),
-        _Destination.employees => BottomNavigationBarItem(
+        AppTab.employees => BottomNavigationBarItem(
             icon: const Icon(Icons.badge),
             label: context.tr('nav.employees'),
           ),
-        _Destination.management => BottomNavigationBarItem(
+        AppTab.management => BottomNavigationBarItem(
             icon: const Icon(Icons.engineering_outlined),
             label: context.tr('nav.management'),
           ),
-        _Destination.settings => BottomNavigationBarItem(
+        AppTab.settings => BottomNavigationBarItem(
             icon: const Icon(Icons.menu),
             label: context.tr('nav.menu'),
           ),
       };
 
-  Widget _selectedScreen(
+  List<Page<void>> _buildTabPages(
+    AppTab tab,
     FieldTimeState state,
     SupervisorCenterState pilotState,
-    _Destination selected,
+  ) {
+    final pageKey = switch (tab) {
+      AppTab.timesheet => ValueKey('${tab.name}-${_rootResetCounters[tab]}'),
+      AppTab.management => ValueKey('${tab.name}-${_rootResetCounters[tab]}'),
+      _ => ValueKey(tab.name),
+    };
+    return [
+      MaterialPage<void>(
+        key: pageKey,
+        child: _buildTabScreen(tab, state, pilotState),
+        name: '/${tab.name}',
+      ),
+    ];
+  }
+
+  Widget _buildTabScreen(
+    AppTab tab,
+    FieldTimeState state,
+    SupervisorCenterState pilotState,
   ) =>
-      switch (selected) {
-        _Destination.home => _HomeView(
+      switch (tab) {
+        AppTab.home => _HomeView(
             state: state,
             now: _now,
             onClockIn: _clockIn,
@@ -213,22 +247,20 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
             onReceipt: _receipt,
             onPhoto: _photo,
             onObservation: _observation,
-            onTimesheet: () =>
-                setState(() => _destination = _Destination.timesheet),
+            onTimesheet: () => _selectTab(AppTab.timesheet),
           ),
-        _Destination.timesheet => const TimesheetScreen(embedded: true),
-        _Destination.jobs => _JobsView(
+        AppTab.timesheet => const TimesheetScreen(embedded: true),
+        AppTab.jobs => _JobsView(
             snapshot: state.snapshot,
             canCreateJob: pilotState.hasPermission(PilotPermission.createJob),
           ),
-        _Destination.receipts => _ReceiptsView(
+        AppTab.receipts => _ReceiptsView(
             snapshot: state.snapshot,
             onReceipt: _receipt,
           ),
-        _Destination.employees =>
-          const EmployeesManagementScreen(embedded: true),
-        _Destination.management => const SupervisorCenterScreen(),
-        _Destination.settings => _SettingsView(
+        AppTab.employees => const EmployeesManagementScreen(embedded: true),
+        AppTab.management => const SupervisorCenterScreen(),
+        AppTab.settings => _SettingsView(
             currentVersion: 'v1.1.0-test3',
             onJobsImport: _openJobsImport,
             onLogout: _logout,
@@ -502,6 +534,24 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
         ),
       );
 
+  void _selectTab(AppTab tab) {
+    if (_currentTab == tab) {
+      final navigator = _navigatorKeys[tab]!.currentState;
+      navigator?.popUntil((route) => route.isFirst);
+      if (tab == AppTab.management || tab == AppTab.timesheet) {
+        setState(() {
+          _rootResetCounters[tab] = (_rootResetCounters[tab] ?? 0) + 1;
+        });
+      }
+      return;
+    }
+    setState(() => _currentTab = tab);
+  }
+
+  bool _onPopPage(Route route, dynamic result) {
+    return route.didPop(result);
+  }
+
   Future<void> _openJobsImport() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -562,7 +612,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              setState(() => _destination = _Destination.timesheet);
+              _selectTab(AppTab.timesheet);
             },
             child: Text(context.tr('endDay.viewTimesheet')),
           ),
@@ -586,9 +636,9 @@ final class _DesktopNavigation extends StatelessWidget {
     required this.onSelected,
   });
 
-  final _Destination selected;
-  final List<_Destination> destinations;
-  final ValueChanged<_Destination> onSelected;
+  final AppTab selected;
+  final List<AppTab> destinations;
+  final ValueChanged<AppTab> onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -627,40 +677,40 @@ final class _DesktopNavigation extends StatelessWidget {
 
   NavigationRailDestination _railDestination(
     BuildContext context,
-    _Destination destination,
+    AppTab destination,
   ) =>
       switch (destination) {
-        _Destination.home => NavigationRailDestination(
+        AppTab.home => NavigationRailDestination(
             icon: const Icon(Icons.dashboard_outlined),
             selectedIcon: const Icon(Icons.dashboard),
             label: Text(context.tr('nav.home')),
           ),
-        _Destination.timesheet => NavigationRailDestination(
+        AppTab.timesheet => NavigationRailDestination(
             icon: const Icon(Icons.table_chart_outlined),
             selectedIcon: const Icon(Icons.table_chart),
             label: Text(context.tr('nav.timesheet')),
           ),
-        _Destination.jobs => NavigationRailDestination(
+        AppTab.jobs => NavigationRailDestination(
             icon: const Icon(Icons.apartment_outlined),
             selectedIcon: const Icon(Icons.apartment),
             label: Text(context.tr('nav.jobs')),
           ),
-        _Destination.receipts => NavigationRailDestination(
+        AppTab.receipts => NavigationRailDestination(
             icon: const Icon(Icons.receipt_long_outlined),
             selectedIcon: const Icon(Icons.receipt_long),
             label: Text(context.tr('nav.receipts')),
           ),
-        _Destination.employees => NavigationRailDestination(
+        AppTab.employees => NavigationRailDestination(
             icon: const Icon(Icons.badge_outlined),
             selectedIcon: const Icon(Icons.badge),
             label: Text(context.tr('nav.employees')),
           ),
-        _Destination.management => NavigationRailDestination(
+        AppTab.management => NavigationRailDestination(
             icon: const Icon(Icons.engineering_outlined),
             selectedIcon: const Icon(Icons.engineering),
             label: Text(context.tr('nav.management')),
           ),
-        _Destination.settings => NavigationRailDestination(
+        AppTab.settings => NavigationRailDestination(
             icon: const Icon(Icons.settings_outlined),
             selectedIcon: const Icon(Icons.settings),
             label: Text(context.tr('settings.title')),

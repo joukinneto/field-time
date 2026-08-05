@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:math' as math;
 import 'package:jkdd_field_time_records_production/core/theme/app_colors.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_spacing.dart';
 import 'package:jkdd_field_time_records_production/features/employees/data/employee_asset_repository.dart';
@@ -373,57 +374,90 @@ final class _EmployeeFilters extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Wrap(
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.md,
-          children: [
-            SizedBox(
-              width: 280,
-              child: TextField(
-                controller: searchController,
-                onChanged: onSearchChanged,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search),
-                  labelText: context.tr('employees.search'),
+        child: LayoutBuilder(builder: (context, constraints) {
+          final maxWidth = constraints.maxWidth;
+          final isNarrow = maxWidth < 720;
+          final searchMax = math.min(520.0, maxWidth);
+          final dropdownMax = math.min(360.0, maxWidth);
+
+          Widget responsiveChild({required Widget child, required double max}) {
+            final constrained = ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: max),
+              child: child,
+            );
+            if (isNarrow) {
+              return FractionallySizedBox(widthFactor: 1, child: constrained);
+            }
+            return constrained;
+          }
+
+          return Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.md,
+            children: [
+              responsiveChild(
+                max: searchMax,
+                child: TextField(
+                  controller: searchController,
+                  onChanged: onSearchChanged,
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search),
+                    labelText: context.tr('employees.search'),
+                  ),
                 ),
               ),
-            ),
-            _FilterDropdown(
-              label: context.tr('employees.status'),
-              value: status,
-              values: [
-                context.tr('employees.activeStatus'),
-                context.tr('employees.inactiveStatus'),
-              ],
-              rawValues: const ['active', 'inactive'],
-              onChanged: onStatusChanged,
-            ),
-            _FilterDropdown(
-              label: context.tr('employees.company'),
-              value: company,
-              values: _unique(allEmployees.map((item) => item.company)),
-              onChanged: onCompanyChanged,
-            ),
-            _FilterDropdown(
-              label: context.tr('employees.category'),
-              value: category,
-              values: _unique(allEmployees.map((item) => item.category)),
-              onChanged: onCategoryChanged,
-            ),
-            _FilterDropdown(
-              label: context.tr('employees.supervisor'),
-              value: supervisor,
-              values: _unique(allEmployees.map((item) => item.supervisor)),
-              onChanged: onSupervisorChanged,
-            ),
-            _FilterDropdown(
-              label: context.tr('employees.role'),
-              value: role,
-              values: _unique(allEmployees.map((item) => item.role)),
-              onChanged: onRoleChanged,
-            ),
-          ],
-        ),
+              responsiveChild(
+                max: dropdownMax,
+                child: _FilterDropdown(
+                  label: context.tr('employees.status'),
+                  value: status,
+                  values: [
+                    context.tr('employees.activeStatus'),
+                    context.tr('employees.inactiveStatus'),
+                  ],
+                  rawValues: const ['active', 'inactive'],
+                  onChanged: onStatusChanged,
+                ),
+              ),
+              responsiveChild(
+                max: dropdownMax,
+                child: _FilterDropdown(
+                  label: context.tr('employees.company'),
+                  value: company,
+                  values: _unique(allEmployees.map((item) => item.company)),
+                  onChanged: onCompanyChanged,
+                ),
+              ),
+              responsiveChild(
+                max: dropdownMax,
+                child: _FilterDropdown(
+                  label: context.tr('employees.category'),
+                  value: category,
+                  values: _unique(allEmployees.map((item) => item.category)),
+                  onChanged: onCategoryChanged,
+                ),
+              ),
+              responsiveChild(
+                max: dropdownMax,
+                child: _FilterDropdown(
+                  label: context.tr('employees.supervisor'),
+                  value: supervisor,
+                  values: _unique(allEmployees.map((item) => item.supervisor)),
+                  onChanged: onSupervisorChanged,
+                ),
+              ),
+              responsiveChild(
+                max: dropdownMax,
+                child: _FilterDropdown(
+                  label: context.tr('employees.role'),
+                  value: role,
+                  values: _unique(allEmployees.map((item) => item.role)),
+                  onChanged: onRoleChanged,
+                ),
+              ),
+            ],
+          );
+        }),
       ),
     );
   }
@@ -446,22 +480,18 @@ final class _FilterDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 220,
-      child: DropdownButtonFormField<String>(
-        initialValue: value,
-        decoration: InputDecoration(labelText: label),
-        items: [
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      decoration: InputDecoration(labelText: label),
+      items: [
+        DropdownMenuItem(value: null, child: Text(context.tr('employees.all'))),
+        for (var index = 0; index < values.length; index++)
           DropdownMenuItem(
-              value: null, child: Text(context.tr('employees.all'))),
-          for (var index = 0; index < values.length; index++)
-            DropdownMenuItem(
-              value: rawValues == null ? values[index] : rawValues![index],
-              child: Text(values[index]),
-            ),
-        ],
-        onChanged: onChanged,
-      ),
+            value: rawValues == null ? values[index] : rawValues![index],
+            child: Text(values[index]),
+          ),
+      ],
+      onChanged: onChanged,
     );
   }
 }
