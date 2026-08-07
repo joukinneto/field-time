@@ -2,8 +2,12 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:jkdd_field_time_records_production/time_records.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues({});
+
   const service = TimesheetPdfService();
 
   test('week starts Monday and ends Sunday', () {
