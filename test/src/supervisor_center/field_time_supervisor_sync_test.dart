@@ -50,6 +50,12 @@ void main() {
     expect(entry['status'], 'pending');
     expect(entry['travelBonusHours'], 2.0);
     expect(entry['breakMinutes'], 0);
+
+    final jobs = decoded['jobs'] as List<dynamic>;
+    final job = jobs.single as Map<String, dynamic>;
+    expect(job['travelBonusHours'], 2.0);
+    expect(job['payPremiumEnabled'], isTrue);
+    expect(job['payPremiumLabel'], '25%');
   });
 }
 
@@ -94,6 +100,9 @@ WorkDay _completedDay() {
         laborType: LaborType.subcontractor,
         travelBonusHours: 2,
         travelBonusEnabled: true,
+        payPremiumEnabled: true,
+        payPremiumType: PayPremiumType.percentage,
+        payPremiumValue: 0.25,
       ),
     ],
     completedAt: ended,
