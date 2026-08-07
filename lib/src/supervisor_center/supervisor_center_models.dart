@@ -9,7 +9,7 @@ enum PilotRole {
   coordinator,
   supervisor,
   employee,
-  contractor
+  contractor,
 }
 
 enum PilotPermission {
@@ -31,7 +31,7 @@ enum AssignmentStatus {
   breakTime,
   finished,
   noEntry,
-  absent
+  absent,
 }
 
 enum TimeReviewStatus {
@@ -117,24 +117,24 @@ final class SupervisorJob {
   String get displayName => 'Job $number';
 
   factory SupervisorJob.placeholder(String id) => SupervisorJob(
-        id: id,
-        registrationNumber: id,
-        number: id,
-        name: '',
-        client: 'EWW',
-        address: '',
-        city: '',
-        state: '',
-        zipCode: '',
-        startDate: DateTime.now(),
-        scheduledTime: '',
-        supervisorId: '9d48bb6e-52cb-48a8-84f2-7e9a3ef8f001',
-        notes: '',
-        status: JobStatus.active,
-        travelBonusHours: 0,
-        payPremiumEnabled: false,
-        payPremiumLabel: '',
-      );
+    id: id,
+    registrationNumber: id,
+    number: id,
+    name: '',
+    client: 'EWW',
+    address: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    startDate: DateTime.now(),
+    scheduledTime: '',
+    supervisorId: '9d48bb6e-52cb-48a8-84f2-7e9a3ef8f001',
+    notes: '',
+    status: JobStatus.active,
+    travelBonusHours: 0,
+    payPremiumEnabled: false,
+    payPremiumLabel: '',
+  );
 
   SupervisorJob copyWith({
     String? id,
@@ -154,26 +154,25 @@ final class SupervisorJob {
     double? travelBonusHours,
     bool? payPremiumEnabled,
     String? payPremiumLabel,
-  }) =>
-      SupervisorJob(
-        id: id ?? this.id,
-        registrationNumber: registrationNumber ?? this.registrationNumber,
-        number: number ?? this.number,
-        name: name ?? this.name,
-        client: client ?? this.client,
-        address: address ?? this.address,
-        city: city ?? this.city,
-        state: state ?? this.state,
-        zipCode: zipCode ?? this.zipCode,
-        startDate: startDate ?? this.startDate,
-        scheduledTime: scheduledTime ?? this.scheduledTime,
-        supervisorId: supervisorId ?? this.supervisorId,
-        notes: notes ?? this.notes,
-        status: status ?? this.status,
-        travelBonusHours: travelBonusHours ?? this.travelBonusHours,
-        payPremiumEnabled: payPremiumEnabled ?? this.payPremiumEnabled,
-        payPremiumLabel: payPremiumLabel ?? this.payPremiumLabel,
-      );
+  }) => SupervisorJob(
+    id: id ?? this.id,
+    registrationNumber: registrationNumber ?? this.registrationNumber,
+    number: number ?? this.number,
+    name: name ?? this.name,
+    client: client ?? this.client,
+    address: address ?? this.address,
+    city: city ?? this.city,
+    state: state ?? this.state,
+    zipCode: zipCode ?? this.zipCode,
+    startDate: startDate ?? this.startDate,
+    scheduledTime: scheduledTime ?? this.scheduledTime,
+    supervisorId: supervisorId ?? this.supervisorId,
+    notes: notes ?? this.notes,
+    status: status ?? this.status,
+    travelBonusHours: travelBonusHours ?? this.travelBonusHours,
+    payPremiumEnabled: payPremiumEnabled ?? this.payPremiumEnabled,
+    payPremiumLabel: payPremiumLabel ?? this.payPremiumLabel,
+  );
 }
 
 final class JobAssignment {
@@ -288,34 +287,34 @@ final class TimeEntry {
     bool clearApproval = false,
     bool clearRejection = false,
     bool clearReviewRequest = false,
-  }) =>
-      TimeEntry(
-        id: id,
-        userId: userId,
-        jobId: jobId,
-        date: date,
-        clockIn: clockIn ?? this.clockIn,
-        clockOut: clearClockOut ? null : clockOut ?? this.clockOut,
-        breakMinutes: breakMinutes ?? this.breakMinutes,
-        employeeNote: employeeNote,
-        status: status ?? this.status,
-        travelBonusHours: travelBonusHours ?? this.travelBonusHours,
-        supervisorNote: supervisorNote ?? this.supervisorNote,
-        approvedAt: clearApproval ? null : approvedAt ?? this.approvedAt,
-        approvedBy: clearApproval ? null : approvedBy ?? this.approvedBy,
-        rejectedAt: clearRejection ? null : rejectedAt ?? this.rejectedAt,
-        rejectedBy: clearRejection ? null : rejectedBy ?? this.rejectedBy,
-        rejectionReason:
-            clearRejection ? null : rejectionReason ?? this.rejectionReason,
-        reviewRequestedAt: clearReviewRequest
-            ? null
-            : reviewRequestedAt ?? this.reviewRequestedAt,
-        reviewRequestedBy: clearReviewRequest
-            ? null
-            : reviewRequestedBy ?? this.reviewRequestedBy,
-        reviewNote: clearReviewRequest ? null : reviewNote ?? this.reviewNote,
-        resubmittedAt: resubmittedAt ?? this.resubmittedAt,
-      );
+  }) => TimeEntry(
+    id: id,
+    userId: userId,
+    jobId: jobId,
+    date: date,
+    clockIn: clockIn ?? this.clockIn,
+    clockOut: clearClockOut ? null : clockOut ?? this.clockOut,
+    breakMinutes: breakMinutes ?? this.breakMinutes,
+    employeeNote: employeeNote,
+    status: status ?? this.status,
+    travelBonusHours: travelBonusHours ?? this.travelBonusHours,
+    supervisorNote: supervisorNote ?? this.supervisorNote,
+    approvedAt: clearApproval ? null : approvedAt ?? this.approvedAt,
+    approvedBy: clearApproval ? null : approvedBy ?? this.approvedBy,
+    rejectedAt: clearRejection ? null : rejectedAt ?? this.rejectedAt,
+    rejectedBy: clearRejection ? null : rejectedBy ?? this.rejectedBy,
+    rejectionReason: clearRejection
+        ? null
+        : rejectionReason ?? this.rejectionReason,
+    reviewRequestedAt: clearReviewRequest
+        ? null
+        : reviewRequestedAt ?? this.reviewRequestedAt,
+    reviewRequestedBy: clearReviewRequest
+        ? null
+        : reviewRequestedBy ?? this.reviewRequestedBy,
+    reviewNote: clearReviewRequest ? null : reviewNote ?? this.reviewNote,
+    resubmittedAt: resubmittedAt ?? this.resubmittedAt,
+  );
 }
 
 final class TimeEntryReview {
@@ -373,6 +372,7 @@ final class SupervisorCenterState {
     required this.reviews,
     required this.auditLogs,
     this.allowSupervisorCreateJobs = true,
+    this.simulatedUserId,
     this.message,
     this.error,
   });
@@ -386,6 +386,7 @@ final class SupervisorCenterState {
   final List<TimeEntryReview> reviews;
   final List<AuditLog> auditLogs;
   final bool allowSupervisorCreateJobs;
+  final String? simulatedUserId;
   final String? message;
   final String? error;
 
@@ -400,20 +401,24 @@ final class SupervisorCenterState {
         active: true,
       );
     }
+    final selectedId = simulatedUserId;
+    if (selectedId != null) {
+      for (final user in users) {
+        if (user.id == selectedId) return user;
+      }
+    }
     return users.firstWhere(
       (user) => user.role == currentRole,
       orElse: () => users.first,
     );
   }
 
-  PilotUser userById(String id) => users.firstWhere(
-        (user) => user.id == id,
-        orElse: () => currentUser,
-      );
+  PilotUser userById(String id) =>
+      users.firstWhere((user) => user.id == id, orElse: () => currentUser);
   SupervisorJob jobById(String id) => jobs.firstWhere(
-        (job) => job.id == id,
-        orElse: () => SupervisorJob.placeholder(id),
-      );
+    (job) => job.id == id,
+    orElse: () => SupervisorJob.placeholder(id),
+  );
 
   bool hasPermission(PilotPermission permission) {
     final base = _permissionsFor(currentRole);
@@ -434,24 +439,28 @@ final class SupervisorCenterState {
     List<TimeEntryReview>? reviews,
     List<AuditLog>? auditLogs,
     bool? allowSupervisorCreateJobs,
+    String? simulatedUserId,
     String? message,
     String? error,
     bool clearFeedback = false,
-  }) =>
-      SupervisorCenterState(
-        currentRole: currentRole ?? this.currentRole,
-        users: users ?? this.users,
-        jobs: jobs ?? this.jobs,
-        assignments: assignments ?? this.assignments,
-        schedules: schedules ?? this.schedules,
-        timeEntries: timeEntries ?? this.timeEntries,
-        reviews: reviews ?? this.reviews,
-        auditLogs: auditLogs ?? this.auditLogs,
-        allowSupervisorCreateJobs:
-            allowSupervisorCreateJobs ?? this.allowSupervisorCreateJobs,
-        message: clearFeedback ? null : message,
-        error: clearFeedback ? null : error,
-      );
+    bool clearSimulatedUser = false,
+  }) => SupervisorCenterState(
+    currentRole: currentRole ?? this.currentRole,
+    users: users ?? this.users,
+    jobs: jobs ?? this.jobs,
+    assignments: assignments ?? this.assignments,
+    schedules: schedules ?? this.schedules,
+    timeEntries: timeEntries ?? this.timeEntries,
+    reviews: reviews ?? this.reviews,
+    auditLogs: auditLogs ?? this.auditLogs,
+    allowSupervisorCreateJobs:
+        allowSupervisorCreateJobs ?? this.allowSupervisorCreateJobs,
+    simulatedUserId: clearSimulatedUser
+        ? null
+        : simulatedUserId ?? this.simulatedUserId,
+    message: clearFeedback ? null : message,
+    error: clearFeedback ? null : error,
+  );
 
   factory SupervisorCenterState.seeded() {
     const users = [
@@ -495,37 +504,40 @@ final class SupervisorCenterState {
     return SupervisorCenterState(
       currentRole: currentRole,
       users: users,
-      jobs: jobs.map((job) {
-        final index = jobs.indexOf(job);
-        final technicalId = RegistrationNumberPolicy.isUuid(job.jobId)
-            ? job.jobId
-            : RegistrationNumberPolicy.deterministicUuid(
-                'supervisor-job:${job.jobId}:${job.jobNumber}',
-              );
-        return SupervisorJob(
-          id: technicalId,
-          registrationNumber: job.registrationNumber ??
-              RegistrationNumberPolicy.format(
-                RegistrationRecordType.job,
-                index + 1,
-              ),
-          number: job.jobNumber,
-          name: job.jobName,
-          client: job.client ?? 'EWW',
-          address: job.address ?? job.fullAddress,
-          city: job.city ?? '',
-          state: job.state ?? '',
-          zipCode: job.zipCode ?? '',
-          startDate: date,
-          scheduledTime: '7:00 AM',
-          supervisorId: supervisorId,
-          notes: job.notes ?? '',
-          status: _jobStatusFromText(job.status),
-          travelBonusHours: job.travelBonusHours ?? 0,
-          payPremiumEnabled: false,
-          payPremiumLabel: '',
-        );
-      }).toList(growable: false),
+      jobs: jobs
+          .map((job) {
+            final index = jobs.indexOf(job);
+            final technicalId = RegistrationNumberPolicy.isUuid(job.jobId)
+                ? job.jobId
+                : RegistrationNumberPolicy.deterministicUuid(
+                    'supervisor-job:${job.jobId}:${job.jobNumber}',
+                  );
+            return SupervisorJob(
+              id: technicalId,
+              registrationNumber:
+                  job.registrationNumber ??
+                  RegistrationNumberPolicy.format(
+                    RegistrationRecordType.job,
+                    index + 1,
+                  ),
+              number: job.jobNumber,
+              name: job.jobName,
+              client: job.client ?? 'EWW',
+              address: job.address ?? job.fullAddress,
+              city: job.city ?? '',
+              state: job.state ?? '',
+              zipCode: job.zipCode ?? '',
+              startDate: date,
+              scheduledTime: '7:00 AM',
+              supervisorId: supervisorId,
+              notes: job.notes ?? '',
+              status: _jobStatusFromText(job.status),
+              travelBonusHours: job.travelBonusHours ?? 0,
+              payPremiumEnabled: false,
+              payPremiumLabel: '',
+            );
+          })
+          .toList(growable: false),
       assignments: const [],
       schedules: const [],
       timeEntries: const [],
@@ -558,18 +570,18 @@ const _homologationUsers = [
 ];
 
 PilotUser _pilotUserFromEmployee(Employee employee) => PilotUser(
-      id: employee.id.isNotEmpty ? employee.id : employee.employeeId,
-      registrationNumber: employee.registrationNumber.isNotEmpty
-          ? employee.registrationNumber
-          : employee.employeeId,
-      name: employee.displayName,
-      role: _roleFromEmployee(employee),
-      company: employee.company,
-      category: employee.category,
-      supervisor: employee.supervisor,
-      function: employee.role,
-      active: employee.active,
-    );
+  id: employee.id.isNotEmpty ? employee.id : employee.employeeId,
+  registrationNumber: employee.registrationNumber.isNotEmpty
+      ? employee.registrationNumber
+      : employee.employeeId,
+  name: employee.displayName,
+  role: _roleFromEmployee(employee),
+  company: employee.company,
+  category: employee.category,
+  supervisor: employee.supervisor,
+  function: employee.role,
+  active: employee.active,
+);
 
 PilotRole _roleFromEmployee(Employee employee) {
   if (employee.employeeId == 'TER-0001') return PilotRole.employee;
@@ -602,69 +614,69 @@ JobStatus _jobStatusFromText(String value) {
 }
 
 Set<PilotPermission> _permissionsFor(PilotRole role) => switch (role) {
-      PilotRole.owner => PilotPermission.values.toSet(),
-      PilotRole.administrator => PilotPermission.values.toSet(),
-      PilotRole.coordinator => {
-          PilotPermission.viewManagement,
-          PilotPermission.approveTime,
-          PilotPermission.createJob,
-          PilotPermission.createSchedule,
-          PilotPermission.viewAllTime,
-          PilotPermission.editJob,
-        },
-      PilotRole.supervisor => {
-          PilotPermission.viewManagement,
-          PilotPermission.approveTime,
-          PilotPermission.createJob,
-          PilotPermission.viewAllTime,
-          PilotPermission.editJob,
-          PilotPermission.clockOwnTime,
-          PilotPermission.requestCorrection,
-        },
-      PilotRole.employee => {
-          PilotPermission.clockOwnTime,
-          PilotPermission.requestCorrection,
-        },
-      PilotRole.contractor => {
-          PilotPermission.clockOwnTime,
-          PilotPermission.requestCorrection,
-        },
-    };
+  PilotRole.owner => PilotPermission.values.toSet(),
+  PilotRole.administrator => PilotPermission.values.toSet(),
+  PilotRole.coordinator => {
+    PilotPermission.viewManagement,
+    PilotPermission.approveTime,
+    PilotPermission.createJob,
+    PilotPermission.createSchedule,
+    PilotPermission.viewAllTime,
+    PilotPermission.editJob,
+  },
+  PilotRole.supervisor => {
+    PilotPermission.viewManagement,
+    PilotPermission.approveTime,
+    PilotPermission.createJob,
+    PilotPermission.viewAllTime,
+    PilotPermission.editJob,
+    PilotPermission.clockOwnTime,
+    PilotPermission.requestCorrection,
+  },
+  PilotRole.employee => {
+    PilotPermission.clockOwnTime,
+    PilotPermission.requestCorrection,
+  },
+  PilotRole.contractor => {
+    PilotPermission.clockOwnTime,
+    PilotPermission.requestCorrection,
+  },
+};
 
 String roleLabel(PilotRole role) => switch (role) {
-      PilotRole.owner => 'Director',
-      PilotRole.administrator => 'Administrator',
-      PilotRole.coordinator => 'Coordinator',
-      PilotRole.supervisor => 'Supervisor',
-      PilotRole.employee => 'Collaborator',
-      PilotRole.contractor => 'Collaborator',
-    };
+  PilotRole.owner => 'Director',
+  PilotRole.administrator => 'Administrator',
+  PilotRole.coordinator => 'Coordinator',
+  PilotRole.supervisor => 'Supervisor',
+  PilotRole.employee => 'Collaborator',
+  PilotRole.contractor => 'Collaborator',
+};
 
 String jobStatusLabel(JobStatus status) => switch (status) {
-      JobStatus.planned => 'Planejada',
-      JobStatus.active => 'Ativa',
-      JobStatus.paused => 'Pausada',
-      JobStatus.completed => 'Concluida',
-      JobStatus.cancelled => 'Cancelada',
-    };
+  JobStatus.planned => 'Planejada',
+  JobStatus.active => 'Ativa',
+  JobStatus.paused => 'Pausada',
+  JobStatus.completed => 'Concluida',
+  JobStatus.cancelled => 'Cancelada',
+};
 
 String assignmentStatusLabel(AssignmentStatus status) => switch (status) {
-      AssignmentStatus.scheduled => 'Programado',
-      AssignmentStatus.working => 'Trabalhando',
-      AssignmentStatus.breakTime => 'Intervalo',
-      AssignmentStatus.finished => 'Finalizado',
-      AssignmentStatus.noEntry => 'Sem entrada',
-      AssignmentStatus.absent => 'Ausente',
-    };
+  AssignmentStatus.scheduled => 'Programado',
+  AssignmentStatus.working => 'Trabalhando',
+  AssignmentStatus.breakTime => 'Intervalo',
+  AssignmentStatus.finished => 'Finalizado',
+  AssignmentStatus.noEntry => 'Sem entrada',
+  AssignmentStatus.absent => 'Ausente',
+};
 
 String reviewStatusLabel(TimeReviewStatus status) => switch (status) {
-      TimeReviewStatus.pending => 'Pendente',
-      TimeReviewStatus.underReview => 'Em revisao',
-      TimeReviewStatus.approved => 'Aprovado',
-      TimeReviewStatus.rejected => 'Rejeitado',
-      TimeReviewStatus.correctionRequested => 'Correcao solicitada',
-      TimeReviewStatus.corrected => 'Corrigido',
-      TimeReviewStatus.resubmitted => 'Reenviado',
-      TimeReviewStatus.closed => 'Fechado',
-      TimeReviewStatus.working => 'Trabalhando',
-    };
+  TimeReviewStatus.pending => 'Pendente',
+  TimeReviewStatus.underReview => 'Em revisao',
+  TimeReviewStatus.approved => 'Aprovado',
+  TimeReviewStatus.rejected => 'Rejeitado',
+  TimeReviewStatus.correctionRequested => 'Correcao solicitada',
+  TimeReviewStatus.corrected => 'Corrigido',
+  TimeReviewStatus.resubmitted => 'Reenviado',
+  TimeReviewStatus.closed => 'Fechado',
+  TimeReviewStatus.working => 'Trabalhando',
+};

@@ -73,10 +73,17 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
 
     ref.listen(authSessionProvider, (previous, next) {
       final user = next.user;
-      if (user == null || previous?.user?.role == user.role) return;
-      ref.read(supervisorCenterProvider.notifier).setRole(user.role);
+      if (user == null || previous?.user?.id == user.id) return;
+      final controller = ref.read(supervisorCenterProvider.notifier);
+      if (user.role == PilotRole.owner) {
+        controller.setSimulation(PilotRole.owner, userId: user.id);
+      } else {
+        controller.setRole(user.role);
+      }
     });
-    if (session.user != null && pilotState.currentRole != session.user!.role) {
+    if (session.user != null &&
+        session.user!.role != PilotRole.owner &&
+        pilotState.currentRole != session.user!.role) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(supervisorCenterProvider.notifier).setRole(session.user!.role);
       });
@@ -226,6 +233,25 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
       currentVersion: 'v1.1.0-test4',
       onJobsImport: _openJobsImport,
       onLogout: _logout,
+      directorTestMode:
+          ref.watch(authSessionProvider).user?.role == PilotRole.owner,
+      pilotState: pilotState,
+      onSimulationChanged: (role, userId) {
+        ref
+            .read(supervisorCenterProvider.notifier)
+            .setSimulation(role, userId: userId);
+        setState(() {
+          _destination =
+              {
+                PilotRole.owner,
+                PilotRole.administrator,
+                PilotRole.coordinator,
+                PilotRole.supervisor,
+              }.contains(role)
+              ? _Destination.management
+              : _Destination.home;
+        });
+      },
       currentLanguage: ref.watch(appLanguageControllerProvider),
       onLanguageChanged: (language) async {
         final savedMessage = context.tr('settings.saved');
@@ -1592,6 +1618,9 @@ final class _SettingsView extends StatelessWidget {
     required this.currentVersion,
     required this.onJobsImport,
     required this.onLogout,
+    required this.directorTestMode,
+    required this.pilotState,
+    required this.onSimulationChanged,
     required this.currentLanguage,
     required this.onLanguageChanged,
   });
@@ -1599,6 +1628,9 @@ final class _SettingsView extends StatelessWidget {
   final String currentVersion;
   final VoidCallback onJobsImport;
   final VoidCallback onLogout;
+  final bool directorTestMode;
+  final SupervisorCenterState pilotState;
+  final void Function(PilotRole role, String? userId) onSimulationChanged;
   final AppLanguage currentLanguage;
   final ValueChanged<AppLanguage> onLanguageChanged;
 
@@ -1613,6 +1645,12 @@ final class _SettingsView extends StatelessWidget {
             subtitle: context.tr('settings.subtitle'),
           ),
           const SizedBox(height: AppSpacing.lg),
+          if (directorTestMode) ...[
+            _DirectorSimulationSection(
+              pilotState: pilotState,
+              onChanged: onSimulationChanged,
+            ),
+          ],
           _SettingsSection(
             title: context.tr('settings.data'),
             children: [
@@ -1726,6 +1764,115 @@ final class _SettingsView extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+final class _DirectorSimulationSection extends StatelessWidget {
+  const _DirectorSimulationSection({
+    required this.pilotState,
+    required this.onChanged,
+  });
+
+  final SupervisorCenterState pilotState;
+  final void Function(PilotRole role, String? userId) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentRole = pilotState.currentRole;
+    final selectedMode = currentRole == PilotRole.owner
+        ? PilotRole.owner
+        : currentRole == PilotRole.supervisor
+        ? PilotRole.supervisor
+        : PilotRole.employee;
+    final workers = pilotState.users
+        .where(
+          (user) =>
+              user.active &&
+              (user.role == PilotRole.employee ||
+                  user.role == PilotRole.contractor),
+        )
+        .toList(growable: false);
+    final currentWorker =
+        workers.any((user) => user.id == pilotState.currentUser.id)
+        ? pilotState.currentUser.id
+        : (workers.isEmpty ? null : workers.first.id);
+
+    return _SettingsSection(
+      title: 'AMBIENTE DE TESTE — Simulação de perfil',
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          child: DropdownButtonFormField<PilotRole>(
+            initialValue: selectedMode,
+            decoration: const InputDecoration(
+              labelText: 'Exibir aplicativo como',
+              helperText:
+                  'Use somente o login do Diretor durante a homologação.',
+            ),
+            items: const [
+              DropdownMenuItem(value: PilotRole.owner, child: Text('Diretor')),
+              DropdownMenuItem(
+                value: PilotRole.supervisor,
+                child: Text('Supervisor'),
+              ),
+              DropdownMenuItem(
+                value: PilotRole.employee,
+                child: Text('Colaborador'),
+              ),
+            ],
+            onChanged: (role) {
+              if (role == null) return;
+              if (role == PilotRole.owner) {
+                onChanged(PilotRole.owner, 'test-director');
+              } else if (role == PilotRole.supervisor) {
+                onChanged(PilotRole.supervisor, 'test-supervisor');
+              } else {
+                final worker = workers.isEmpty ? null : workers.first;
+                onChanged(worker?.role ?? PilotRole.employee, worker?.id);
+              }
+            },
+          ),
+        ),
+        if (selectedMode == PilotRole.employee && workers.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            child: DropdownButtonFormField<String>(
+              initialValue: currentWorker,
+              decoration: const InputDecoration(
+                labelText: 'Selecionar colaborador para simular',
+                helperText:
+                    'A tela passa a usar o nome, função e permissões desse colaborador.',
+              ),
+              items: [
+                for (final worker in workers)
+                  DropdownMenuItem(
+                    value: worker.id,
+                    child: Text(
+                      '${worker.name}${worker.function?.trim().isNotEmpty == true ? ' — ${worker.function}' : ''}',
+                    ),
+                  ),
+              ],
+              onChanged: (userId) {
+                if (userId == null) return;
+                final worker = workers.firstWhere((user) => user.id == userId);
+                onChanged(worker.role, worker.id);
+              },
+            ),
+          ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.science_outlined, color: AppColors.amber),
+          title: Text('Simulando: ${pilotState.currentUser.name}'),
+          subtitle: Text(
+            selectedMode == PilotRole.owner
+                ? 'Perfil Diretor'
+                : selectedMode == PilotRole.supervisor
+                ? 'Perfil Supervisor'
+                : 'Perfil Colaborador',
+          ),
+        ),
+      ],
     );
   }
 }

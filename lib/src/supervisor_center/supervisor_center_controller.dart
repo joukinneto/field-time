@@ -11,16 +11,16 @@ import 'package:jkdd_field_time_records_production/src/supervisor_center/supervi
 import 'package:shared_preferences/shared_preferences.dart';
 
 final supervisorCenterProvider =
-    StateNotifierProvider<SupervisorCenterController, SupervisorCenterState>(
-  (ref) {
-    final controller = SupervisorCenterController(
-      employeeRepository: ref.watch(employeeAssetRepositoryProvider),
-      jobRepository: ref.watch(jobAssetRepositoryProvider),
-    );
-    controller.initialize();
-    return controller;
-  },
-);
+    StateNotifierProvider<SupervisorCenterController, SupervisorCenterState>((
+      ref,
+    ) {
+      final controller = SupervisorCenterController(
+        employeeRepository: ref.watch(employeeAssetRepositoryProvider),
+        jobRepository: ref.watch(jobAssetRepositoryProvider),
+      );
+      controller.initialize();
+      return controller;
+    });
 
 final class SupervisorCenterController
     extends StateNotifier<SupervisorCenterState> {
@@ -51,6 +51,27 @@ final class SupervisorCenterController
   void setRole(PilotRole role) {
     state = state.copyWith(
       currentRole: role,
+      clearSimulatedUser: true,
+      message: 'supervisor.roleChanged',
+    );
+    unawaited(_save());
+  }
+
+  void setSimulation(PilotRole role, {String? userId}) {
+    PilotUser? selected;
+    if (userId != null) {
+      for (final user in state.users) {
+        if (user.id == userId) {
+          selected = user;
+          break;
+        }
+      }
+    }
+    final effectiveRole = selected?.role ?? role;
+    state = state.copyWith(
+      currentRole: effectiveRole,
+      simulatedUserId: selected?.id,
+      clearSimulatedUser: selected == null,
       message: 'supervisor.roleChanged',
     );
     unawaited(_save());
@@ -126,7 +147,8 @@ final class SupervisorCenterController
     if (jobId == null) {
       throw StateError('supervisor.noAssignedJob');
     }
-    final resubmitting = existing != null &&
+    final resubmitting =
+        existing != null &&
         {
           TimeReviewStatus.rejected,
           TimeReviewStatus.underReview,
@@ -151,8 +173,9 @@ final class SupervisorCenterController
                 ? TimeReviewStatus.resubmitted
                 : TimeReviewStatus.pending,
             supervisorNote: note,
-            resubmittedAt:
-                resubmitting ? DateTime.now() : existing.resubmittedAt,
+            resubmittedAt: resubmitting
+                ? DateTime.now()
+                : existing.resubmittedAt,
             clearApproval: true,
           );
     state = state.copyWith(
@@ -243,21 +266,26 @@ final class SupervisorCenterController
     final logs = <AuditLog>[];
     void addLog(String field, String original, String next) {
       if (original == next) return;
-      logs.add(AuditLog(
-        id: 'audit-${DateTime.now().microsecondsSinceEpoch}-$field',
-        entityId: entryId,
-        fieldName: field,
-        originalValue: original,
-        newValue: next,
-        changedBy: state.currentUser.name,
-        changedAt: DateTime.now(),
-        justification: justification,
-      ));
+      logs.add(
+        AuditLog(
+          id: 'audit-${DateTime.now().microsecondsSinceEpoch}-$field',
+          entityId: entryId,
+          fieldName: field,
+          originalValue: original,
+          newValue: next,
+          changedBy: state.currentUser.name,
+          changedAt: DateTime.now(),
+          justification: justification,
+        ),
+      );
     }
 
     addLog('clockIn', entry.clockIn, updated.clockIn);
-    addLog('clockOut', entry.clockOut ?? 'common.open',
-        updated.clockOut ?? 'common.open');
+    addLog(
+      'clockOut',
+      entry.clockOut ?? 'common.open',
+      updated.clockOut ?? 'common.open',
+    );
     addLog('breakMinutes', '${entry.breakMinutes}', '${updated.breakMinutes}');
     addLog(
       'travelBonusHours',
@@ -285,10 +313,12 @@ final class SupervisorCenterController
       throw StateError('supervisor.batchApproveJustificationRequired');
     }
     final validIds = state.timeEntries
-        .where((entry) =>
-            entry.jobId == jobId &&
-            entry.clockOut != null &&
-            entry.status != TimeReviewStatus.approved)
+        .where(
+          (entry) =>
+              entry.jobId == jobId &&
+              entry.clockOut != null &&
+              entry.status != TimeReviewStatus.approved,
+        )
         .map((entry) => entry.id)
         .toSet();
     final now = DateTime.now();
@@ -314,8 +344,9 @@ final class SupervisorCenterController
             id: 'review-${DateTime.now().microsecondsSinceEpoch}-$id',
             timeEntryId: id,
             reviewerId: state.currentUser.id,
-            previousStatus:
-                state.timeEntries.firstWhere((entry) => entry.id == id).status,
+            previousStatus: state.timeEntries
+                .firstWhere((entry) => entry.id == id)
+                .status,
             newStatus: TimeReviewStatus.approved,
             reason: justification,
             observation: '',
@@ -327,9 +358,13 @@ final class SupervisorCenterController
     unawaited(_save());
   }
 
-  void _review(String entryId, TimeReviewStatus status, String justification,
-      String success,
-      {String observation = ''}) {
+  void _review(
+    String entryId,
+    TimeReviewStatus status,
+    String justification,
+    String success, {
+    String observation = '',
+  }) {
     _require(PilotPermission.approveTime);
     if (justification.trim().isEmpty) {
       throw StateError('supervisor.reviewJustificationRequired');
@@ -377,15 +412,19 @@ final class SupervisorCenterController
               status: status,
               supervisorNote: note.trim(),
               approvedAt: status == TimeReviewStatus.approved ? now : null,
-              approvedBy:
-                  status == TimeReviewStatus.approved ? reviewer.name : null,
+              approvedBy: status == TimeReviewStatus.approved
+                  ? reviewer.name
+                  : null,
               rejectedAt: status == TimeReviewStatus.rejected ? now : null,
-              rejectedBy:
-                  status == TimeReviewStatus.rejected ? reviewer.name : null,
-              rejectionReason:
-                  status == TimeReviewStatus.rejected ? note.trim() : null,
-              reviewRequestedAt:
-                  status == TimeReviewStatus.correctionRequested ? now : null,
+              rejectedBy: status == TimeReviewStatus.rejected
+                  ? reviewer.name
+                  : null,
+              rejectionReason: status == TimeReviewStatus.rejected
+                  ? note.trim()
+                  : null,
+              reviewRequestedAt: status == TimeReviewStatus.correctionRequested
+                  ? now
+                  : null,
               reviewRequestedBy: status == TimeReviewStatus.correctionRequested
                   ? reviewer.name
                   : null,
@@ -433,7 +472,9 @@ final class SupervisorCenterController
       return base.copyWith(
         currentRole:
             _roleFromName(json['currentRole'] as String?) ?? base.currentRole,
-        allowSupervisorCreateJobs: json['allowSupervisorCreateJobs'] as bool? ??
+        simulatedUserId: json['simulatedUserId'] as String?,
+        allowSupervisorCreateJobs:
+            json['allowSupervisorCreateJobs'] as bool? ??
             base.allowSupervisorCreateJobs,
         jobs: persistedJobs.isEmpty ? base.jobs : persistedJobs,
         assignments: _decodeList(json['assignments'], _assignmentFromJson),
@@ -449,15 +490,16 @@ final class SupervisorCenterController
   }
 
   Map<String, dynamic> _stateToJson(SupervisorCenterState value) => {
-        'currentRole': value.currentRole.name,
-        'allowSupervisorCreateJobs': value.allowSupervisorCreateJobs,
-        'jobs': value.jobs.map(_jobToJson).toList(),
-        'assignments': value.assignments.map(_assignmentToJson).toList(),
-        'schedules': value.schedules.map(_scheduleToJson).toList(),
-        'timeEntries': value.timeEntries.map(_timeEntryToJson).toList(),
-        'reviews': value.reviews.map(_reviewToJson).toList(),
-        'auditLogs': value.auditLogs.map(_auditToJson).toList(),
-      };
+    'currentRole': value.currentRole.name,
+    'simulatedUserId': value.simulatedUserId,
+    'allowSupervisorCreateJobs': value.allowSupervisorCreateJobs,
+    'jobs': value.jobs.map(_jobToJson).toList(),
+    'assignments': value.assignments.map(_assignmentToJson).toList(),
+    'schedules': value.schedules.map(_scheduleToJson).toList(),
+    'timeEntries': value.timeEntries.map(_timeEntryToJson).toList(),
+    'reviews': value.reviews.map(_reviewToJson).toList(),
+    'auditLogs': value.auditLogs.map(_auditToJson).toList(),
+  };
 }
 
 List<T> _decodeList<T>(Object? raw, T Function(Map<String, dynamic>) decode) {
@@ -483,9 +525,9 @@ TimeReviewStatus _reviewStatusFromName(String? name) =>
     );
 
 JobStatus _jobStatusFromName(String? name) => JobStatus.values.firstWhere(
-      (item) => item.name == name,
-      orElse: () => JobStatus.active,
-    );
+  (item) => item.name == name,
+  orElse: () => JobStatus.active,
+);
 
 AssignmentStatus _assignmentStatusFromName(String? name) =>
     AssignmentStatus.values.firstWhere(
@@ -494,82 +536,82 @@ AssignmentStatus _assignmentStatusFromName(String? name) =>
     );
 
 Map<String, dynamic> _jobToJson(SupervisorJob job) => {
-      'id': job.id,
-      'registrationNumber': job.registrationNumber,
-      'number': job.number,
-      'name': job.name,
-      'client': job.client,
-      'address': job.address,
-      'city': job.city,
-      'state': job.state,
-      'zipCode': job.zipCode,
-      'startDate': job.startDate.toIso8601String(),
-      'scheduledTime': job.scheduledTime,
-      'supervisorId': job.supervisorId,
-      'notes': job.notes,
-      'status': job.status.name,
-      'travelBonusHours': job.travelBonusHours,
-      'payPremiumEnabled': job.payPremiumEnabled,
-      'payPremiumLabel': job.payPremiumLabel,
-    };
+  'id': job.id,
+  'registrationNumber': job.registrationNumber,
+  'number': job.number,
+  'name': job.name,
+  'client': job.client,
+  'address': job.address,
+  'city': job.city,
+  'state': job.state,
+  'zipCode': job.zipCode,
+  'startDate': job.startDate.toIso8601String(),
+  'scheduledTime': job.scheduledTime,
+  'supervisorId': job.supervisorId,
+  'notes': job.notes,
+  'status': job.status.name,
+  'travelBonusHours': job.travelBonusHours,
+  'payPremiumEnabled': job.payPremiumEnabled,
+  'payPremiumLabel': job.payPremiumLabel,
+};
 
 SupervisorJob _jobFromJson(Map<String, dynamic> json) => SupervisorJob(
-      id: json['id'] as String? ?? '',
-      registrationNumber: json['registrationNumber'] as String? ?? '',
-      number: json['number'] as String? ?? '',
-      name: json['name'] as String? ?? '',
-      client: json['client'] as String? ?? 'EWW',
-      address: json['address'] as String? ?? '',
-      city: json['city'] as String? ?? '',
-      state: json['state'] as String? ?? '',
-      zipCode: json['zipCode'] as String? ?? '',
-      startDate: DateTime.tryParse(json['startDate'] as String? ?? '') ??
-          DateTime.now(),
-      scheduledTime: json['scheduledTime'] as String? ?? '',
-      supervisorId: json['supervisorId'] as String? ?? 'test-supervisor',
-      notes: json['notes'] as String? ?? '',
-      status: _jobStatusFromName(json['status'] as String?),
-      travelBonusHours: (json['travelBonusHours'] as num?)?.toDouble() ?? 0,
-      payPremiumEnabled: json['payPremiumEnabled'] as bool? ?? false,
-      payPremiumLabel: json['payPremiumLabel'] as String? ?? '',
-    );
+  id: json['id'] as String? ?? '',
+  registrationNumber: json['registrationNumber'] as String? ?? '',
+  number: json['number'] as String? ?? '',
+  name: json['name'] as String? ?? '',
+  client: json['client'] as String? ?? 'EWW',
+  address: json['address'] as String? ?? '',
+  city: json['city'] as String? ?? '',
+  state: json['state'] as String? ?? '',
+  zipCode: json['zipCode'] as String? ?? '',
+  startDate:
+      DateTime.tryParse(json['startDate'] as String? ?? '') ?? DateTime.now(),
+  scheduledTime: json['scheduledTime'] as String? ?? '',
+  supervisorId: json['supervisorId'] as String? ?? 'test-supervisor',
+  notes: json['notes'] as String? ?? '',
+  status: _jobStatusFromName(json['status'] as String?),
+  travelBonusHours: (json['travelBonusHours'] as num?)?.toDouble() ?? 0,
+  payPremiumEnabled: json['payPremiumEnabled'] as bool? ?? false,
+  payPremiumLabel: json['payPremiumLabel'] as String? ?? '',
+);
 
 Map<String, dynamic> _assignmentToJson(JobAssignment assignment) => {
-      'id': assignment.id,
-      'userId': assignment.userId,
-      'jobId': assignment.jobId,
-      'assignmentDate': assignment.assignmentDate.toIso8601String(),
-      'scheduledStart': assignment.scheduledStart,
-      'scheduledEnd': assignment.scheduledEnd,
-      'assignedBy': assignment.assignedBy,
-      'supervisorId': assignment.supervisorId,
-      'status': assignment.status.name,
-      'notes': assignment.notes,
-    };
+  'id': assignment.id,
+  'userId': assignment.userId,
+  'jobId': assignment.jobId,
+  'assignmentDate': assignment.assignmentDate.toIso8601String(),
+  'scheduledStart': assignment.scheduledStart,
+  'scheduledEnd': assignment.scheduledEnd,
+  'assignedBy': assignment.assignedBy,
+  'supervisorId': assignment.supervisorId,
+  'status': assignment.status.name,
+  'notes': assignment.notes,
+};
 
 JobAssignment _assignmentFromJson(Map<String, dynamic> json) => JobAssignment(
-      id: json['id'] as String? ?? '',
-      userId: json['userId'] as String? ?? '',
-      jobId: json['jobId'] as String? ?? '',
-      assignmentDate:
-          DateTime.tryParse(json['assignmentDate'] as String? ?? '') ??
-              DateTime.now(),
-      scheduledStart: json['scheduledStart'] as String? ?? '',
-      scheduledEnd: json['scheduledEnd'] as String? ?? '',
-      assignedBy: json['assignedBy'] as String? ?? '',
-      supervisorId: json['supervisorId'] as String? ?? '',
-      status: _assignmentStatusFromName(json['status'] as String?),
-      notes: json['notes'] as String? ?? '',
-    );
+  id: json['id'] as String? ?? '',
+  userId: json['userId'] as String? ?? '',
+  jobId: json['jobId'] as String? ?? '',
+  assignmentDate:
+      DateTime.tryParse(json['assignmentDate'] as String? ?? '') ??
+      DateTime.now(),
+  scheduledStart: json['scheduledStart'] as String? ?? '',
+  scheduledEnd: json['scheduledEnd'] as String? ?? '',
+  assignedBy: json['assignedBy'] as String? ?? '',
+  supervisorId: json['supervisorId'] as String? ?? '',
+  status: _assignmentStatusFromName(json['status'] as String?),
+  notes: json['notes'] as String? ?? '',
+);
 
 Map<String, dynamic> _scheduleToJson(SupervisorSchedule schedule) => {
-      'id': schedule.id,
-      'supervisorId': schedule.supervisorId,
-      'jobId': schedule.jobId,
-      'date': schedule.date.toIso8601String(),
-      'time': schedule.time,
-      'note': schedule.note,
-    };
+  'id': schedule.id,
+  'supervisorId': schedule.supervisorId,
+  'jobId': schedule.jobId,
+  'date': schedule.date.toIso8601String(),
+  'time': schedule.time,
+  'note': schedule.note,
+};
 
 SupervisorSchedule _scheduleFromJson(Map<String, dynamic> json) =>
     SupervisorSchedule(
@@ -582,94 +624,95 @@ SupervisorSchedule _scheduleFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _timeEntryToJson(TimeEntry entry) => {
-      'id': entry.id,
-      'userId': entry.userId,
-      'jobId': entry.jobId,
-      'date': entry.date.toIso8601String(),
-      'clockIn': entry.clockIn,
-      'clockOut': entry.clockOut,
-      'breakMinutes': entry.breakMinutes,
-      'employeeNote': entry.employeeNote,
-      'status': entry.status.name,
-      'travelBonusHours': entry.travelBonusHours,
-      'supervisorNote': entry.supervisorNote,
-      'approvedAt': entry.approvedAt?.toIso8601String(),
-      'approvedBy': entry.approvedBy,
-      'rejectedAt': entry.rejectedAt?.toIso8601String(),
-      'rejectedBy': entry.rejectedBy,
-      'rejectionReason': entry.rejectionReason,
-      'reviewRequestedAt': entry.reviewRequestedAt?.toIso8601String(),
-      'reviewRequestedBy': entry.reviewRequestedBy,
-      'reviewNote': entry.reviewNote,
-      'resubmittedAt': entry.resubmittedAt?.toIso8601String(),
-    };
+  'id': entry.id,
+  'userId': entry.userId,
+  'jobId': entry.jobId,
+  'date': entry.date.toIso8601String(),
+  'clockIn': entry.clockIn,
+  'clockOut': entry.clockOut,
+  'breakMinutes': entry.breakMinutes,
+  'employeeNote': entry.employeeNote,
+  'status': entry.status.name,
+  'travelBonusHours': entry.travelBonusHours,
+  'supervisorNote': entry.supervisorNote,
+  'approvedAt': entry.approvedAt?.toIso8601String(),
+  'approvedBy': entry.approvedBy,
+  'rejectedAt': entry.rejectedAt?.toIso8601String(),
+  'rejectedBy': entry.rejectedBy,
+  'rejectionReason': entry.rejectionReason,
+  'reviewRequestedAt': entry.reviewRequestedAt?.toIso8601String(),
+  'reviewRequestedBy': entry.reviewRequestedBy,
+  'reviewNote': entry.reviewNote,
+  'resubmittedAt': entry.resubmittedAt?.toIso8601String(),
+};
 
 TimeEntry _timeEntryFromJson(Map<String, dynamic> json) => TimeEntry(
-      id: json['id'] as String? ?? '',
-      userId: json['userId'] as String? ?? '',
-      jobId: json['jobId'] as String? ?? '',
-      date: DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
-      clockIn: json['clockIn'] as String? ?? '',
-      clockOut: json['clockOut'] as String?,
-      breakMinutes: json['breakMinutes'] as int? ?? 0,
-      employeeNote: json['employeeNote'] as String? ?? '',
-      status: _reviewStatusFromName(json['status'] as String?),
-      travelBonusHours: (json['travelBonusHours'] as num?)?.toDouble() ?? 0,
-      supervisorNote: json['supervisorNote'] as String? ?? '',
-      approvedAt: DateTime.tryParse(json['approvedAt'] as String? ?? ''),
-      approvedBy: json['approvedBy'] as String?,
-      rejectedAt: DateTime.tryParse(json['rejectedAt'] as String? ?? ''),
-      rejectedBy: json['rejectedBy'] as String?,
-      rejectionReason: json['rejectionReason'] as String?,
-      reviewRequestedAt:
-          DateTime.tryParse(json['reviewRequestedAt'] as String? ?? ''),
-      reviewRequestedBy: json['reviewRequestedBy'] as String?,
-      reviewNote: json['reviewNote'] as String?,
-      resubmittedAt: DateTime.tryParse(json['resubmittedAt'] as String? ?? ''),
-    );
+  id: json['id'] as String? ?? '',
+  userId: json['userId'] as String? ?? '',
+  jobId: json['jobId'] as String? ?? '',
+  date: DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
+  clockIn: json['clockIn'] as String? ?? '',
+  clockOut: json['clockOut'] as String?,
+  breakMinutes: json['breakMinutes'] as int? ?? 0,
+  employeeNote: json['employeeNote'] as String? ?? '',
+  status: _reviewStatusFromName(json['status'] as String?),
+  travelBonusHours: (json['travelBonusHours'] as num?)?.toDouble() ?? 0,
+  supervisorNote: json['supervisorNote'] as String? ?? '',
+  approvedAt: DateTime.tryParse(json['approvedAt'] as String? ?? ''),
+  approvedBy: json['approvedBy'] as String?,
+  rejectedAt: DateTime.tryParse(json['rejectedAt'] as String? ?? ''),
+  rejectedBy: json['rejectedBy'] as String?,
+  rejectionReason: json['rejectionReason'] as String?,
+  reviewRequestedAt: DateTime.tryParse(
+    json['reviewRequestedAt'] as String? ?? '',
+  ),
+  reviewRequestedBy: json['reviewRequestedBy'] as String?,
+  reviewNote: json['reviewNote'] as String?,
+  resubmittedAt: DateTime.tryParse(json['resubmittedAt'] as String? ?? ''),
+);
 
 Map<String, dynamic> _reviewToJson(TimeEntryReview review) => {
-      'id': review.id,
-      'timeEntryId': review.timeEntryId,
-      'reviewerId': review.reviewerId,
-      'previousStatus': review.previousStatus.name,
-      'newStatus': review.newStatus.name,
-      'reason': review.reason,
-      'observation': review.observation,
-      'reviewedAt': review.reviewedAt.toIso8601String(),
-    };
+  'id': review.id,
+  'timeEntryId': review.timeEntryId,
+  'reviewerId': review.reviewerId,
+  'previousStatus': review.previousStatus.name,
+  'newStatus': review.newStatus.name,
+  'reason': review.reason,
+  'observation': review.observation,
+  'reviewedAt': review.reviewedAt.toIso8601String(),
+};
 
 TimeEntryReview _reviewFromJson(Map<String, dynamic> json) => TimeEntryReview(
-      id: json['id'] as String? ?? '',
-      timeEntryId: json['timeEntryId'] as String? ?? '',
-      reviewerId: json['reviewerId'] as String? ?? '',
-      previousStatus: _reviewStatusFromName(json['previousStatus'] as String?),
-      newStatus: _reviewStatusFromName(json['newStatus'] as String?),
-      reason: json['reason'] as String? ?? '',
-      observation: json['observation'] as String? ?? '',
-      reviewedAt: DateTime.tryParse(json['reviewedAt'] as String? ?? '') ??
-          DateTime.now(),
-    );
+  id: json['id'] as String? ?? '',
+  timeEntryId: json['timeEntryId'] as String? ?? '',
+  reviewerId: json['reviewerId'] as String? ?? '',
+  previousStatus: _reviewStatusFromName(json['previousStatus'] as String?),
+  newStatus: _reviewStatusFromName(json['newStatus'] as String?),
+  reason: json['reason'] as String? ?? '',
+  observation: json['observation'] as String? ?? '',
+  reviewedAt:
+      DateTime.tryParse(json['reviewedAt'] as String? ?? '') ?? DateTime.now(),
+);
 
 Map<String, dynamic> _auditToJson(AuditLog log) => {
-      'id': log.id,
-      'entityId': log.entityId,
-      'fieldName': log.fieldName,
-      'originalValue': log.originalValue,
-      'newValue': log.newValue,
-      'changedBy': log.changedBy,
-      'changedAt': log.changedAt.toIso8601String(),
-      'justification': log.justification,
-    };
+  'id': log.id,
+  'entityId': log.entityId,
+  'fieldName': log.fieldName,
+  'originalValue': log.originalValue,
+  'newValue': log.newValue,
+  'changedBy': log.changedBy,
+  'changedAt': log.changedAt.toIso8601String(),
+  'justification': log.justification,
+};
 
 AuditLog _auditFromJson(Map<String, dynamic> json) => AuditLog(
-      id: json['id'] as String? ?? '',
-      entityId: json['entityId'] as String? ?? '',
-      fieldName: json['fieldName'] as String? ?? '',
-      originalValue: json['originalValue'] as String? ?? '',
-      newValue: json['newValue'] as String? ?? '',
-      changedBy: json['changedBy'] as String? ?? '',
-      changedAt: DateTime.tryParse(json['changedAt'] as String? ?? '') ??
-          DateTime.now(),
-      justification: json['justification'] as String? ?? '',
-    );
+  id: json['id'] as String? ?? '',
+  entityId: json['entityId'] as String? ?? '',
+  fieldName: json['fieldName'] as String? ?? '',
+  originalValue: json['originalValue'] as String? ?? '',
+  newValue: json['newValue'] as String? ?? '',
+  changedBy: json['changedBy'] as String? ?? '',
+  changedAt:
+      DateTime.tryParse(json['changedAt'] as String? ?? '') ?? DateTime.now(),
+  justification: json['justification'] as String? ?? '',
+);

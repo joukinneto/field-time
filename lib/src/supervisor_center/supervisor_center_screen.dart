@@ -246,30 +246,50 @@ final class _ManagementDashboard extends ConsumerWidget {
         _ResponsiveGrid(
           minWidth: 180,
           children: [
-            JkddSummaryCard(
-              label: context.tr('supervisor.pendingHours'),
-              value: '$pending',
-              icon: Icons.pending_actions,
-              color: AppColors.amber,
+            InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => onOpen(SupervisorCenterView.approveTime),
+              child: JkddSummaryCard(
+                label: context.tr('supervisor.pendingHours'),
+                value: '$pending',
+                icon: Icons.pending_actions,
+                color: AppColors.amber,
+              ),
             ),
-            JkddSummaryCard(
-              label: context.tr('supervisor.activeJobs'),
-              value:
-                  '${state.jobs.where((job) => job.status == JobStatus.active).length}',
-              icon: Icons.apartment,
-              color: AppColors.blue,
+            InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => onOpen(SupervisorCenterView.jobs),
+              child: JkddSummaryCard(
+                label: context.tr('supervisor.activeJobs'),
+                value:
+                    '${state.jobs.where((job) => job.status == JobStatus.active).length}',
+                icon: Icons.apartment,
+                color: AppColors.blue,
+              ),
             ),
-            JkddSummaryCard(
-              label: context.tr('supervisor.workingNow'),
-              value: '$working',
-              icon: Icons.groups_outlined,
-              color: AppColors.green,
+            InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => onOpen(SupervisorCenterView.workingNow),
+              child: JkddSummaryCard(
+                label: context.tr('supervisor.workingNow'),
+                value: '$working',
+                icon: Icons.groups_outlined,
+                color: AppColors.green,
+              ),
             ),
-            JkddSummaryCard(
-              label: context.tr('nav.employees'),
-              value: '${state.users.length}',
-              icon: Icons.badge_outlined,
-              color: AppColors.purple,
+            InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const EmployeesManagementScreen(),
+                ),
+              ),
+              child: JkddSummaryCard(
+                label: context.tr('nav.employees'),
+                value: '${state.users.length}',
+                icon: Icons.badge_outlined,
+                color: AppColors.purple,
+              ),
             ),
           ],
         ),
