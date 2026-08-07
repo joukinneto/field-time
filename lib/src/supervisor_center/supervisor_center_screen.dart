@@ -249,7 +249,7 @@ final class _ManagementDashboard extends ConsumerWidget {
               borderRadius: BorderRadius.circular(16),
               onTap: () => onOpen(SupervisorCenterView.approveTime),
               child: JkddSummaryCard(
-                label: context.tr('supervisor.pendingHours'),
+                label: 'Aprovação de horas',
                 value: '$pending',
                 icon: Icons.pending_actions,
                 color: AppColors.amber,
@@ -259,7 +259,7 @@ final class _ManagementDashboard extends ConsumerWidget {
               borderRadius: BorderRadius.circular(16),
               onTap: () => onOpen(SupervisorCenterView.jobs),
               child: JkddSummaryCard(
-                label: context.tr('supervisor.activeJobs'),
+                label: 'Obras em andamento',
                 value:
                     '${state.jobs.where((job) => job.status == JobStatus.active).length}',
                 icon: Icons.apartment,
@@ -297,7 +297,7 @@ final class _ManagementDashboard extends ConsumerWidget {
           minWidth: 240,
           children: [
             _ActionCard(
-              title: context.tr('supervisor.approveTime'),
+              title: 'Aprovação de horas',
               subtitle: context.tr('supervisor.reviewSubmittedRecords'),
               icon: Icons.fact_check_outlined,
               onTap: () => onOpen(SupervisorCenterView.approveTime),
@@ -309,7 +309,7 @@ final class _ManagementDashboard extends ConsumerWidget {
               onTap: () => onOpen(SupervisorCenterView.schedule),
             ),
             _ActionCard(
-              title: context.tr('supervisor.jobs'),
+              title: 'Obras em andamento',
               subtitle: context.tr('supervisor.jobsAndDetails'),
               icon: Icons.apartment_outlined,
               onTap: () => onOpen(SupervisorCenterView.jobs),

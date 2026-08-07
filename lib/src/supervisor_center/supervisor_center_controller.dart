@@ -205,7 +205,7 @@ final class SupervisorCenterController
     );
   }
 
-  void approveEntry(String entryId, String justification) {
+  void approveEntry(String entryId, [String justification = '']) {
     _review(
       entryId,
       TimeReviewStatus.approved,
@@ -307,11 +307,8 @@ final class SupervisorCenterController
     unawaited(_save());
   }
 
-  void approveAllValidForJob(String jobId, String justification) {
+  void approveAllValidForJob(String jobId, [String justification = '']) {
     _require(PilotPermission.approveTime);
-    if (justification.trim().isEmpty) {
-      throw StateError('supervisor.batchApproveJustificationRequired');
-    }
     final validIds = state.timeEntries
         .where(
           (entry) =>
@@ -366,15 +363,27 @@ final class SupervisorCenterController
     String observation = '',
   }) {
     _require(PilotPermission.approveTime);
-    if (justification.trim().isEmpty) {
-      throw StateError('supervisor.reviewJustificationRequired');
-    }
     final entry = state.timeEntries.firstWhere((item) => item.id == entryId);
+    if (entry.status == TimeReviewStatus.approved) {
+      throw StateError(
+        'Registro já aprovado. Não é necessária nova aprovação.',
+      );
+    }
     if (entry.userId == state.currentUser.id) {
       throw StateError('supervisor.cannotReviewOwnTime');
     }
-    if (status == TimeReviewStatus.rejected && justification.trim().isEmpty) {
-      throw StateError('supervisor.rejectionReasonRequired');
+    final target = state.userById(entry.userId);
+    if (status == TimeReviewStatus.approved &&
+        state.currentRole == PilotRole.supervisor &&
+        !{PilotRole.employee, PilotRole.contractor}.contains(target.role)) {
+      throw StateError('Horas de supervisor devem ser aprovadas pelo diretor.');
+    }
+    if (status != TimeReviewStatus.approved && justification.trim().isEmpty) {
+      throw StateError(
+        status == TimeReviewStatus.rejected
+            ? 'supervisor.rejectionReasonRequired'
+            : 'supervisor.reviewJustificationRequired',
+      );
     }
     final review = TimeEntryReview(
       id: 'review-${DateTime.now().microsecondsSinceEpoch}',
@@ -410,7 +419,9 @@ final class SupervisorCenterController
           if (entry.id == entryId)
             entry.copyWith(
               status: status,
-              supervisorNote: note.trim(),
+              supervisorNote: note.trim().isEmpty
+                  ? entry.supervisorNote
+                  : note.trim(),
               approvedAt: status == TimeReviewStatus.approved ? now : null,
               approvedBy: status == TimeReviewStatus.approved
                   ? reviewer.name
@@ -441,6 +452,70 @@ final class SupervisorCenterController
       ],
       reviews: review == null ? state.reviews : [...state.reviews, review],
       message: success,
+    );
+    unawaited(_save());
+  }
+
+  void questionSupervisor(String entryId, String question) {
+    if (!{
+      PilotRole.owner,
+      PilotRole.administrator,
+    }.contains(state.currentRole)) {
+      throw StateError('Somente o diretor pode questionar uma aprovação.');
+    }
+    if (question.trim().isEmpty) {
+      throw StateError('Informe a pergunta para o supervisor.');
+    }
+    final entry = state.timeEntries.firstWhere((item) => item.id == entryId);
+    if (entry.status != TimeReviewStatus.approved) {
+      throw StateError('Apenas registros já aprovados podem ser questionados.');
+    }
+    final now = DateTime.now();
+    state = state.copyWith(
+      reviews: [
+        ...state.reviews,
+        TimeEntryReview(
+          id: 'question-${now.microsecondsSinceEpoch}',
+          timeEntryId: entryId,
+          reviewerId: state.currentUser.id,
+          previousStatus: entry.status,
+          newStatus: entry.status,
+          reason: 'DIRECTOR_QUESTION',
+          observation: question.trim(),
+          reviewedAt: now,
+        ),
+      ],
+      message: 'Questionamento enviado ao supervisor.',
+    );
+    unawaited(_save());
+  }
+
+  void respondDirectorQuestion(String entryId, String response) {
+    if (state.currentRole != PilotRole.supervisor) {
+      throw StateError(
+        'Somente o supervisor pode responder ao questionamento.',
+      );
+    }
+    if (response.trim().isEmpty) {
+      throw StateError('Informe a resposta ao diretor.');
+    }
+    final entry = state.timeEntries.firstWhere((item) => item.id == entryId);
+    final now = DateTime.now();
+    state = state.copyWith(
+      reviews: [
+        ...state.reviews,
+        TimeEntryReview(
+          id: 'response-${now.microsecondsSinceEpoch}',
+          timeEntryId: entryId,
+          reviewerId: state.currentUser.id,
+          previousStatus: entry.status,
+          newStatus: entry.status,
+          reason: 'SUPERVISOR_RESPONSE',
+          observation: response.trim(),
+          reviewedAt: now,
+        ),
+      ],
+      message: 'Resposta enviada ao diretor.',
     );
     unawaited(_save());
   }

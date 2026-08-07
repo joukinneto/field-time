@@ -517,6 +517,19 @@ final class _SupervisorEntryCard extends ConsumerWidget {
     final state = ref.watch(supervisorCenterProvider);
     final user = state.userById(entry.userId);
     final job = state.jobById(entry.jobId);
+    final entryReviews = state.reviews
+        .where((review) => review.timeEntryId == entry.id)
+        .toList(growable: false);
+    final questions = entryReviews
+        .where((review) => review.reason == 'DIRECTOR_QUESTION')
+        .toList(growable: false);
+    final responses = entryReviews
+        .where((review) => review.reason == 'SUPERVISOR_RESPONSE')
+        .toList(growable: false);
+    final hasUnansweredQuestion =
+        questions.isNotEmpty &&
+        (responses.isEmpty ||
+            responses.last.reviewedAt.isBefore(questions.last.reviewedAt));
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Padding(
@@ -614,6 +627,26 @@ final class _SupervisorEntryCard extends ConsumerWidget {
                 '${context.tr('supervisor.supervisorNote')}: ${entry.supervisorNote}',
               ),
             ],
+            if (questions.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+              JkddStatusChip(
+                label: 'Diretor: ${questions.last.observation}',
+                icon: Icons.help_outline,
+                tone: JkddStatusTone.warning,
+              ),
+            ],
+            if (responses.isNotEmpty &&
+                (questions.isEmpty ||
+                    !responses.last.reviewedAt.isBefore(
+                      questions.last.reviewedAt,
+                    ))) ...[
+              const SizedBox(height: AppSpacing.sm),
+              JkddStatusChip(
+                label: 'Supervisor: ${responses.last.observation}',
+                icon: Icons.reply_outlined,
+                tone: JkddStatusTone.info,
+              ),
+            ],
             const SizedBox(height: AppSpacing.md),
             Align(
               alignment: Alignment.centerRight,
@@ -635,6 +668,24 @@ final class _SupervisorEntryCard extends ConsumerWidget {
                     icon: const Icon(Icons.check_circle_outline),
                     label: Text(context.tr('approval.approve')),
                   ),
+                  if (entry.status == TimeReviewStatus.approved &&
+                      {
+                        PilotRole.owner,
+                        PilotRole.administrator,
+                      }.contains(state.currentRole))
+                    TextButton.icon(
+                      onPressed: () => _questionSupervisor(context, ref, entry),
+                      icon: const Icon(Icons.help_outline),
+                      label: const Text('Questionar supervisor'),
+                    ),
+                  if (entry.status == TimeReviewStatus.approved &&
+                      state.currentRole == PilotRole.supervisor &&
+                      hasUnansweredQuestion)
+                    TextButton.icon(
+                      onPressed: () => _respondDirector(context, ref, entry),
+                      icon: const Icon(Icons.reply_outlined),
+                      label: const Text('Responder diretor'),
+                    ),
                   OutlinedButton.icon(
                     onPressed: entry.isLocked
                         ? null
@@ -865,9 +916,55 @@ Future<void> _approveSupervisorEntry(
   );
   if (confirmed != true) return;
   try {
+    ref.read(supervisorCenterProvider.notifier).approveEntry(entry.id);
+  } on StateError catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+}
+
+Future<void> _questionSupervisor(
+  BuildContext context,
+  WidgetRef ref,
+  TimeEntry entry,
+) async {
+  final question = await _supervisorTextDialog(
+    context,
+    'Questionar supervisor',
+    'Digite a pergunta sobre esta aprovação.',
+  );
+  if (question?.trim().isEmpty != false) return;
+  try {
     ref
         .read(supervisorCenterProvider.notifier)
-        .approveEntry(entry.id, 'Aprovado pelo supervisor.');
+        .questionSupervisor(entry.id, question!);
+  } on StateError catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+}
+
+Future<void> _respondDirector(
+  BuildContext context,
+  WidgetRef ref,
+  TimeEntry entry,
+) async {
+  final response = await _supervisorTextDialog(
+    context,
+    'Responder diretor',
+    'Digite a resposta ao questionamento.',
+  );
+  if (response?.trim().isEmpty != false) return;
+  try {
+    ref
+        .read(supervisorCenterProvider.notifier)
+        .respondDirectorQuestion(entry.id, response!);
   } on StateError catch (error) {
     if (context.mounted) {
       ScaffoldMessenger.of(
