@@ -322,9 +322,10 @@ final class _SupervisorTeamTimesheetState
                 const SizedBox(height: AppSpacing.lg),
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final itemWidth = constraints.maxWidth < 620
-                        ? (constraints.maxWidth - AppSpacing.md) / 2
-                        : 210.0;
+                    final columns = constraints.maxWidth >= 900 ? 4 : 2;
+                    final itemWidth =
+                        (constraints.maxWidth - AppSpacing.md * (columns - 1)) /
+                        columns;
                     return Wrap(
                       spacing: AppSpacing.md,
                       runSpacing: AppSpacing.md,
@@ -373,21 +374,20 @@ final class _SupervisorTeamTimesheetState
                           onTap: () =>
                               _setFilter(_SupervisorTimesheetFilter.rejected),
                         ),
-                        _TimesheetStatusCard(
-                          width: itemWidth,
-                          label: 'Registros',
-                          value: '${allEntries.length}',
-                          icon: Icons.list_alt_outlined,
-                          color: AppColors.purple,
-                          selected: _filter == _SupervisorTimesheetFilter.all,
-                          onTap: () =>
-                              _setFilter(_SupervisorTimesheetFilter.all),
-                        ),
                       ],
                     );
                   },
                 ),
                 const SizedBox(height: AppSpacing.md),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _setFilter(_SupervisorTimesheetFilter.all),
+                    icon: const Icon(Icons.list_alt_outlined),
+                    label: Text('Todos os registros (${allEntries.length})'),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
                 Row(
                   children: [
                     const Icon(Icons.filter_alt_outlined, size: 18),
