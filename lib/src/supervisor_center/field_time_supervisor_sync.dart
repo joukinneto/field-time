@@ -35,7 +35,7 @@ final fieldTimeSupervisorSyncProvider = Provider<void>((ref) {
 const supervisorCenterStorageKey = 'field_time_supervisor_center_state_v1';
 
 /// Persists one completed work day into the Supervisor Center approval queue.
-/// Returns true when at least one new entry was added.
+/// Returns true when at least one new entry or compensation metadata was added.
 Future<bool> syncCompletedWorkDayForSupervisor({
   required WorkDay day,
   required String userId,
@@ -63,9 +63,13 @@ Future<bool> syncCompletedWorkDayForSupervisor({
       .whereType<String>()
       .toSet();
 
+  var compensationChanged = false;
   final additions = <Map<String, dynamic>>[];
   for (final segment in day.segments) {
     if (segment.endedAt == null) continue;
+
+    compensationChanged =
+        _syncJobCompensation(stateJson, segment) || compensationChanged;
 
     final entryId = 'field-${day.id}-${segment.id}';
     if (existingIds.contains(entryId)) continue;
@@ -94,9 +98,11 @@ Future<bool> syncCompletedWorkDayForSupervisor({
     });
   }
 
-  if (additions.isEmpty) return false;
+  if (additions.isEmpty && !compensationChanged) return false;
 
-  stateJson['timeEntries'] = [...existing, ...additions];
+  if (additions.isNotEmpty) {
+    stateJson['timeEntries'] = [...existing, ...additions];
+  }
   stateJson.putIfAbsent('jobs', () => <dynamic>[]);
   stateJson.putIfAbsent('assignments', () => <dynamic>[]);
   stateJson.putIfAbsent('schedules', () => <dynamic>[]);
@@ -105,6 +111,48 @@ Future<bool> syncCompletedWorkDayForSupervisor({
 
   await preferences.setString(supervisorCenterStorageKey, jsonEncode(stateJson));
   return true;
+}
+
+bool _syncJobCompensation(
+  Map<String, dynamic> stateJson,
+  WorkSegment segment,
+) {
+  final jobs = stateJson['jobs'];
+  if (jobs is! List) return false;
+
+  for (var index = 0; index < jobs.length; index++) {
+    final item = jobs[index];
+    if (item is! Map) continue;
+    final job = Map<String, dynamic>.from(item);
+    if (job['number']?.toString() != segment.jobNumber) continue;
+
+    var changed = false;
+    void setIfChanged(String key, Object? value) {
+      if (job[key] == value) return;
+      job[key] = value;
+      changed = true;
+    }
+
+    setIfChanged('travelBonusHours', segment.travelBonusHours);
+    setIfChanged('payPremiumEnabled', segment.payPremiumEnabled);
+    setIfChanged('payPremiumLabel', _payPremiumLabel(segment));
+
+    if (changed) jobs[index] = job;
+    return changed;
+  }
+  return false;
+}
+
+String _payPremiumLabel(WorkSegment segment) {
+  if (!segment.payPremiumEnabled || segment.payPremiumValue <= 0) return '';
+  return switch (segment.payPremiumType) {
+    PayPremiumType.percentage =>
+      '${(segment.payPremiumValue * 100).toStringAsFixed(0)}%',
+    PayPremiumType.fixedHourly =>
+      '\$${segment.payPremiumValue.toStringAsFixed(2)}/h',
+    PayPremiumType.doubleTime => 'Double time',
+    null => '',
+  };
 }
 
 String _supervisorJobId(
