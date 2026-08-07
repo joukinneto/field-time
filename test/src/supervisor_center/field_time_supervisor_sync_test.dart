@@ -10,7 +10,17 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('completed work segment is added once as pending supervisor entry', () async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      supervisorCenterStorageKey: jsonEncode({
+        'jobs': [
+          {
+            'id': 'supervisor-job-630',
+            'number': '630',
+          },
+        ],
+        'timeEntries': [],
+      }),
+    });
     final day = _completedDay();
 
     final first = await syncCompletedWorkDayForSupervisor(
@@ -34,7 +44,7 @@ void main() {
     expect(entries, hasLength(1));
     final entry = entries.single as Map<String, dynamic>;
     expect(entry['userId'], 'TER-0001');
-    expect(entry['jobId'], 'job-630');
+    expect(entry['jobId'], 'supervisor-job-630');
     expect(entry['clockIn'], '7:00 AM');
     expect(entry['clockOut'], '5:15 PM');
     expect(entry['status'], 'pending');
