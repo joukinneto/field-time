@@ -1,35 +1,35 @@
 from pathlib import Path
+import re
 
 
-def replace_once(text: str, old: str, new: str, label: str) -> str:
-    if old not in text:
+def require_replace(text: str, pattern: str, replacement: str, label: str) -> str:
+    updated, count = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)
+    if count != 1:
         raise RuntimeError(f"Pattern not found: {label}")
-    return text.replace(old, new, 1)
+    return updated
 
 
 # -----------------------------------------------------------------------------
-# TimeRecordsScreen: bottom navigation always returns to section root +
-# Settings controls to update / clear cache and update.
+# TimeRecordsScreen: tapping a main nav item always opens that section root,
+# and Settings gets safe update/cache controls.
 # -----------------------------------------------------------------------------
 path = Path("lib/src/presentation/screens/time_records_screen.dart")
 text = path.read_text()
 
 if "src/platform/app_refresh.dart" not in text:
-    text = replace_once(
-        text,
+    text = text.replace(
         "import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';\n",
         "import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';\n"
         "import 'package:jkdd_field_time_records_production/src/platform/app_refresh.dart';\n",
-        "app refresh import",
+        1,
     )
 
 if "_managementNavigationRevision" not in text:
-    text = replace_once(
-        text,
+    text = text.replace(
         "  _Destination _destination = _Destination.home;\n",
         "  _Destination _destination = _Destination.home;\n"
         "  int _managementNavigationRevision = 0;\n",
-        "management revision field",
+        1,
     )
 
 if "void _selectRootDestination(" not in text:
@@ -44,58 +44,65 @@ if "void _selectRootDestination(" not in text:
   }
 
 """
-    text = replace_once(text, marker, method + marker, "root destination method")
+    text = text.replace(marker, method + marker, 1)
 
-text = text.replace(
-    "                  onTap: (index) =>\n"
-    "                      setState(() => _destination = destinations[index]),",
-    "                  onTap: (index) =>\n"
-    "                      _selectRootDestination(destinations[index]),",
-)
-text = text.replace(
-    "                        onSelected: (value) =>\n"
-    "                            setState(() => _destination = value),",
-    "                        onSelected: _selectRootDestination,",
-)
-text = text.replace(
-    "    _Destination.management => const SupervisorCenterScreen(),",
-    "    _Destination.management => SupervisorCenterScreen(\n"
-    "      key: ValueKey('management-$_managementNavigationRevision'),\n"
-    "    ),",
-)
+if "_selectRootDestination(destinations[index])" not in text:
+    text = require_replace(
+        text,
+        r"onTap:\s*\(index\)\s*=>\s*setState\(\(\)\s*=>\s*_destination\s*=\s*destinations\[index\]\),",
+        "onTap: (index) => _selectRootDestination(destinations[index]),",
+        "bottom navigation root reset",
+    )
+
+if "onSelected: _selectRootDestination" not in text:
+    text = require_replace(
+        text,
+        r"onSelected:\s*\(value\)\s*=>\s*setState\(\(\)\s*=>\s*_destination\s*=\s*value\),",
+        "onSelected: _selectRootDestination,",
+        "desktop navigation root reset",
+    )
+
+if "key: ValueKey('management-$_managementNavigationRevision')" not in text:
+    text = require_replace(
+        text,
+        r"_Destination\.management\s*=>\s*const\s+SupervisorCenterScreen\(\),",
+        "_Destination.management => SupervisorCenterScreen(\n"
+        "      key: ValueKey('management-$_managementNavigationRevision'),\n"
+        "    ),",
+        "management screen reset key",
+    )
 
 if "onRefreshApp: () => refreshApplication()" not in text:
-    text = replace_once(
-        text,
+    text = text.replace(
         "      onLogout: _logout,\n",
         "      onLogout: _logout,\n"
         "      onRefreshApp: () => refreshApplication(),\n"
         "      onClearCacheAndRefresh: () => refreshApplication(clearCache: true),\n",
-        "settings refresh callbacks",
+        1,
     )
 
 if "required this.onRefreshApp" not in text:
-    text = replace_once(
-        text,
+    text = text.replace(
         "    required this.onLogout,\n",
         "    required this.onLogout,\n"
         "    required this.onRefreshApp,\n"
         "    required this.onClearCacheAndRefresh,\n",
-        "settings constructor refresh callbacks",
+        1,
     )
 
 if "final Future<void> Function() onRefreshApp;" not in text:
-    text = replace_once(
-        text,
+    text = text.replace(
         "  final VoidCallback onLogout;\n",
         "  final VoidCallback onLogout;\n"
         "  final Future<void> Function() onRefreshApp;\n"
         "  final Future<void> Function() onClearCacheAndRefresh;\n",
-        "settings refresh callback fields",
+        1,
     )
 
 if "title: 'Sistema'" not in text:
     anchor = "          _SettingsSection(\n            title: context.tr('settings.preferences'),"
+    if anchor not in text:
+        raise RuntimeError("Pattern not found: preferences settings section")
     section = """          _SettingsSection(
             title: 'Sistema',
             children: [
@@ -149,14 +156,14 @@ if "title: 'Sistema'" not in text:
             ],
           ),
 """
-    text = replace_once(text, anchor, section + anchor, "system settings section")
+    text = text.replace(anchor, section + anchor, 1)
 
 path.write_text(text)
 
 
 # -----------------------------------------------------------------------------
-# Browser refresh implementation. Cache API/service worker are cleared without
-# touching localStorage / IndexedDB, so local test records remain intact.
+# Web/PWA refresh helper. It clears only browser cache + service workers,
+# deliberately preserving localStorage/IndexedDB application records.
 # -----------------------------------------------------------------------------
 platform = Path("lib/src/platform")
 platform.mkdir(parents=True, exist_ok=True)
@@ -168,7 +175,7 @@ platform.mkdir(parents=True, exist_ok=True)
     "Future<void> refreshApplication({bool clearCache = false}) async {}\n"
 )
 (platform / "app_refresh_web.dart").write_text(
-    """// ignore_for_file: deprecated_member_use
+    """// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 
 import 'dart:html' as html;
 
@@ -176,19 +183,23 @@ Future<void> refreshApplication({bool clearCache = false}) async {
   if (clearCache) {
     try {
       final cacheStorage = html.window.caches;
-      final keys = await cacheStorage.keys();
-      for (final key in keys) {
-        await cacheStorage.delete(key);
+      if (cacheStorage != null) {
+        final keys = await cacheStorage.keys();
+        for (final key in keys) {
+          await cacheStorage.delete(key);
+        }
       }
     } catch (_) {
-      // Some browsers may restrict Cache API access. Reload still proceeds.
+      // Reload still proceeds when Cache API is unavailable.
     }
 
     try {
       final serviceWorker = html.window.navigator.serviceWorker;
-      final registrations = await serviceWorker.getRegistrations();
-      for (final registration in registrations) {
-        await registration.unregister();
+      if (serviceWorker != null) {
+        final registrations = await serviceWorker.getRegistrations();
+        for (final registration in registrations) {
+          await registration.unregister();
+        }
       }
     } catch (_) {
       // Service workers are optional and may be unavailable.
@@ -205,7 +216,7 @@ Future<void> refreshApplication({bool clearCache = false}) async {
 
 
 # -----------------------------------------------------------------------------
-# Supervisor/Director Timesheet: all square status cards are interactive filters.
+# Supervisor/Director Timesheet: square status cards become interactive filters.
 # -----------------------------------------------------------------------------
 path = Path("lib/src/presentation/screens/timesheet_screen.dart")
 text = path.read_text()
@@ -213,11 +224,8 @@ start_marker = "final class _SupervisorTeamTimesheet extends ConsumerWidget {"
 end_marker = "final class _SupervisorEntryCard extends ConsumerWidget {"
 start = text.find(start_marker)
 end = text.find(end_marker)
-if start == -1 or end == -1 or end <= start:
-    # Already patched is acceptable/idempotent.
-    if "enum _SupervisorTimesheetFilter" not in text:
-        raise RuntimeError("Could not locate Supervisor Team Timesheet block")
-else:
+
+if start != -1 and end != -1 and end > start:
     replacement = r'''enum _SupervisorTimesheetFilter {
   all,
   pending,
@@ -369,7 +377,7 @@ final class _SupervisorTeamTimesheetState
                 ),
                 const SizedBox(height: AppSpacing.md),
                 if (entries.isEmpty)
-                  JkddEmptyState(
+                  const JkddEmptyState(
                     icon: Icons.fact_check_outlined,
                     title: 'Nenhum registro neste filtro',
                     message:
@@ -459,5 +467,7 @@ String _supervisorTimesheetFilterLabel(_SupervisorTimesheetFilter filter) =>
 
 '''
     text = text[:start] + replacement + text[end:]
+elif "enum _SupervisorTimesheetFilter" not in text:
+    raise RuntimeError("Could not locate Supervisor Team Timesheet block")
 
 path.write_text(text)
