@@ -73,7 +73,7 @@ Future<bool> syncCompletedWorkDayForSupervisor({
     additions.add(<String, dynamic>{
       'id': entryId,
       'userId': userId,
-      'jobId': segment.jobId,
+      'jobId': _supervisorJobId(stateJson, segment),
       'date': day.workDate.toIso8601String(),
       'clockIn': _formatClock(segment.startedAt),
       'clockOut': _formatClock(segment.endedAt!),
@@ -105,6 +105,24 @@ Future<bool> syncCompletedWorkDayForSupervisor({
 
   await preferences.setString(supervisorCenterStorageKey, jsonEncode(stateJson));
   return true;
+}
+
+String _supervisorJobId(
+  Map<String, dynamic> stateJson,
+  WorkSegment segment,
+) {
+  final jobs = stateJson['jobs'];
+  if (jobs is List) {
+    for (final item in jobs) {
+      if (item is! Map) continue;
+      final job = Map<String, dynamic>.from(item);
+      if (job['number']?.toString() == segment.jobNumber) {
+        final id = job['id']?.toString().trim() ?? '';
+        if (id.isNotEmpty) return id;
+      }
+    }
+  }
+  return segment.jobId;
 }
 
 String _entryNote(WorkDay day, WorkSegment segment) {
