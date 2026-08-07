@@ -50,7 +50,9 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
   final _picker = ImagePicker();
   Timer? _ticker;
   DateTime _now = DateTime.now();
-  _Destination _destination = _Destination.home;
+  _Destination _destination = Uri.base.queryParameters['section'] == 'settings'
+      ? _Destination.settings
+      : _Destination.home;
   int _managementResetToken = 0;
 
   @override
@@ -244,8 +246,9 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
       currentVersion: 'v1.1.0-test4',
       onJobsImport: _openJobsImport,
       onLogout: _logout,
-      onRefreshApp: () => refreshApplication(),
-      onClearCacheAndRefresh: () => refreshApplication(clearCache: true),
+      onRefreshApp: () => refreshApplication(returnToSettings: true),
+      onClearCacheAndRefresh: () =>
+          refreshApplication(clearCache: true, returnToSettings: true),
       directorTestMode: {
         PilotRole.owner,
         PilotRole.supervisor,

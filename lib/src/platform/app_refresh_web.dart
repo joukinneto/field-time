@@ -2,7 +2,10 @@
 
 import 'dart:html' as html;
 
-Future<void> refreshApplication({bool clearCache = false}) async {
+Future<void> refreshApplication({
+  bool clearCache = false,
+  bool returnToSettings = false,
+}) async {
   if (clearCache) {
     try {
       final cacheStorage = html.window.caches;
@@ -32,6 +35,9 @@ Future<void> refreshApplication({bool clearCache = false}) async {
   final current = Uri.parse(html.window.location.href);
   final query = Map<String, String>.from(current.queryParameters);
   query['refresh'] = DateTime.now().millisecondsSinceEpoch.toString();
+  if (returnToSettings) {
+    query['section'] = 'settings';
+  }
   html.window.location.replace(
     current.replace(queryParameters: query).toString(),
   );
