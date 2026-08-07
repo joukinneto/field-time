@@ -70,58 +70,60 @@ final class Job {
   bool get hasPayPremium => payPremiumEnabled && payPremiumValue > 0;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'companyId': companyId,
-        'subcontractorCompanyId': subcontractorCompanyId,
-        'number': number,
-        'registrationNumber': registrationNumber,
-        'name': name,
-        'address': address,
-        'city': city,
-        'state': state,
-        'zipCode': zipCode,
-        'client': client,
-        'supervisor': supervisor,
-        'accessInstructions': accessInstructions,
-        'status': status,
-        'travelBonusEnabled': travelBonusEnabled,
-        'travelBonusHours': travelBonusHours,
-        'payPremiumEnabled': payPremiumEnabled,
-        'payPremiumType': payPremiumType?.name,
-        'payPremiumValue': payPremiumValue,
-        'latitude': latitude,
-        'longitude': longitude,
-        'active': active,
-      };
+    'id': id,
+    'companyId': companyId,
+    'subcontractorCompanyId': subcontractorCompanyId,
+    'number': number,
+    'registrationNumber': registrationNumber,
+    'name': name,
+    'address': address,
+    'city': city,
+    'state': state,
+    'zipCode': zipCode,
+    'client': client,
+    'supervisor': supervisor,
+    'accessInstructions': accessInstructions,
+    'status': status,
+    'travelBonusEnabled': travelBonusEnabled,
+    'travelBonusHours': travelBonusHours,
+    'payPremiumEnabled': payPremiumEnabled,
+    'payPremiumType': payPremiumType?.name,
+    'payPremiumValue': payPremiumValue,
+    'latitude': latitude,
+    'longitude': longitude,
+    'active': active,
+  };
 
   factory Job.fromJson(Map<String, dynamic> json) => Job(
-        id: json['id'] as String,
-        companyId: json['companyId'] as String,
-        subcontractorCompanyId: json['subcontractorCompanyId'] as String,
-        number: json['number'] as String,
-        registrationNumber: json['registrationNumber'] as String? ?? '',
-        name: json['name'] as String,
-        address: json['address'] as String,
-        city: json['city'] as String?,
-        state: json['state'] as String?,
-        zipCode: json['zipCode'] as String?,
-        client: json['client'] as String?,
-        supervisor: json['supervisor'] as String?,
-        accessInstructions: json['accessInstructions'] as String?,
-        status: json['status'] as String? ??
-            ((json['active'] as bool? ?? true) ? 'active' : 'inactive'),
-        travelBonusEnabled: json['travelBonusEnabled'] as bool? ??
-            ((json['travelBonusHours'] as num? ?? 0).toDouble() > 0),
-        travelBonusHours: (json['travelBonusHours'] as num? ?? 0).toDouble(),
-        payPremiumEnabled: json['payPremiumEnabled'] as bool? ?? false,
-        payPremiumType: json['payPremiumType'] == null
-            ? null
-            : PayPremiumType.values.byName(json['payPremiumType'] as String),
-        payPremiumValue: (json['payPremiumValue'] as num? ?? 0).toDouble(),
-        latitude: (json['latitude'] as num?)?.toDouble(),
-        longitude: (json['longitude'] as num?)?.toDouble(),
-        active: json['active'] as bool? ?? true,
-      );
+    id: json['id'] as String,
+    companyId: json['companyId'] as String,
+    subcontractorCompanyId: json['subcontractorCompanyId'] as String,
+    number: json['number'] as String,
+    registrationNumber: json['registrationNumber'] as String? ?? '',
+    name: json['name'] as String,
+    address: json['address'] as String,
+    city: json['city'] as String?,
+    state: json['state'] as String?,
+    zipCode: json['zipCode'] as String?,
+    client: json['client'] as String?,
+    supervisor: json['supervisor'] as String?,
+    accessInstructions: json['accessInstructions'] as String?,
+    status:
+        json['status'] as String? ??
+        ((json['active'] as bool? ?? true) ? 'active' : 'inactive'),
+    travelBonusEnabled:
+        json['travelBonusEnabled'] as bool? ??
+        ((json['travelBonusHours'] as num? ?? 0).toDouble() > 0),
+    travelBonusHours: (json['travelBonusHours'] as num? ?? 0).toDouble(),
+    payPremiumEnabled: json['payPremiumEnabled'] as bool? ?? false,
+    payPremiumType: json['payPremiumType'] == null
+        ? null
+        : PayPremiumType.values.byName(json['payPremiumType'] as String),
+    payPremiumValue: (json['payPremiumValue'] as num? ?? 0).toDouble(),
+    latitude: (json['latitude'] as num?)?.toDouble(),
+    longitude: (json['longitude'] as num?)?.toDouble(),
+    active: json['active'] as bool? ?? true,
+  );
 }
 
 final class SubcontractorCompany {
@@ -140,12 +142,12 @@ final class SubcontractorCompany {
   final String registrationNumber;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'companyId': companyId,
-        'legalName': legalName,
-        'displayName': displayName,
-        'registrationNumber': registrationNumber,
-      };
+    'id': id,
+    'companyId': companyId,
+    'legalName': legalName,
+    'displayName': displayName,
+    'registrationNumber': registrationNumber,
+  };
 
   factory SubcontractorCompany.fromJson(Map<String, dynamic> json) =>
       SubcontractorCompany(
@@ -177,22 +179,22 @@ final class WorkerProfile {
   bool get isSubcontractor => laborType == LaborType.subcontractor;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'companyId': companyId,
-        'subcontractorCompanyId': subcontractorCompanyId,
-        'displayName': displayName,
-        'laborType': laborType.name,
-        'registrationNumber': registrationNumber,
-      };
+    'id': id,
+    'companyId': companyId,
+    'subcontractorCompanyId': subcontractorCompanyId,
+    'displayName': displayName,
+    'laborType': laborType.name,
+    'registrationNumber': registrationNumber,
+  };
 
   factory WorkerProfile.fromJson(Map<String, dynamic> json) => WorkerProfile(
-        id: json['id'] as String,
-        companyId: json['companyId'] as String,
-        subcontractorCompanyId: json['subcontractorCompanyId'] as String,
-        displayName: json['displayName'] as String,
-        laborType: LaborType.values.byName(json['laborType'] as String),
-        registrationNumber: json['registrationNumber'] as String? ?? '',
-      );
+    id: json['id'] as String,
+    companyId: json['companyId'] as String,
+    subcontractorCompanyId: json['subcontractorCompanyId'] as String,
+    displayName: json['displayName'] as String,
+    laborType: LaborType.values.byName(json['laborType'] as String),
+    registrationNumber: json['registrationNumber'] as String? ?? '',
+  );
 }
 
 final class WorkSegment {
@@ -285,85 +287,86 @@ final class WorkSegment {
       );
 
   WorkSegment withNotes(String value) => WorkSegment(
-        id: id,
-        companyId: companyId,
-        subcontractorCompanyId: subcontractorCompanyId,
-        workerId: workerId,
-        jobId: jobId,
-        jobNumber: jobNumber,
-        jobName: jobName,
-        jobAddress: jobAddress,
-        startedAt: startedAt,
-        startedLocation: startedLocation,
-        endedAt: endedAt,
-        endedLocation: endedLocation,
-        notes: value.trim(),
-        laborType: laborType,
-        travelBonusHours: travelBonusHours,
-        travelBonusEnabled: travelBonusEnabled,
-        payPremiumEnabled: payPremiumEnabled,
-        payPremiumType: payPremiumType,
-        payPremiumValue: payPremiumValue,
-        jobLatitude: jobLatitude,
-        jobLongitude: jobLongitude,
-      );
+    id: id,
+    companyId: companyId,
+    subcontractorCompanyId: subcontractorCompanyId,
+    workerId: workerId,
+    jobId: jobId,
+    jobNumber: jobNumber,
+    jobName: jobName,
+    jobAddress: jobAddress,
+    startedAt: startedAt,
+    startedLocation: startedLocation,
+    endedAt: endedAt,
+    endedLocation: endedLocation,
+    notes: value.trim(),
+    laborType: laborType,
+    travelBonusHours: travelBonusHours,
+    travelBonusEnabled: travelBonusEnabled,
+    payPremiumEnabled: payPremiumEnabled,
+    payPremiumType: payPremiumType,
+    payPremiumValue: payPremiumValue,
+    jobLatitude: jobLatitude,
+    jobLongitude: jobLongitude,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'companyId': companyId,
-        'subcontractorCompanyId': subcontractorCompanyId,
-        'workerId': workerId,
-        'jobId': jobId,
-        'jobNumber': jobNumber,
-        'jobName': jobName,
-        'jobAddress': jobAddress,
-        'startedAt': startedAt.toIso8601String(),
-        'startedLocation': startedLocation.toJson(),
-        'endedAt': endedAt?.toIso8601String(),
-        'endedLocation': endedLocation?.toJson(),
-        'notes': notes,
-        'laborType': laborType.name,
-        'travelBonusHours': travelBonusHours,
-        'travelBonusEnabled': travelBonusEnabled,
-        'payPremiumEnabled': payPremiumEnabled,
-        'payPremiumType': payPremiumType?.name,
-        'payPremiumValue': payPremiumValue,
-        'jobLatitude': jobLatitude,
-        'jobLongitude': jobLongitude,
-      };
+    'id': id,
+    'companyId': companyId,
+    'subcontractorCompanyId': subcontractorCompanyId,
+    'workerId': workerId,
+    'jobId': jobId,
+    'jobNumber': jobNumber,
+    'jobName': jobName,
+    'jobAddress': jobAddress,
+    'startedAt': startedAt.toIso8601String(),
+    'startedLocation': startedLocation.toJson(),
+    'endedAt': endedAt?.toIso8601String(),
+    'endedLocation': endedLocation?.toJson(),
+    'notes': notes,
+    'laborType': laborType.name,
+    'travelBonusHours': travelBonusHours,
+    'travelBonusEnabled': travelBonusEnabled,
+    'payPremiumEnabled': payPremiumEnabled,
+    'payPremiumType': payPremiumType?.name,
+    'payPremiumValue': payPremiumValue,
+    'jobLatitude': jobLatitude,
+    'jobLongitude': jobLongitude,
+  };
 
   factory WorkSegment.fromJson(Map<String, dynamic> json) => WorkSegment(
-        id: json['id'] as String,
-        companyId: json['companyId'] as String,
-        subcontractorCompanyId: json['subcontractorCompanyId'] as String,
-        workerId: json['workerId'] as String,
-        jobId: json['jobId'] as String,
-        jobNumber: json['jobNumber'] as String,
-        jobName: json['jobName'] as String,
-        jobAddress: json['jobAddress'] as String,
-        startedAt: DateTime.parse(json['startedAt'] as String),
-        startedLocation: GeoPointJson.fromJson(
-            json['startedLocation'] as Map<String, dynamic>),
-        endedAt: json['endedAt'] == null
-            ? null
-            : DateTime.parse(json['endedAt'] as String),
-        endedLocation: json['endedLocation'] == null
-            ? null
-            : GeoPointJson.fromJson(
-                json['endedLocation'] as Map<String, dynamic>),
-        notes: json['notes'] as String?,
-        laborType: LaborType.values.byName(json['laborType'] as String),
-        travelBonusHours: (json['travelBonusHours'] as num? ?? 0).toDouble(),
-        travelBonusEnabled: json['travelBonusEnabled'] as bool? ??
-            ((json['travelBonusHours'] as num? ?? 0).toDouble() > 0),
-        payPremiumEnabled: json['payPremiumEnabled'] as bool? ?? false,
-        payPremiumType: json['payPremiumType'] == null
-            ? null
-            : PayPremiumType.values.byName(json['payPremiumType'] as String),
-        payPremiumValue: (json['payPremiumValue'] as num? ?? 0).toDouble(),
-        jobLatitude: (json['jobLatitude'] as num?)?.toDouble(),
-        jobLongitude: (json['jobLongitude'] as num?)?.toDouble(),
-      );
+    id: json['id'] as String,
+    companyId: json['companyId'] as String,
+    subcontractorCompanyId: json['subcontractorCompanyId'] as String,
+    workerId: json['workerId'] as String,
+    jobId: json['jobId'] as String,
+    jobNumber: json['jobNumber'] as String,
+    jobName: json['jobName'] as String,
+    jobAddress: json['jobAddress'] as String,
+    startedAt: DateTime.parse(json['startedAt'] as String),
+    startedLocation: GeoPointJson.fromJson(
+      json['startedLocation'] as Map<String, dynamic>,
+    ),
+    endedAt: json['endedAt'] == null
+        ? null
+        : DateTime.parse(json['endedAt'] as String),
+    endedLocation: json['endedLocation'] == null
+        ? null
+        : GeoPointJson.fromJson(json['endedLocation'] as Map<String, dynamic>),
+    notes: json['notes'] as String?,
+    laborType: LaborType.values.byName(json['laborType'] as String),
+    travelBonusHours: (json['travelBonusHours'] as num? ?? 0).toDouble(),
+    travelBonusEnabled:
+        json['travelBonusEnabled'] as bool? ??
+        ((json['travelBonusHours'] as num? ?? 0).toDouble() > 0),
+    payPremiumEnabled: json['payPremiumEnabled'] as bool? ?? false,
+    payPremiumType: json['payPremiumType'] == null
+        ? null
+        : PayPremiumType.values.byName(json['payPremiumType'] as String),
+    payPremiumValue: (json['payPremiumValue'] as num? ?? 0).toDouble(),
+    jobLatitude: (json['jobLatitude'] as num?)?.toDouble(),
+    jobLongitude: (json['jobLongitude'] as num?)?.toDouble(),
+  );
 }
 
 final class WorkDay {
@@ -407,9 +410,9 @@ final class WorkDay {
       segments.isEmpty ? null : segments.first.startedAt;
   DateTime? get lastClockOut => segments.isEmpty ? null : segments.last.endedAt;
   Duration get workedDuration => segments.fold(
-        Duration.zero,
-        (total, segment) => total + segment.duration(),
-      );
+    Duration.zero,
+    (total, segment) => total + segment.duration(),
+  );
   double get travelBonusHours {
     var total = 0.0;
     for (final segment in travelBonusSegments) {
@@ -440,56 +443,55 @@ final class WorkDay {
     String? notes,
     DateTime? updatedAt,
     bool clearCompletedAt = false,
-  }) =>
-      WorkDay(
-        id: id,
-        registrationNumber: registrationNumber,
-        companyId: companyId,
-        subcontractorCompanyId: subcontractorCompanyId,
-        workerId: workerId,
-        workDate: workDate,
-        status: status ?? this.status,
-        segments: segments ?? this.segments,
-        completedAt: clearCompletedAt ? null : completedAt ?? this.completedAt,
-        notes: notes ?? this.notes,
-        createdAt: createdAt,
-        updatedAt: updatedAt ?? this.updatedAt,
-      );
+  }) => WorkDay(
+    id: id,
+    registrationNumber: registrationNumber,
+    companyId: companyId,
+    subcontractorCompanyId: subcontractorCompanyId,
+    workerId: workerId,
+    workDate: workDate,
+    status: status ?? this.status,
+    segments: segments ?? this.segments,
+    completedAt: clearCompletedAt ? null : completedAt ?? this.completedAt,
+    notes: notes ?? this.notes,
+    createdAt: createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'registrationNumber': registrationNumber,
-        'companyId': companyId,
-        'subcontractorCompanyId': subcontractorCompanyId,
-        'workerId': workerId,
-        'workDate': workDate.toIso8601String(),
-        'status': status.name,
-        'segments': segments.map((item) => item.toJson()).toList(),
-        'completedAt': completedAt?.toIso8601String(),
-        'notes': notes,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-      };
+    'id': id,
+    'registrationNumber': registrationNumber,
+    'companyId': companyId,
+    'subcontractorCompanyId': subcontractorCompanyId,
+    'workerId': workerId,
+    'workDate': workDate.toIso8601String(),
+    'status': status.name,
+    'segments': segments.map((item) => item.toJson()).toList(),
+    'completedAt': completedAt?.toIso8601String(),
+    'notes': notes,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+  };
 
   factory WorkDay.fromJson(Map<String, dynamic> json) => WorkDay(
-        id: json['id'] as String,
-        registrationNumber: json['registrationNumber'] as String? ?? '',
-        companyId: json['companyId'] as String,
-        subcontractorCompanyId: json['subcontractorCompanyId'] as String,
-        workerId: json['workerId'] as String,
-        workDate: DateTime.parse(json['workDate'] as String),
-        status: WorkDayStatus.values.byName(json['status'] as String),
-        segments: (json['segments'] as List<dynamic>)
-            .cast<Map<String, dynamic>>()
-            .map(WorkSegment.fromJson)
-            .toList(growable: false),
-        completedAt: json['completedAt'] == null
-            ? null
-            : DateTime.parse(json['completedAt'] as String),
-        notes: json['notes'] as String?,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-      );
+    id: json['id'] as String,
+    registrationNumber: json['registrationNumber'] as String? ?? '',
+    companyId: json['companyId'] as String,
+    subcontractorCompanyId: json['subcontractorCompanyId'] as String,
+    workerId: json['workerId'] as String,
+    workDate: DateTime.parse(json['workDate'] as String),
+    status: WorkDayStatus.values.byName(json['status'] as String),
+    segments: (json['segments'] as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map(WorkSegment.fromJson)
+        .toList(growable: false),
+    completedAt: json['completedAt'] == null
+        ? null
+        : DateTime.parse(json['completedAt'] as String),
+    notes: json['notes'] as String?,
+    createdAt: DateTime.parse(json['createdAt'] as String),
+    updatedAt: DateTime.parse(json['updatedAt'] as String),
+  );
 }
 
 bool _qualifiesForTravelBonus(WorkSegment? previous, WorkSegment current) {
@@ -512,12 +514,14 @@ final class ReceiptItem {
   const ReceiptItem({required this.description, this.amount});
   final String description;
   final double? amount;
-  Map<String, dynamic> toJson() =>
-      {'description': description, 'amount': amount};
+  Map<String, dynamic> toJson() => {
+    'description': description,
+    'amount': amount,
+  };
   factory ReceiptItem.fromJson(Map<String, dynamic> json) => ReceiptItem(
-        description: json['description'] as String,
-        amount: (json['amount'] as num?)?.toDouble(),
-      );
+    description: json['description'] as String,
+    amount: (json['amount'] as num?)?.toDouble(),
+  );
 }
 
 final class ReceiptExtractionResult {
@@ -561,20 +565,20 @@ final class ReceiptExtractionResult {
       paymentMethod != null;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'companyId': companyId,
-        'subcontractorCompanyId': subcontractorCompanyId,
-        'receiptId': receiptId,
-        'merchant': merchant,
-        'purchaseDate': purchaseDate?.toIso8601String(),
-        'total': total,
-        'tax': tax,
-        'receiptNumber': receiptNumber,
-        'items': items.map((item) => item.toJson()).toList(),
-        'paymentMethod': paymentMethod,
-        'message': message,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'id': id,
+    'companyId': companyId,
+    'subcontractorCompanyId': subcontractorCompanyId,
+    'receiptId': receiptId,
+    'merchant': merchant,
+    'purchaseDate': purchaseDate?.toIso8601String(),
+    'total': total,
+    'tax': tax,
+    'receiptNumber': receiptNumber,
+    'items': items.map((item) => item.toJson()).toList(),
+    'paymentMethod': paymentMethod,
+    'message': message,
+    'createdAt': createdAt.toIso8601String(),
+  };
 
   factory ReceiptExtractionResult.fromJson(Map<String, dynamic> json) =>
       ReceiptExtractionResult(
@@ -625,30 +629,30 @@ final class Attachment {
   final DateTime createdAt;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'companyId': companyId,
-        'subcontractorCompanyId': subcontractorCompanyId,
-        'workerId': workerId,
-        'jobId': jobId,
-        'kind': kind.name,
-        'fileName': fileName,
-        'mimeType': mimeType,
-        'dataBase64': dataBase64,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'id': id,
+    'companyId': companyId,
+    'subcontractorCompanyId': subcontractorCompanyId,
+    'workerId': workerId,
+    'jobId': jobId,
+    'kind': kind.name,
+    'fileName': fileName,
+    'mimeType': mimeType,
+    'dataBase64': dataBase64,
+    'createdAt': createdAt.toIso8601String(),
+  };
 
   factory Attachment.fromJson(Map<String, dynamic> json) => Attachment(
-        id: json['id'] as String,
-        companyId: json['companyId'] as String,
-        subcontractorCompanyId: json['subcontractorCompanyId'] as String,
-        workerId: json['workerId'] as String,
-        jobId: json['jobId'] as String,
-        kind: AttachmentKind.values.byName(json['kind'] as String),
-        fileName: json['fileName'] as String,
-        mimeType: json['mimeType'] as String,
-        dataBase64: json['dataBase64'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-      );
+    id: json['id'] as String,
+    companyId: json['companyId'] as String,
+    subcontractorCompanyId: json['subcontractorCompanyId'] as String,
+    workerId: json['workerId'] as String,
+    jobId: json['jobId'] as String,
+    kind: AttachmentKind.values.byName(json['kind'] as String),
+    fileName: json['fileName'] as String,
+    mimeType: json['mimeType'] as String,
+    dataBase64: json['dataBase64'] as String,
+    createdAt: DateTime.parse(json['createdAt'] as String),
+  );
 }
 
 final class Receipt {
@@ -695,51 +699,52 @@ final class Receipt {
   final DateTime updatedAt;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'registrationNumber': registrationNumber,
-        'companyId': companyId,
-        'subcontractorCompanyId': subcontractorCompanyId,
-        'workerId': workerId,
-        'jobId': jobId,
-        'purchaseDate': purchaseDate.toIso8601String(),
-        'merchant': merchant,
-        'total': total,
-        'tax': tax,
-        'receiptNumber': receiptNumber,
-        'description': description,
-        'notes': notes,
-        'status': status.name,
-        'attachmentIds': attachmentIds,
-        'extractionResult': extractionResult?.toJson(),
-        'userReviewed': userReviewed,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-      };
+    'id': id,
+    'registrationNumber': registrationNumber,
+    'companyId': companyId,
+    'subcontractorCompanyId': subcontractorCompanyId,
+    'workerId': workerId,
+    'jobId': jobId,
+    'purchaseDate': purchaseDate.toIso8601String(),
+    'merchant': merchant,
+    'total': total,
+    'tax': tax,
+    'receiptNumber': receiptNumber,
+    'description': description,
+    'notes': notes,
+    'status': status.name,
+    'attachmentIds': attachmentIds,
+    'extractionResult': extractionResult?.toJson(),
+    'userReviewed': userReviewed,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+  };
 
   factory Receipt.fromJson(Map<String, dynamic> json) => Receipt(
-        id: json['id'] as String,
-        registrationNumber: json['registrationNumber'] as String? ?? '',
-        companyId: json['companyId'] as String,
-        subcontractorCompanyId: json['subcontractorCompanyId'] as String,
-        workerId: json['workerId'] as String,
-        jobId: json['jobId'] as String,
-        purchaseDate: DateTime.parse(json['purchaseDate'] as String),
-        merchant: json['merchant'] as String,
-        total: (json['total'] as num).toDouble(),
-        tax: (json['tax'] as num).toDouble(),
-        receiptNumber: json['receiptNumber'] as String?,
-        description: json['description'] as String,
-        notes: json['notes'] as String?,
-        status: ReceiptStatus.values.byName(json['status'] as String),
-        attachmentIds: (json['attachmentIds'] as List<dynamic>).cast<String>(),
-        extractionResult: json['extractionResult'] == null
-            ? null
-            : ReceiptExtractionResult.fromJson(
-                json['extractionResult'] as Map<String, dynamic>),
-        userReviewed: json['userReviewed'] as bool,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-      );
+    id: json['id'] as String,
+    registrationNumber: json['registrationNumber'] as String? ?? '',
+    companyId: json['companyId'] as String,
+    subcontractorCompanyId: json['subcontractorCompanyId'] as String,
+    workerId: json['workerId'] as String,
+    jobId: json['jobId'] as String,
+    purchaseDate: DateTime.parse(json['purchaseDate'] as String),
+    merchant: json['merchant'] as String,
+    total: (json['total'] as num).toDouble(),
+    tax: (json['tax'] as num).toDouble(),
+    receiptNumber: json['receiptNumber'] as String?,
+    description: json['description'] as String,
+    notes: json['notes'] as String?,
+    status: ReceiptStatus.values.byName(json['status'] as String),
+    attachmentIds: (json['attachmentIds'] as List<dynamic>).cast<String>(),
+    extractionResult: json['extractionResult'] == null
+        ? null
+        : ReceiptExtractionResult.fromJson(
+            json['extractionResult'] as Map<String, dynamic>,
+          ),
+    userReviewed: json['userReviewed'] as bool,
+    createdAt: DateTime.parse(json['createdAt'] as String),
+    updatedAt: DateTime.parse(json['updatedAt'] as String),
+  );
 }
 
 final class ReimbursementRequest {
@@ -772,19 +777,19 @@ final class ReimbursementRequest {
   final DateTime updatedAt;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'registrationNumber': registrationNumber,
-        'companyId': companyId,
-        'subcontractorCompanyId': subcontractorCompanyId,
-        'workerId': workerId,
-        'jobId': jobId,
-        'receiptIds': receiptIds,
-        'attachmentIds': attachmentIds,
-        'amount': amount,
-        'status': status.name,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-      };
+    'id': id,
+    'registrationNumber': registrationNumber,
+    'companyId': companyId,
+    'subcontractorCompanyId': subcontractorCompanyId,
+    'workerId': workerId,
+    'jobId': jobId,
+    'receiptIds': receiptIds,
+    'attachmentIds': attachmentIds,
+    'amount': amount,
+    'status': status.name,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+  };
 
   factory ReimbursementRequest.fromJson(Map<String, dynamic> json) =>
       ReimbursementRequest(
@@ -825,26 +830,26 @@ final class Approval {
   final DateTime createdAt;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'companyId': companyId,
-        'subcontractorCompanyId': subcontractorCompanyId,
-        'subjectId': subjectId,
-        'status': status.name,
-        'reviewerId': reviewerId,
-        'notes': notes,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'id': id,
+    'companyId': companyId,
+    'subcontractorCompanyId': subcontractorCompanyId,
+    'subjectId': subjectId,
+    'status': status.name,
+    'reviewerId': reviewerId,
+    'notes': notes,
+    'createdAt': createdAt.toIso8601String(),
+  };
 
   factory Approval.fromJson(Map<String, dynamic> json) => Approval(
-        id: json['id'] as String,
-        companyId: json['companyId'] as String,
-        subcontractorCompanyId: json['subcontractorCompanyId'] as String,
-        subjectId: json['subjectId'] as String,
-        status: ApprovalStatus.values.byName(json['status'] as String),
-        reviewerId: json['reviewerId'] as String?,
-        notes: json['notes'] as String?,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-      );
+    id: json['id'] as String,
+    companyId: json['companyId'] as String,
+    subcontractorCompanyId: json['subcontractorCompanyId'] as String,
+    subjectId: json['subjectId'] as String,
+    status: ApprovalStatus.values.byName(json['status'] as String),
+    reviewerId: json['reviewerId'] as String?,
+    notes: json['notes'] as String?,
+    createdAt: DateTime.parse(json['createdAt'] as String),
+  );
 }
 
 final class SyncQueueItem {
@@ -867,24 +872,24 @@ final class SyncQueueItem {
   final DateTime createdAt;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'companyId': companyId,
-        'subcontractorCompanyId': subcontractorCompanyId,
-        'entityType': entityType,
-        'entityId': entityId,
-        'operation': operation.name,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'id': id,
+    'companyId': companyId,
+    'subcontractorCompanyId': subcontractorCompanyId,
+    'entityType': entityType,
+    'entityId': entityId,
+    'operation': operation.name,
+    'createdAt': createdAt.toIso8601String(),
+  };
 
   factory SyncQueueItem.fromJson(Map<String, dynamic> json) => SyncQueueItem(
-        id: json['id'] as String,
-        companyId: json['companyId'] as String,
-        subcontractorCompanyId: json['subcontractorCompanyId'] as String,
-        entityType: json['entityType'] as String,
-        entityId: json['entityId'] as String,
-        operation: SyncOperation.values.byName(json['operation'] as String),
-        createdAt: DateTime.parse(json['createdAt'] as String),
-      );
+    id: json['id'] as String,
+    companyId: json['companyId'] as String,
+    subcontractorCompanyId: json['subcontractorCompanyId'] as String,
+    entityType: json['entityType'] as String,
+    entityId: json['entityId'] as String,
+    operation: SyncOperation.values.byName(json['operation'] as String),
+    createdAt: DateTime.parse(json['createdAt'] as String),
+  );
 }
 
 final class FieldTimeSnapshot {
@@ -926,29 +931,29 @@ final class FieldTimeSnapshot {
   String get responsibleWorkerId => worker.id;
 
   factory FieldTimeSnapshot.seeded() => const FieldTimeSnapshot(
-        companyId: companyIdEww,
-        companyName: 'EWW',
-        subcontractor: SubcontractorCompany(
-          id: subcontractorIdJkdd,
-          companyId: companyIdEww,
-          legalName: 'JKDD Finish & Remodeling Corp.',
-          displayName: 'JKDD Finish & Remodeling Corp.',
-          registrationNumber: 'SUB-0001',
-        ),
-        worker: WorkerProfile(
-          id: workerTechnicalIdPilot,
-          companyId: companyIdEww,
-          subcontractorCompanyId: subcontractorIdJkdd,
-          displayName: 'Santana',
-          laborType: LaborType.subcontractor,
-          registrationNumber: 'TER-0001',
-        ),
-        jobs: [],
-      );
+    companyId: companyIdEww,
+    companyName: 'EWW',
+    subcontractor: SubcontractorCompany(
+      id: subcontractorIdJkdd,
+      companyId: companyIdEww,
+      legalName: 'JKDD Finish & Remodeling Corp.',
+      displayName: 'JKDD Finish & Remodeling Corp.',
+      registrationNumber: 'SUB-0001',
+    ),
+    worker: WorkerProfile(
+      id: workerTechnicalIdPilot,
+      companyId: companyIdEww,
+      subcontractorCompanyId: subcontractorIdJkdd,
+      displayName: 'Santana',
+      laborType: LaborType.subcontractor,
+      registrationNumber: 'TER-0001',
+    ),
+    jobs: [],
+  );
 
   WorkDay? get activeWorkDay {
     for (final day in workDays.reversed) {
-      if (day.isOpen) return day;
+      if (day.isOpen && day.workerId == worker.id) return day;
     }
     return null;
   }
@@ -964,53 +969,54 @@ final class FieldTimeSnapshot {
     List<Approval>? approvals,
     List<SyncQueueItem>? syncQueue,
     Map<String, int>? registrationSequences,
-  }) =>
-      FieldTimeSnapshot(
-        companyId: companyId,
-        companyName: companyName,
-        subcontractor: subcontractor ?? this.subcontractor,
-        worker: worker ?? this.worker,
-        jobs: jobs ?? this.jobs,
-        workDays: workDays ?? this.workDays,
-        receipts: receipts ?? this.receipts,
-        reimbursements: reimbursements ?? this.reimbursements,
-        attachments: attachments ?? this.attachments,
-        approvals: approvals ?? this.approvals,
-        syncQueue: syncQueue ?? this.syncQueue,
-        registrationSequences:
-            registrationSequences ?? this.registrationSequences,
-      );
+  }) => FieldTimeSnapshot(
+    companyId: companyId,
+    companyName: companyName,
+    subcontractor: subcontractor ?? this.subcontractor,
+    worker: worker ?? this.worker,
+    jobs: jobs ?? this.jobs,
+    workDays: workDays ?? this.workDays,
+    receipts: receipts ?? this.receipts,
+    reimbursements: reimbursements ?? this.reimbursements,
+    attachments: attachments ?? this.attachments,
+    approvals: approvals ?? this.approvals,
+    syncQueue: syncQueue ?? this.syncQueue,
+    registrationSequences: registrationSequences ?? this.registrationSequences,
+  );
 
   Map<String, dynamic> toJson() => {
-        'companyId': companyId,
-        'contractingCompanyId': contractingCompanyId,
-        'companyName': companyName,
-        'subcontractorCompanyId': subcontractorCompanyId,
-        'responsibleWorkerId': responsibleWorkerId,
-        'subcontractor': subcontractor.toJson(),
-        'worker': worker.toJson(),
-        'jobs': jobs.map((item) => item.toJson()).toList(),
-        'workDays': workDays.map((item) => item.toJson()).toList(),
-        'receipts': receipts.map((item) => item.toJson()).toList(),
-        'reimbursements': reimbursements.map((item) => item.toJson()).toList(),
-        'attachments': attachments.map((item) => item.toJson()).toList(),
-        'approvals': approvals.map((item) => item.toJson()).toList(),
-        'syncQueue': syncQueue.map((item) => item.toJson()).toList(),
-        'registrationSequences': registrationSequences,
-      };
+    'companyId': companyId,
+    'contractingCompanyId': contractingCompanyId,
+    'companyName': companyName,
+    'subcontractorCompanyId': subcontractorCompanyId,
+    'responsibleWorkerId': responsibleWorkerId,
+    'subcontractor': subcontractor.toJson(),
+    'worker': worker.toJson(),
+    'jobs': jobs.map((item) => item.toJson()).toList(),
+    'workDays': workDays.map((item) => item.toJson()).toList(),
+    'receipts': receipts.map((item) => item.toJson()).toList(),
+    'reimbursements': reimbursements.map((item) => item.toJson()).toList(),
+    'attachments': attachments.map((item) => item.toJson()).toList(),
+    'approvals': approvals.map((item) => item.toJson()).toList(),
+    'syncQueue': syncQueue.map((item) => item.toJson()).toList(),
+    'registrationSequences': registrationSequences,
+  };
 
   factory FieldTimeSnapshot.fromJson(Map<String, dynamic> json) =>
       FieldTimeSnapshot(
         companyId: json['companyId'] as String,
         companyName: json['companyName'] as String,
         subcontractor: SubcontractorCompany.fromJson(
-            json['subcontractor'] as Map<String, dynamic>),
+          json['subcontractor'] as Map<String, dynamic>,
+        ),
         worker: WorkerProfile.fromJson(json['worker'] as Map<String, dynamic>),
         jobs: _decodeList(json['jobs'], Job.fromJson),
         workDays: _decodeList(json['workDays'], WorkDay.fromJson),
         receipts: _decodeList(json['receipts'], Receipt.fromJson),
-        reimbursements:
-            _decodeList(json['reimbursements'], ReimbursementRequest.fromJson),
+        reimbursements: _decodeList(
+          json['reimbursements'],
+          ReimbursementRequest.fromJson,
+        ),
         attachments: _decodeList(json['attachments'], Attachment.fromJson),
         approvals: _decodeList(json['approvals'], Approval.fromJson),
         syncQueue: _decodeList(json['syncQueue'], SyncQueueItem.fromJson),
@@ -1023,26 +1029,25 @@ final class FieldTimeSnapshot {
 List<T> _decodeList<T>(
   Object? value,
   T Function(Map<String, dynamic>) decoder,
-) =>
-    (value as List<dynamic>? ?? const [])
-        .cast<Map<String, dynamic>>()
-        .map(decoder)
-        .toList(growable: false);
+) => (value as List<dynamic>? ?? const [])
+    .cast<Map<String, dynamic>>()
+    .map(decoder)
+    .toList(growable: false);
 
 extension GeoPointJson on GeoPoint {
   Map<String, dynamic> toJson() => {
-        'latitude': latitude,
-        'longitude': longitude,
-        'accuracyMeters': accuracyMeters,
-        'capturedAt': capturedAt.toIso8601String(),
-        'isOfflineFallback': isOfflineFallback,
-      };
+    'latitude': latitude,
+    'longitude': longitude,
+    'accuracyMeters': accuracyMeters,
+    'capturedAt': capturedAt.toIso8601String(),
+    'isOfflineFallback': isOfflineFallback,
+  };
 
   static GeoPoint fromJson(Map<String, dynamic> json) => GeoPoint(
-        latitude: (json['latitude'] as num).toDouble(),
-        longitude: (json['longitude'] as num).toDouble(),
-        accuracyMeters: (json['accuracyMeters'] as num).toDouble(),
-        capturedAt: DateTime.parse(json['capturedAt'] as String),
-        isOfflineFallback: json['isOfflineFallback'] as bool? ?? false,
-      );
+    latitude: (json['latitude'] as num).toDouble(),
+    longitude: (json['longitude'] as num).toDouble(),
+    accuracyMeters: (json['accuracyMeters'] as num).toDouble(),
+    capturedAt: DateTime.parse(json['capturedAt'] as String),
+    isOfflineFallback: json['isOfflineFallback'] as bool? ?? false,
+  );
 }
