@@ -1,0 +1,3 @@
+JKDD TECH — Field Time Test 04
+GitHub write access verified on 2026-08-06.
+Branch: test04-supervisor-approval-flow
