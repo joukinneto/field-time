@@ -108,8 +108,17 @@ final class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                           ),
                         ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            key: const ValueKey('forgot-password'),
+                            onPressed: _recoverPassword,
+                            icon: const Icon(Icons.help_outline, size: 18),
+                            label: const Text('Esqueci minha senha'),
+                          ),
+                        ),
                         if (session.errorKey != null) ...[
-                          const SizedBox(height: AppSpacing.md),
+                          const SizedBox(height: AppSpacing.sm),
                           Text(
                             context.tr(session.errorKey!),
                             style: Theme.of(context)
@@ -118,7 +127,7 @@ final class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ?.copyWith(color: AppColors.red),
                           ),
                         ],
-                        const SizedBox(height: AppSpacing.xl),
+                        const SizedBox(height: AppSpacing.lg),
                         FilledButton.icon(
                           key: const ValueKey('login-submit'),
                           onPressed: session.authenticating ? null : _submit,
@@ -149,5 +158,91 @@ final class _LoginScreenState extends ConsumerState<LoginScreen> {
     await ref
         .read(authSessionProvider.notifier)
         .login(_username.text, _password.text);
+  }
+
+  Future<void> _recoverPassword() async {
+    final email = TextEditingController(text: _username.text.trim());
+    final submitted = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Recuperar senha'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Informe o e-mail/usuário cadastrado para recuperar o acesso.',
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: email,
+              autofocus: true,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(
+                labelText: 'E-mail ou usuário',
+                prefixIcon: Icon(Icons.alternate_email_outlined),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(context.tr('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, email.text.trim()),
+            child: const Text('Continuar'),
+          ),
+        ],
+      ),
+    );
+    email.dispose();
+    if (!mounted || submitted == null || submitted.isEmpty) return;
+
+    HomologationAccount? account;
+    for (final item in AuthSessionController.accounts) {
+      if (item.username.toLowerCase() == submitted.toLowerCase()) {
+        account = item;
+        break;
+      }
+    }
+
+    if (account == null) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Usuário não encontrado'),
+          content: const Text(
+            'Não existe uma conta de teste cadastrada com esse e-mail/usuário.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    _username.text = account.username;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Acesso de teste recuperado'),
+        content: const Text(
+          'Neste ambiente de homologação, a senha padrão foi restaurada para Test123!. '
+          'Na versão de produção, a recuperação será feita por link/código seguro enviado ao usuário.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Voltar ao login'),
+          ),
+        ],
+      ),
+    );
   }
 }
