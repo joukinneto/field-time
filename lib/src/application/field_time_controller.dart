@@ -200,8 +200,11 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
     }, 'fieldTime.photoLinked', successValues: {'job': job.number});
   }
 
-  Future<void> saveReceipt(ReceiptDraft draft, XFile file) async {
+  Future<void> saveReceipt(ReceiptDraft draft, XFile? file) async {
     await _run('fieldTime.saveReceiptProgress', () async {
+      if (file == null) {
+        throw StateError('receipts.attachPhotoRequired');
+      }
       final attachment =
           await _attachment(file, draft.job, AttachmentKind.receipt);
       final snapshot = await service.saveReceipt(
@@ -220,6 +223,120 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
       );
       await repository.save(snapshot);
       return snapshot;
+    },
+        draft.submit
+            ? 'fieldTime.reimbursementSubmitted'
+            : 'fieldTime.draftSaved');
+  }
+
+  Future<void> updateReceipt(
+    Receipt receipt,
+    ReceiptDraft draft,
+    XFile? file,
+  ) async {
+    await _run('fieldTime.saveReceiptProgress', () async {
+      if (receipt.status != ReceiptStatus.draft) {
+        throw StateError('receipts.onlyDraftCanBeEdited');
+      }
+
+      final snapshot = state.snapshot;
+      final now = DateTime.now();
+      final nextStatus =
+          draft.submit ? ReceiptStatus.submitted : ReceiptStatus.draft;
+      Attachment? replacementAttachment;
+      if (file != null) {
+        replacementAttachment =
+            await _attachment(file, draft.job, AttachmentKind.receipt);
+      }
+      final attachmentIds = replacementAttachment == null
+          ? receipt.attachmentIds
+          : [replacementAttachment.id];
+
+      final updatedReceipt = Receipt(
+        id: receipt.id,
+        registrationNumber: receipt.registrationNumber,
+        companyId: receipt.companyId,
+        subcontractorCompanyId: receipt.subcontractorCompanyId,
+        workerId: receipt.workerId,
+        jobId: draft.job.id,
+        purchaseDate: draft.purchaseDate,
+        merchant: draft.merchant.trim(),
+        total: draft.total,
+        tax: draft.tax,
+        receiptNumber: draft.receiptNumber?.trim().isEmpty == true
+            ? null
+            : draft.receiptNumber?.trim(),
+        description: draft.description.trim(),
+        notes: draft.notes?.trim().isEmpty == true ? null : draft.notes?.trim(),
+        status: nextStatus,
+        attachmentIds: attachmentIds,
+        extractionResult:
+            replacementAttachment == null ? receipt.extractionResult : null,
+        userReviewed: draft.userReviewed,
+        createdAt: receipt.createdAt,
+        updatedAt: now,
+      );
+
+      final updatedReimbursements = <ReimbursementRequest>[];
+      final changedReimbursementIds = <String>[];
+      for (final reimbursement in snapshot.reimbursements) {
+        if (!reimbursement.receiptIds.contains(receipt.id)) {
+          updatedReimbursements.add(reimbursement);
+          continue;
+        }
+        changedReimbursementIds.add(reimbursement.id);
+        updatedReimbursements.add(
+          ReimbursementRequest(
+            id: reimbursement.id,
+            registrationNumber: reimbursement.registrationNumber,
+            companyId: reimbursement.companyId,
+            subcontractorCompanyId: reimbursement.subcontractorCompanyId,
+            workerId: reimbursement.workerId,
+            jobId: draft.job.id,
+            receiptIds: reimbursement.receiptIds,
+            attachmentIds: attachmentIds,
+            amount: draft.total,
+            status: nextStatus,
+            createdAt: reimbursement.createdAt,
+            updatedAt: now,
+          ),
+        );
+      }
+
+      final updatedSnapshot = snapshot.copyWith(
+        receipts: [
+          for (final current in snapshot.receipts)
+            if (current.id == receipt.id) updatedReceipt else current,
+        ],
+        reimbursements: updatedReimbursements,
+        attachments: replacementAttachment == null
+            ? snapshot.attachments
+            : [...snapshot.attachments, replacementAttachment],
+        syncQueue: [
+          ...snapshot.syncQueue,
+          SyncQueueItem(
+            id: uuid.v7(),
+            companyId: snapshot.companyId,
+            subcontractorCompanyId: snapshot.subcontractor.id,
+            entityType: 'Receipt',
+            entityId: receipt.id,
+            operation: SyncOperation.update,
+            createdAt: now,
+          ),
+          for (final reimbursementId in changedReimbursementIds)
+            SyncQueueItem(
+              id: uuid.v7(),
+              companyId: snapshot.companyId,
+              subcontractorCompanyId: snapshot.subcontractor.id,
+              entityType: 'ReimbursementRequest',
+              entityId: reimbursementId,
+              operation: SyncOperation.update,
+              createdAt: now,
+            ),
+        ],
+      );
+      await repository.save(updatedSnapshot);
+      return updatedSnapshot;
     },
         draft.submit
             ? 'fieldTime.reimbursementSubmitted'
