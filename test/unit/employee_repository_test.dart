@@ -22,7 +22,8 @@ void main() {
     final testEmployee = catalog.employees.singleWhere(
       (employee) => employee.employeeId == 'TST-0002',
     );
-    expect(testEmployee.displayName, contains('TESTE'));
+    expect(testEmployee.displayName, 'Carlos');
+    expect(testEmployee.employeeId, startsWith('TST-'));
   });
 
   test('filters employees by name and Employee ID', () async {
