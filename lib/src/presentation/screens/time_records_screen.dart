@@ -50,6 +50,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
   Timer? _ticker;
   DateTime _now = DateTime.now();
   _Destination _destination = _Destination.home;
+  int _managementResetToken = 0;
 
   @override
   void initState() {
@@ -127,8 +128,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
                   selectedItemColor: AppColors.blue,
                   unselectedItemColor: AppColors.gray,
                   showUnselectedLabels: true,
-                  onTap: (index) =>
-                      setState(() => _destination = destinations[index]),
+                  onTap: (index) => _selectDestination(destinations[index]),
                   items: [
                     for (final destination in destinations)
                       _bottomItem(context, destination),
@@ -142,8 +142,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
                       _DesktopNavigation(
                         selected: selected,
                         destinations: destinations,
-                        onSelected: (value) =>
-                            setState(() => _destination = value),
+                        onSelected: _selectDestination,
                       ),
                       Expanded(child: child),
                     ],
@@ -153,6 +152,15 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
         );
       },
     );
+  }
+
+  void _selectDestination(_Destination destination) {
+    setState(() {
+      _destination = destination;
+      if (destination == _Destination.management) {
+        _managementResetToken += 1;
+      }
+    });
   }
 
   List<_Destination> _visibleDestinations(SupervisorCenterState pilotState) => [
@@ -228,7 +236,9 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
       onEditReceipt: _editReceipt,
     ),
     _Destination.employees => const EmployeesManagementScreen(embedded: true),
-    _Destination.management => const SupervisorCenterScreen(),
+    _Destination.management => SupervisorCenterScreen(
+      key: ValueKey('management-$_managementResetToken'),
+    ),
     _Destination.settings => _SettingsView(
       currentVersion: 'v1.1.0-test4',
       onJobsImport: _openJobsImport,
