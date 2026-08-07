@@ -27,6 +27,7 @@ void main() {
     expect(find.text('AMBIENTE DE TESTE'), findsOneWidget);
     expect(find.byKey(const ValueKey('login-username')), findsOneWidget);
     expect(find.byKey(const ValueKey('login-password')), findsOneWidget);
+    expect(find.byKey(const ValueKey('forgot-password')), findsOneWidget);
   });
 
   testWidgets('authenticated session renders Field Time home', (tester) async {
@@ -50,7 +51,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('v1.1.0-test3'), findsOneWidget);
+    expect(find.text('v1.1.0-test4'), findsOneWidget);
     expect(find.text('EWW'), findsNothing);
     expect(find.textContaining('Santana'), findsWidgets);
     expect(find.textContaining('JKDD Finish & Remodeling Corp'), findsNothing);
