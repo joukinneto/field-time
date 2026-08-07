@@ -108,7 +108,7 @@ final class _TimesheetContent extends ConsumerWidget {
                     children: [
                       FilledButton.icon(
                         onPressed: () =>
-                            _previewPdf(context, snapshot, pdfService, days),
+                            _generatePdf(context, snapshot, pdfService, days),
                         icon: const Icon(Icons.picture_as_pdf_outlined),
                         label: Text(context.tr('timesheet.generateTimesheet')),
                       ),
@@ -212,7 +212,7 @@ final class _TimesheetContent extends ConsumerWidget {
     );
   }
 
-  Future<void> _previewPdf(
+  Future<void> _generatePdf(
     BuildContext context,
     FieldTimeSnapshot snapshot,
     TimesheetPdfService pdfService,
@@ -226,17 +226,34 @@ final class _TimesheetContent extends ConsumerWidget {
     }
     const reportStrings = AppStrings(AppLanguage.en);
     try {
-      await Printing.layoutPdf(
-        name: reportStrings.t('timesheet.fileName'),
-        onLayout: (_) => pdfService.buildWeeklyTimesheetPdf(
-          snapshot: snapshot,
-          anchorDate: DateTime.now(),
-          period: period,
-        ),
+      final bytes = await pdfService.buildWeeklyTimesheetPdf(
+        snapshot: snapshot,
+        anchorDate: DateTime.now(),
+        period: period,
       );
+      final baseName = reportStrings.t('timesheet.fileName');
+      final fileName = baseName.toLowerCase().endsWith('.pdf')
+          ? baseName
+          : '$baseName.pdf';
+
+      final delivered = await Printing.sharePdf(
+        bytes: bytes,
+        filename: fileName,
+      );
+
+      if (!delivered) {
+        await Printing.layoutPdf(name: fileName, onLayout: (_) async => bytes);
+      }
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.tr('timesheet.generatedSuccess'))),
+          SnackBar(
+            content: Text(
+              delivered
+                  ? 'Timesheet pronto para compartilhar ou salvar em PDF.'
+                  : context.tr('timesheet.generatedSuccess'),
+            ),
+          ),
         );
       }
     } on Exception catch (error) {
