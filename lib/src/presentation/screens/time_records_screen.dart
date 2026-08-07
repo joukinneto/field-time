@@ -82,7 +82,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
       }
     });
     if (session.user != null &&
-        session.user!.role != PilotRole.owner &&
+        !{PilotRole.owner, PilotRole.supervisor}.contains(session.user!.role) &&
         pilotState.currentRole != session.user!.role) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(supervisorCenterProvider.notifier).setRole(session.user!.role);
@@ -233,8 +233,10 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
       currentVersion: 'v1.1.0-test4',
       onJobsImport: _openJobsImport,
       onLogout: _logout,
-      directorTestMode:
-          ref.watch(authSessionProvider).user?.role == PilotRole.owner,
+      directorTestMode: {
+        PilotRole.owner,
+        PilotRole.supervisor,
+      }.contains(ref.watch(authSessionProvider).user?.role),
       pilotState: pilotState,
       onSimulationChanged: (role, userId) {
         ref
@@ -1665,11 +1667,17 @@ final class _SettingsView extends StatelessWidget {
           _SettingsSection(
             title: context.tr('settings.account'),
             children: [
-              _SettingsTile(
-                context.tr('settings.profile'),
-                Icons.person_outline,
-                context.tr('common.comingSoon'),
-              ),
+              if (directorTestMode)
+                _ProfileSimulationTile(
+                  pilotState: pilotState,
+                  onChanged: onSimulationChanged,
+                )
+              else
+                _SettingsTile(
+                  context.tr('settings.profile'),
+                  Icons.person_outline,
+                  context.tr('common.comingSoon'),
+                ),
               _SettingsTile(
                 context.tr('settings.company'),
                 Icons.business_outlined,
@@ -1808,7 +1816,7 @@ final class _DirectorSimulationSection extends StatelessWidget {
             decoration: const InputDecoration(
               labelText: 'Exibir aplicativo como',
               helperText:
-                  'Use somente o login do Diretor durante a homologação.',
+                  'Use o login do Diretor ou Supervisor para trocar o perfil durante a homologação.',
             ),
             items: const [
               DropdownMenuItem(value: PilotRole.owner, child: Text('Diretor')),
@@ -1873,6 +1881,51 @@ final class _DirectorSimulationSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+final class _ProfileSimulationTile extends StatelessWidget {
+  const _ProfileSimulationTile({
+    required this.pilotState,
+    required this.onChanged,
+  });
+
+  final SupervisorCenterState pilotState;
+  final void Function(PilotRole role, String? userId) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.person_search_outlined, color: AppColors.blue),
+      title: const Text('Perfil'),
+      subtitle: Text(
+        'Simulando: ${pilotState.currentUser.name} — ${roleLabel(pilotState.currentRole)}',
+      ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (sheetContext) => SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              0,
+              AppSpacing.md,
+              AppSpacing.xl,
+            ),
+            child: _DirectorSimulationSection(
+              pilotState: pilotState,
+              onChanged: (role, userId) {
+                onChanged(role, userId);
+                Navigator.of(sheetContext).pop();
+              },
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

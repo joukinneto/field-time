@@ -33,18 +33,30 @@ final class ReceiptDialog extends StatefulWidget {
 }
 
 final class _ReceiptDialogState extends State<ReceiptDialog> {
+  static const _expenseCategories = <String>[
+    'Material',
+    'Combustível',
+    'Ferramentas',
+    'Estacionamento / Pedágio',
+    'Alimentação',
+    'Hospedagem',
+    'Transporte',
+    'Equipamentos / Locação',
+    'Outros',
+  ];
+
   final _formKey = GlobalKey<FormState>();
   final _merchant = TextEditingController();
   final _total = TextEditingController();
   final _tax = TextEditingController(text: '0.00');
   final _receiptNumber = TextEditingController();
-  final _description = TextEditingController();
   final _notes = TextEditingController();
   late final ImagePicker _picker;
   late Job _job;
   DateTime _purchaseDate = DateTime.now();
   XFile? _file;
   bool _reviewed = false;
+  String? _category;
 
   bool get _editing => widget.initialReceipt != null;
 
@@ -65,8 +77,17 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
       _total.text = receipt.total.toStringAsFixed(2);
       _tax.text = receipt.tax.toStringAsFixed(2);
       _receiptNumber.text = receipt.receiptNumber ?? '';
-      _description.text = receipt.description;
+      _category = _expenseCategories.contains(receipt.description)
+          ? receipt.description
+          : 'Outros';
       _notes.text = receipt.notes ?? '';
+      if (!_expenseCategories.contains(receipt.description) &&
+          receipt.description.trim().isNotEmpty) {
+        _notes.text = [
+          'Descrição anterior: ${receipt.description}',
+          if (_notes.text.trim().isNotEmpty) _notes.text,
+        ].join('\n');
+      }
       _purchaseDate = receipt.purchaseDate;
       _reviewed = receipt.userReviewed;
     }
@@ -78,7 +99,6 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
     _total.dispose();
     _tax.dispose();
     _receiptNumber.dispose();
-    _description.dispose();
     _notes.dispose();
     super.dispose();
   }
@@ -129,9 +149,11 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
               borderRadius: BorderRadius.circular(AppRadius.md),
               border: Border.all(color: const Color(0xffbfdbfe)),
             ),
-            child: Text(_editing
-                ? 'Você pode alterar os dados do rascunho, trocar a foto e depois salvar ou enviar.'
-                : context.tr('receipts.mockNotice')),
+            child: Text(
+              _editing
+                  ? 'Você pode alterar os dados do rascunho, trocar a foto e depois salvar ou enviar.'
+                  : context.tr('receipts.mockNotice'),
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
           DropdownButtonFormField<Job>(
@@ -160,9 +182,11 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
                 child: OutlinedButton.icon(
                   onPressed: () => _pick(ImageSource.gallery),
                   icon: const Icon(Icons.photo_library_outlined),
-                  label: Text(_editing
-                      ? 'Trocar imagem'
-                      : context.tr('receipts.selectImage')),
+                  label: Text(
+                    _editing
+                        ? 'Trocar imagem'
+                        : context.tr('receipts.selectImage'),
+                  ),
                 ),
               ),
             ],
@@ -179,8 +203,9 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
             children: [
               TextFormField(
                 controller: _merchant,
-                decoration:
-                    InputDecoration(labelText: context.tr('receipts.merchant')),
+                decoration: InputDecoration(
+                  labelText: context.tr('receipts.merchant'),
+                ),
                 validator: _required,
               ),
               TextFormField(
@@ -196,8 +221,9 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
             children: [
               TextFormField(
                 controller: _total,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: InputDecoration(
                   labelText: context.tr('receipts.amount'),
                   prefixText: r'$ ',
@@ -206,8 +232,9 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
               ),
               TextFormField(
                 controller: _tax,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: InputDecoration(
                   labelText: context.tr('receipts.tax'),
                   prefixText: r'$ ',
@@ -220,15 +247,26 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
           OutlinedButton.icon(
             onPressed: _selectDate,
             icon: const Icon(Icons.calendar_today_outlined),
-            label:
-                Text('${context.tr('receipts.date')}: ${_date(_purchaseDate)}'),
+            label: Text(
+              '${context.tr('receipts.date')}: ${_date(_purchaseDate)}',
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
-          TextFormField(
-            controller: _description,
-            decoration:
-                InputDecoration(labelText: context.tr('receipts.description')),
-            validator: _required,
+          DropdownButtonFormField<String>(
+            initialValue: _category,
+            decoration: const InputDecoration(
+              labelText: 'Categoria da despesa',
+              helperText: 'Selecione o tipo do gasto para facilitar o lançamento.',
+              prefixIcon: Icon(Icons.category_outlined),
+            ),
+            items: [
+              for (final category in _expenseCategories)
+                DropdownMenuItem(value: category, child: Text(category)),
+            ],
+            validator: (value) => value == null || value.trim().isEmpty
+                ? context.tr('receipts.requiredField')
+                : null,
+            onChanged: (value) => setState(() => _category = value),
           ),
           const SizedBox(height: AppSpacing.md),
           TextFormField(
@@ -237,6 +275,7 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
             maxLines: 4,
             decoration: InputDecoration(
               labelText: context.tr('receipts.notes'),
+              hintText: 'Detalhes adicionais do gasto (opcional)',
               alignLabelWithHint: true,
             ),
           ),
@@ -293,9 +332,7 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
     } on Exception {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.tr('receipts.cameraUnavailable')),
-        ),
+        SnackBar(content: Text(context.tr('receipts.cameraUnavailable'))),
       );
     }
   }
@@ -329,7 +366,7 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
           total: double.parse(_total.text.replaceAll(',', '.')),
           tax: double.parse(_tax.text.replaceAll(',', '.')),
           receiptNumber: _receiptNumber.text,
-          description: _description.text,
+          description: _category ?? 'Outros',
           notes: _notes.text,
           submit: submit,
           userReviewed: _reviewed,
@@ -349,7 +386,8 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
         : null;
   }
 
-  String _date(DateTime value) => '${value.month.toString().padLeft(2, '0')}/'
+  String _date(DateTime value) =>
+      '${value.month.toString().padLeft(2, '0')}/'
       '${value.day.toString().padLeft(2, '0')}/${value.year}';
 }
 
