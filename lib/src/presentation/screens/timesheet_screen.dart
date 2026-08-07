@@ -107,12 +107,8 @@ final class _TimesheetContent extends ConsumerWidget {
                     spacing: AppSpacing.sm,
                     children: [
                       FilledButton.icon(
-                        onPressed: () => _previewPdf(
-                          context,
-                          snapshot,
-                          pdfService,
-                          days,
-                        ),
+                        onPressed: () =>
+                            _previewPdf(context, snapshot, pdfService, days),
                         icon: const Icon(Icons.picture_as_pdf_outlined),
                         label: Text(context.tr('timesheet.generateTimesheet')),
                       ),
@@ -128,33 +124,38 @@ final class _TimesheetContent extends ConsumerWidget {
                 _TotalsGrid(
                   items: [
                     _TotalItem(
-                        context.tr('timesheet.regularHours'),
-                        _hours(regularHours),
-                        Icons.schedule_outlined,
-                        AppColors.blue),
+                      context.tr('timesheet.regularHours'),
+                      _hours(regularHours),
+                      Icons.schedule_outlined,
+                      AppColors.blue,
+                    ),
                     _TotalItem(
-                        context.tr('timesheet.bonusHours'),
-                        _hours(bonusHours),
-                        Icons.route_outlined,
-                        AppColors.teal),
+                      context.tr('timesheet.bonusHours'),
+                      _hours(bonusHours),
+                      Icons.route_outlined,
+                      AppColors.teal,
+                    ),
                     _TotalItem(
-                        context.tr('timesheet.totalHours'),
-                        _hours(regularHours + bonusHours),
-                        Icons.access_time_filled,
-                        AppColors.green),
+                      context.tr('timesheet.totalHours'),
+                      _hours(regularHours + bonusHours),
+                      Icons.access_time_filled,
+                      AppColors.green,
+                    ),
                     _TotalItem(
-                        context.tr('timesheet.payPremium'),
-                        segments
-                            .where((item) => item.hasPayPremium)
-                            .length
-                            .toString(),
-                        Icons.workspace_premium_outlined,
-                        AppColors.purple),
+                      context.tr('timesheet.payPremium'),
+                      segments
+                          .where((item) => item.hasPayPremium)
+                          .length
+                          .toString(),
+                      Icons.workspace_premium_outlined,
+                      AppColors.purple,
+                    ),
                     _TotalItem(
-                        context.tr('timesheet.jobs'),
-                        totalsByJob.length.toString(),
-                        Icons.apartment_outlined,
-                        AppColors.purple),
+                      context.tr('timesheet.jobs'),
+                      totalsByJob.length.toString(),
+                      Icons.apartment_outlined,
+                      AppColors.purple,
+                    ),
                   ],
                 ),
                 if (totalsByJob.isNotEmpty) ...[
@@ -171,10 +172,9 @@ final class _TimesheetContent extends ConsumerWidget {
                       ),
                     ),
                     JkddStatusChip(
-                      label: context.tr(
-                        'common.recordsCount',
-                        {'count': segments.length},
-                      ),
+                      label: context.tr('common.recordsCount', {
+                        'count': segments.length,
+                      }),
                       icon: Icons.list_alt_outlined,
                       tone: JkddStatusTone.info,
                     ),
@@ -250,40 +250,58 @@ final class _TimesheetContent extends ConsumerWidget {
   }
 }
 
-final class _SupervisorTeamTimesheet extends ConsumerWidget {
+enum _SupervisorTimesheetFilter { all, pending, review, approved, rejected }
+
+final class _SupervisorTeamTimesheet extends ConsumerStatefulWidget {
   const _SupervisorTeamTimesheet();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SupervisorTeamTimesheet> createState() =>
+      _SupervisorTeamTimesheetState();
+}
+
+final class _SupervisorTeamTimesheetState
+    extends ConsumerState<_SupervisorTeamTimesheet> {
+  _SupervisorTimesheetFilter _filter = _SupervisorTimesheetFilter.all;
+
+  static const _reviewStatuses = {
+    TimeReviewStatus.underReview,
+    TimeReviewStatus.correctionRequested,
+    TimeReviewStatus.corrected,
+    TimeReviewStatus.resubmitted,
+  };
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(supervisorCenterProvider);
-    final entries = state.timeEntries
-        .where((entry) => entry.status != TimeReviewStatus.working)
-        .toList(growable: false)
-      ..sort((left, right) {
-        final dateCompare = right.date.compareTo(left.date);
-        if (dateCompare != 0) return dateCompare;
-        return state
-            .userById(left.userId)
-            .name
-            .compareTo(state.userById(right.userId).name);
-      });
-    final pending = entries
+    final allEntries =
+        state.timeEntries
+            .where((entry) => entry.status != TimeReviewStatus.working)
+            .toList(growable: false)
+          ..sort((left, right) {
+            final dateCompare = right.date.compareTo(left.date);
+            if (dateCompare != 0) return dateCompare;
+            return state
+                .userById(left.userId)
+                .name
+                .compareTo(state.userById(right.userId).name);
+          });
+
+    final pending = allEntries
         .where((entry) => entry.status == TimeReviewStatus.pending)
         .length;
-    final approved = entries
+    final approved = allEntries
         .where((entry) => entry.status == TimeReviewStatus.approved)
         .length;
-    final rejected = entries
+    final rejected = allEntries
         .where((entry) => entry.status == TimeReviewStatus.rejected)
         .length;
-    final review = entries
-        .where((entry) => {
-              TimeReviewStatus.underReview,
-              TimeReviewStatus.correctionRequested,
-              TimeReviewStatus.corrected,
-              TimeReviewStatus.resubmitted,
-            }.contains(entry.status))
+    final review = allEntries
+        .where((entry) => _reviewStatuses.contains(entry.status))
         .length;
+    final entries = allEntries
+        .where(_matchesCurrentFilter)
+        .toList(growable: false);
 
     return ListView(
       padding: EdgeInsets.symmetric(
@@ -302,26 +320,99 @@ final class _SupervisorTeamTimesheet extends ConsumerWidget {
                   subtitle: context.tr('supervisor.reviewSubmittedRecords'),
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                _TotalsGrid(
-                  items: [
-                    _TotalItem('Pendentes', '$pending', Icons.pending_actions,
-                        AppColors.amber),
-                    _TotalItem('Em revisão', '$review', Icons.rate_review_outlined,
-                        AppColors.blue),
-                    _TotalItem('Aprovados', '$approved',
-                        Icons.check_circle_outline, AppColors.green),
-                    _TotalItem('Rejeitados', '$rejected', Icons.cancel_outlined,
-                        AppColors.red),
-                    _TotalItem('Registros', '${entries.length}',
-                        Icons.list_alt_outlined, AppColors.purple),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final itemWidth = constraints.maxWidth < 620
+                        ? (constraints.maxWidth - AppSpacing.md) / 2
+                        : 210.0;
+                    return Wrap(
+                      spacing: AppSpacing.md,
+                      runSpacing: AppSpacing.md,
+                      children: [
+                        _TimesheetStatusCard(
+                          width: itemWidth,
+                          label: 'Pendentes',
+                          value: '$pending',
+                          icon: Icons.pending_actions,
+                          color: AppColors.amber,
+                          selected:
+                              _filter == _SupervisorTimesheetFilter.pending,
+                          onTap: () =>
+                              _setFilter(_SupervisorTimesheetFilter.pending),
+                        ),
+                        _TimesheetStatusCard(
+                          width: itemWidth,
+                          label: 'Em revisão',
+                          value: '$review',
+                          icon: Icons.rate_review_outlined,
+                          color: AppColors.blue,
+                          selected:
+                              _filter == _SupervisorTimesheetFilter.review,
+                          onTap: () =>
+                              _setFilter(_SupervisorTimesheetFilter.review),
+                        ),
+                        _TimesheetStatusCard(
+                          width: itemWidth,
+                          label: 'Aprovados',
+                          value: '$approved',
+                          icon: Icons.check_circle_outline,
+                          color: AppColors.green,
+                          selected:
+                              _filter == _SupervisorTimesheetFilter.approved,
+                          onTap: () =>
+                              _setFilter(_SupervisorTimesheetFilter.approved),
+                        ),
+                        _TimesheetStatusCard(
+                          width: itemWidth,
+                          label: 'Rejeitados',
+                          value: '$rejected',
+                          icon: Icons.cancel_outlined,
+                          color: AppColors.red,
+                          selected:
+                              _filter == _SupervisorTimesheetFilter.rejected,
+                          onTap: () =>
+                              _setFilter(_SupervisorTimesheetFilter.rejected),
+                        ),
+                        _TimesheetStatusCard(
+                          width: itemWidth,
+                          label: 'Registros',
+                          value: '${allEntries.length}',
+                          icon: Icons.list_alt_outlined,
+                          color: AppColors.purple,
+                          selected: _filter == _SupervisorTimesheetFilter.all,
+                          onTap: () =>
+                              _setFilter(_SupervisorTimesheetFilter.all),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Row(
+                  children: [
+                    const Icon(Icons.filter_alt_outlined, size: 18),
+                    const SizedBox(width: AppSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        'Mostrando: ${_supervisorTimesheetFilterLabel(_filter)}',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                    if (_filter != _SupervisorTimesheetFilter.all)
+                      TextButton(
+                        onPressed: () =>
+                            _setFilter(_SupervisorTimesheetFilter.all),
+                        child: const Text('Limpar filtro'),
+                      ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.xl),
+                const SizedBox(height: AppSpacing.md),
                 if (entries.isEmpty)
-                  JkddEmptyState(
+                  const JkddEmptyState(
                     icon: Icons.fact_check_outlined,
-                    title: context.tr('approval.noSubmittedRecords'),
-                    message: context.tr('approval.noSubmittedRecordsHelp'),
+                    title: 'Nenhum registro neste filtro',
+                    message:
+                        'Toque em outro card acima para consultar os demais registros.',
                   )
                 else
                   for (final entry in entries)
@@ -333,7 +424,71 @@ final class _SupervisorTeamTimesheet extends ConsumerWidget {
       ],
     );
   }
+
+  bool _matchesCurrentFilter(TimeEntry entry) => switch (_filter) {
+    _SupervisorTimesheetFilter.all => true,
+    _SupervisorTimesheetFilter.pending =>
+      entry.status == TimeReviewStatus.pending,
+    _SupervisorTimesheetFilter.review => _reviewStatuses.contains(entry.status),
+    _SupervisorTimesheetFilter.approved =>
+      entry.status == TimeReviewStatus.approved,
+    _SupervisorTimesheetFilter.rejected =>
+      entry.status == TimeReviewStatus.rejected,
+  };
+
+  void _setFilter(_SupervisorTimesheetFilter value) {
+    setState(() => _filter = value);
+  }
 }
+
+final class _TimesheetStatusCard extends StatelessWidget {
+  const _TimesheetStatusCard({
+    required this.width,
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final double width;
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: width,
+    child: InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Stack(
+        children: [
+          JkddSummaryCard(label: label, value: value, icon: icon, color: color),
+          if (selected)
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Icon(Icons.check_circle, color: color, size: 20),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+String _supervisorTimesheetFilterLabel(_SupervisorTimesheetFilter filter) =>
+    switch (filter) {
+      _SupervisorTimesheetFilter.all => 'todos os registros',
+      _SupervisorTimesheetFilter.pending => 'pendentes',
+      _SupervisorTimesheetFilter.review => 'em revisão',
+      _SupervisorTimesheetFilter.approved => 'aprovados',
+      _SupervisorTimesheetFilter.rejected => 'rejeitados',
+    };
 
 final class _SupervisorEntryCard extends ConsumerWidget {
   const _SupervisorEntryCard({required this.entry});
@@ -358,10 +513,14 @@ final class _SupervisorEntryCard extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(user.name,
-                          style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        user.name,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 2),
-                      Text('${_jobLabel(context, job.number)} — ${job.address}'),
+                      Text(
+                        '${_jobLabel(context, job.number)} — ${job.address}',
+                      ),
                     ],
                   ),
                 ),
@@ -428,12 +587,15 @@ final class _SupervisorEntryCard extends ConsumerWidget {
             ],
             if (entry.employeeNote.trim().isNotEmpty) ...[
               const SizedBox(height: AppSpacing.md),
-              Text('${context.tr('supervisor.employeeNote')}: ${entry.employeeNote}'),
+              Text(
+                '${context.tr('supervisor.employeeNote')}: ${entry.employeeNote}',
+              ),
             ],
             if (entry.supervisorNote.trim().isNotEmpty) ...[
               const SizedBox(height: AppSpacing.sm),
               Text(
-                  '${context.tr('supervisor.supervisorNote')}: ${entry.supervisorNote}'),
+                '${context.tr('supervisor.supervisorNote')}: ${entry.supervisorNote}',
+              ),
             ],
             const SizedBox(height: AppSpacing.md),
             Align(
@@ -466,11 +628,8 @@ final class _SupervisorEntryCard extends ConsumerWidget {
                   TextButton.icon(
                     onPressed: entry.isLocked
                         ? null
-                        : () => _requestSupervisorCorrection(
-                              context,
-                              ref,
-                              entry,
-                            ),
+                        : () =>
+                              _requestSupervisorCorrection(context, ref, entry),
                     icon: const Icon(Icons.edit_note_outlined),
                     label: Text(context.tr('supervisor.requestCorrection')),
                   ),
@@ -491,35 +650,36 @@ final class _SupervisorStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => JkddStatusChip(
-        label: switch (status) {
-          TimeReviewStatus.pending => context.tr('approval.pending'),
-          TimeReviewStatus.approved => context.tr('approval.approved'),
-          TimeReviewStatus.rejected => context.tr('approval.rejected'),
-          TimeReviewStatus.underReview => context.tr('approval.underReview'),
-          TimeReviewStatus.correctionRequested =>
-            context.tr('approval.correctionRequested'),
-          TimeReviewStatus.corrected => context.tr('approval.corrected'),
-          TimeReviewStatus.resubmitted => context.tr('approval.resubmitted'),
-          TimeReviewStatus.closed => context.tr('approval.closed'),
-          TimeReviewStatus.working => context.tr('approval.working'),
-        },
-        icon: switch (status) {
-          TimeReviewStatus.approved => Icons.check_circle_outline,
-          TimeReviewStatus.rejected => Icons.cancel_outlined,
-          TimeReviewStatus.correctionRequested => Icons.edit_note_outlined,
-          TimeReviewStatus.underReview => Icons.rate_review_outlined,
-          TimeReviewStatus.resubmitted => Icons.upload_file_outlined,
-          _ => Icons.pending_actions,
-        },
-        tone: switch (status) {
-          TimeReviewStatus.approved => JkddStatusTone.success,
-          TimeReviewStatus.rejected => JkddStatusTone.danger,
-          TimeReviewStatus.underReview => JkddStatusTone.info,
-          TimeReviewStatus.corrected => JkddStatusTone.info,
-          TimeReviewStatus.resubmitted => JkddStatusTone.warning,
-          _ => JkddStatusTone.warning,
-        },
-      );
+    label: switch (status) {
+      TimeReviewStatus.pending => context.tr('approval.pending'),
+      TimeReviewStatus.approved => context.tr('approval.approved'),
+      TimeReviewStatus.rejected => context.tr('approval.rejected'),
+      TimeReviewStatus.underReview => context.tr('approval.underReview'),
+      TimeReviewStatus.correctionRequested => context.tr(
+        'approval.correctionRequested',
+      ),
+      TimeReviewStatus.corrected => context.tr('approval.corrected'),
+      TimeReviewStatus.resubmitted => context.tr('approval.resubmitted'),
+      TimeReviewStatus.closed => context.tr('approval.closed'),
+      TimeReviewStatus.working => context.tr('approval.working'),
+    },
+    icon: switch (status) {
+      TimeReviewStatus.approved => Icons.check_circle_outline,
+      TimeReviewStatus.rejected => Icons.cancel_outlined,
+      TimeReviewStatus.correctionRequested => Icons.edit_note_outlined,
+      TimeReviewStatus.underReview => Icons.rate_review_outlined,
+      TimeReviewStatus.resubmitted => Icons.upload_file_outlined,
+      _ => Icons.pending_actions,
+    },
+    tone: switch (status) {
+      TimeReviewStatus.approved => JkddStatusTone.success,
+      TimeReviewStatus.rejected => JkddStatusTone.danger,
+      TimeReviewStatus.underReview => JkddStatusTone.info,
+      TimeReviewStatus.corrected => JkddStatusTone.info,
+      TimeReviewStatus.resubmitted => JkddStatusTone.warning,
+      _ => JkddStatusTone.warning,
+    },
+  );
 }
 
 Future<void> _editSupervisorEntry(
@@ -532,8 +692,9 @@ Future<void> _editSupervisorEntry(
   final clockIn = TextEditingController(text: entry.clockIn);
   final clockOut = TextEditingController(text: entry.clockOut ?? '');
   final breakMinutes = TextEditingController(text: '${entry.breakMinutes}');
-  final bonus =
-      TextEditingController(text: entry.travelBonusHours.toStringAsFixed(2));
+  final bonus = TextEditingController(
+    text: entry.travelBonusHours.toStringAsFixed(2),
+  );
   final premium = TextEditingController(text: job.payPremiumLabel);
   final note = TextEditingController(text: entry.supervisorNote);
   final justification = TextEditingController();
@@ -550,29 +711,34 @@ Future<void> _editSupervisorEntry(
             children: [
               TextField(
                 controller: clockIn,
-                decoration:
-                    InputDecoration(labelText: context.tr('approval.clockIn')),
+                decoration: InputDecoration(
+                  labelText: context.tr('approval.clockIn'),
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               TextField(
                 controller: clockOut,
-                decoration:
-                    InputDecoration(labelText: context.tr('approval.clockOut')),
+                decoration: InputDecoration(
+                  labelText: context.tr('approval.clockOut'),
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               TextField(
                 controller: breakMinutes,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                    labelText: context.tr('approval.breakMinutes')),
+                  labelText: context.tr('approval.breakMinutes'),
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               TextField(
                 controller: bonus,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: InputDecoration(
-                    labelText: context.tr('approval.travelBonus')),
+                  labelText: context.tr('approval.travelBonus'),
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               TextField(
@@ -588,7 +754,8 @@ Future<void> _editSupervisorEntry(
                 minLines: 2,
                 maxLines: 4,
                 decoration: InputDecoration(
-                    labelText: context.tr('approval.observation')),
+                  labelText: context.tr('approval.observation'),
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               TextField(
@@ -632,15 +799,18 @@ Future<void> _editSupervisorEntry(
       );
       final premiumLabel = premium.text.trim();
       if (premiumLabel != job.payPremiumLabel) {
-        controller.updateJob(job.copyWith(
-          payPremiumEnabled: premiumLabel.isNotEmpty,
-          payPremiumLabel: premiumLabel,
-        ));
+        controller.updateJob(
+          job.copyWith(
+            payPremiumEnabled: premiumLabel.isNotEmpty,
+            payPremiumLabel: premiumLabel,
+          ),
+        );
       }
     } on StateError catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
       }
     }
   }
@@ -683,8 +853,9 @@ Future<void> _approveSupervisorEntry(
         .approveEntry(entry.id, 'Aprovado pelo supervisor.');
   } on StateError catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 }
@@ -704,8 +875,9 @@ Future<void> _rejectSupervisorEntry(
     ref.read(supervisorCenterProvider.notifier).rejectEntry(entry.id, reason);
   } on StateError catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 }
@@ -727,8 +899,9 @@ Future<void> _requestSupervisorCorrection(
         .correctionRequestedBySupervisor(entry.id, reason);
   } on StateError catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
 }
@@ -776,8 +949,10 @@ double _supervisorEntryHours(TimeEntry entry) {
 }
 
 int? _parseClock(String value) {
-  final match = RegExp(r'^(\d{1,2}):(\d{2})\s*(AM|PM)?$', caseSensitive: false)
-      .firstMatch(value.trim());
+  final match = RegExp(
+    r'^(\d{1,2}):(\d{2})\s*(AM|PM)?$',
+    caseSensitive: false,
+  ).firstMatch(value.trim());
   if (match == null) return null;
   var hour = int.tryParse(match.group(1)!) ?? 0;
   final minute = int.tryParse(match.group(2)!) ?? 0;
@@ -807,8 +982,10 @@ final class _TimesheetFilters extends StatelessWidget {
           crossAxisAlignment: WrapCrossAlignment.center,
           alignment: WrapAlignment.spaceBetween,
           children: [
-            Text(context.tr('timesheet.period'),
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              context.tr('timesheet.period'),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SegmentedButton<TimesheetPeriod>(
@@ -848,31 +1025,31 @@ final class _TotalsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
-        builder: (context, constraints) {
-          final count = constraints.maxWidth >= 1040
-              ? 5
-              : constraints.maxWidth >= 720
-                  ? 5
-                  : 2;
-          return GridView.count(
-            crossAxisCount: count,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: AppSpacing.md,
-            crossAxisSpacing: AppSpacing.md,
-            childAspectRatio: count == 2 ? 1.55 : 1.45,
-            children: [
-              for (final item in items)
-                JkddSummaryCard(
-                  label: item.label,
-                  value: item.value,
-                  icon: item.icon,
-                  color: item.color,
-                ),
-            ],
-          );
-        },
+    builder: (context, constraints) {
+      final count = constraints.maxWidth >= 1040
+          ? 5
+          : constraints.maxWidth >= 720
+          ? 5
+          : 2;
+      return GridView.count(
+        crossAxisCount: count,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: AppSpacing.md,
+        crossAxisSpacing: AppSpacing.md,
+        childAspectRatio: count == 2 ? 1.55 : 1.45,
+        children: [
+          for (final item in items)
+            JkddSummaryCard(
+              label: item.label,
+              value: item.value,
+              icon: item.icon,
+              color: item.color,
+            ),
+        ],
       );
+    },
+  );
 }
 
 final class _TotalItem {
@@ -897,8 +1074,10 @@ final class _TotalsByJob extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(context.tr('timesheet.totalByJob'),
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              context.tr('timesheet.totalByJob'),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: AppSpacing.md),
             Wrap(
               spacing: AppSpacing.sm,
@@ -928,99 +1107,115 @@ final class _SegmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        margin: const EdgeInsets.only(bottom: AppSpacing.md),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    margin: const EdgeInsets.only(bottom: AppSpacing.md),
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _jobLabel(context, segment.jobNumber),
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  JkddStatusChip(
-                    label: day.isOpen
-                        ? context.tr('timesheet.inProgress')
-                        : context.tr('approval.pending'),
-                    icon: day.isOpen
-                        ? Icons.play_circle_outline
-                        : Icons.pending_outlined,
-                    tone: day.isOpen
-                        ? JkddStatusTone.success
-                        : JkddStatusTone.warning,
-                  ),
-                ],
+              Expanded(
+                child: Text(
+                  _jobLabel(context, segment.jobNumber),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(segment.jobAddress),
-              const Divider(height: 28),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final itemWidth = constraints.maxWidth >= 760 ? 150.0 : 132.0;
-                  return Wrap(
-                    spacing: AppSpacing.xl,
-                    runSpacing: AppSpacing.md,
-                    children: [
-                      SizedBox(
-                          width: itemWidth,
-                          child: JkddInfoRow(
-                              label: context.tr('timesheet.date'),
-                              value: _date(day.workDate))),
-                      SizedBox(
-                          width: itemWidth,
-                          child: JkddInfoRow(
-                              label: context.tr('timesheet.clockIn'),
-                              value: _time(segment.startedAt))),
-                      SizedBox(
-                          width: itemWidth,
-                          child: JkddInfoRow(
-                              label: context.tr('timesheet.clockOut'),
-                              value: segment.endedAt == null
-                                  ? '--:--'
-                                  : _time(segment.endedAt!))),
-                      SizedBox(
-                          width: itemWidth,
-                          child: JkddInfoRow(
-                              label: context.tr('timesheet.regularHours'),
-                              value: _hours(segment.regularHours()))),
-                      SizedBox(
-                          width: itemWidth,
-                          child: JkddInfoRow(
-                              label: context.tr('timesheet.bonus'),
-                              value: _hours(segment.travelBonusHours))),
-                      SizedBox(
-                          width: itemWidth,
-                          child: JkddInfoRow(
-                              label: context.tr('timesheet.total'),
-                              value: _hours(segment.totalHours()))),
-                      SizedBox(
-                          width: itemWidth,
-                          child: JkddInfoRow(
-                              label: context.tr('timesheet.receipts'),
-                              value: receiptCount.toString())),
-                      SizedBox(
-                          width: itemWidth,
-                          child: JkddInfoRow(
-                              label: context.tr('timesheet.approval'),
-                              value: day.isOpen
-                                  ? context.tr('timesheet.inProgress')
-                                  : context.tr('approval.pending'))),
-                    ],
-                  );
-                },
+              JkddStatusChip(
+                label: day.isOpen
+                    ? context.tr('timesheet.inProgress')
+                    : context.tr('approval.pending'),
+                icon: day.isOpen
+                    ? Icons.play_circle_outline
+                    : Icons.pending_outlined,
+                tone: day.isOpen
+                    ? JkddStatusTone.success
+                    : JkddStatusTone.warning,
               ),
-              if (segment.notes?.isNotEmpty == true) ...[
-                const Divider(height: 28),
-                Text('${context.tr('timesheet.notes')}: ${segment.notes}'),
-              ],
             ],
           ),
-        ),
-      );
+          const SizedBox(height: AppSpacing.xs),
+          Text(segment.jobAddress),
+          const Divider(height: 28),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = constraints.maxWidth >= 760 ? 150.0 : 132.0;
+              return Wrap(
+                spacing: AppSpacing.xl,
+                runSpacing: AppSpacing.md,
+                children: [
+                  SizedBox(
+                    width: itemWidth,
+                    child: JkddInfoRow(
+                      label: context.tr('timesheet.date'),
+                      value: _date(day.workDate),
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: JkddInfoRow(
+                      label: context.tr('timesheet.clockIn'),
+                      value: _time(segment.startedAt),
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: JkddInfoRow(
+                      label: context.tr('timesheet.clockOut'),
+                      value: segment.endedAt == null
+                          ? '--:--'
+                          : _time(segment.endedAt!),
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: JkddInfoRow(
+                      label: context.tr('timesheet.regularHours'),
+                      value: _hours(segment.regularHours()),
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: JkddInfoRow(
+                      label: context.tr('timesheet.bonus'),
+                      value: _hours(segment.travelBonusHours),
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: JkddInfoRow(
+                      label: context.tr('timesheet.total'),
+                      value: _hours(segment.totalHours()),
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: JkddInfoRow(
+                      label: context.tr('timesheet.receipts'),
+                      value: receiptCount.toString(),
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: JkddInfoRow(
+                      label: context.tr('timesheet.approval'),
+                      value: day.isOpen
+                          ? context.tr('timesheet.inProgress')
+                          : context.tr('approval.pending'),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          if (segment.notes?.isNotEmpty == true) ...[
+            const Divider(height: 28),
+            Text('${context.tr('timesheet.notes')}: ${segment.notes}'),
+          ],
+        ],
+      ),
+    ),
+  );
 }
 
 final class _TravelBonusCard extends StatelessWidget {
@@ -1031,22 +1226,20 @@ final class _TravelBonusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        margin: const EdgeInsets.only(bottom: AppSpacing.md),
-        child: ListTile(
-          leading: const Icon(Icons.route_outlined, color: AppColors.amber),
-          title: Text(
-            context.tr('timesheet.travelBonusLine'),
-          ),
-          subtitle: Text(
-            '${_jobLabel(context, segment.jobNumber)}\n'
-            '${_date(day.workDate)} - ${segment.jobAddress}',
-          ),
-          trailing: Text(
-            _hours(segment.travelBonusHours),
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-        ),
-      );
+    margin: const EdgeInsets.only(bottom: AppSpacing.md),
+    child: ListTile(
+      leading: const Icon(Icons.route_outlined, color: AppColors.amber),
+      title: Text(context.tr('timesheet.travelBonusLine')),
+      subtitle: Text(
+        '${_jobLabel(context, segment.jobNumber)}\n'
+        '${_date(day.workDate)} - ${segment.jobAddress}',
+      ),
+      trailing: Text(
+        _hours(segment.travelBonusHours),
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
+    ),
+  );
 }
 
 List<WorkSegment> _bonusSegments(WorkDay day) {
@@ -1065,10 +1258,12 @@ String _jobLabel(BuildContext context, String number) {
   return '$title $number';
 }
 
-String _date(DateTime value) => '${value.month.toString().padLeft(2, '0')}/'
+String _date(DateTime value) =>
+    '${value.month.toString().padLeft(2, '0')}/'
     '${value.day.toString().padLeft(2, '0')}/${value.year}';
 
-String _time(DateTime value) => '${value.hour.toString().padLeft(2, '0')}:'
+String _time(DateTime value) =>
+    '${value.hour.toString().padLeft(2, '0')}:'
     '${value.minute.toString().padLeft(2, '0')}';
 
 String _hours(double value) {

@@ -15,6 +15,7 @@ import 'package:jkdd_field_time_records_production/src/auth/auth_session.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
 import 'package:jkdd_field_time_records_production/src/domain/registration_number.dart';
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
+import 'package:jkdd_field_time_records_production/src/platform/app_refresh.dart';
 import 'package:jkdd_field_time_records_production/src/presentation/dialogs/receipt_dialog.dart';
 import 'package:jkdd_field_time_records_production/src/presentation/screens/timesheet_screen.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_controller.dart';
@@ -50,6 +51,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
   Timer? _ticker;
   DateTime _now = DateTime.now();
   _Destination _destination = _Destination.home;
+  int _managementResetToken = 0;
 
   @override
   void initState() {
@@ -127,8 +129,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
                   selectedItemColor: AppColors.blue,
                   unselectedItemColor: AppColors.gray,
                   showUnselectedLabels: true,
-                  onTap: (index) =>
-                      setState(() => _destination = destinations[index]),
+                  onTap: (index) => _selectDestination(destinations[index]),
                   items: [
                     for (final destination in destinations)
                       _bottomItem(context, destination),
@@ -142,8 +143,7 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
                       _DesktopNavigation(
                         selected: selected,
                         destinations: destinations,
-                        onSelected: (value) =>
-                            setState(() => _destination = value),
+                        onSelected: _selectDestination,
                       ),
                       Expanded(child: child),
                     ],
@@ -153,6 +153,15 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
         );
       },
     );
+  }
+
+  void _selectDestination(_Destination destination) {
+    setState(() {
+      _destination = destination;
+      if (destination == _Destination.management) {
+        _managementResetToken += 1;
+      }
+    });
   }
 
   List<_Destination> _visibleDestinations(SupervisorCenterState pilotState) => [
@@ -228,11 +237,15 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
       onEditReceipt: _editReceipt,
     ),
     _Destination.employees => const EmployeesManagementScreen(embedded: true),
-    _Destination.management => const SupervisorCenterScreen(),
+    _Destination.management => SupervisorCenterScreen(
+      key: ValueKey('management-$_managementResetToken'),
+    ),
     _Destination.settings => _SettingsView(
       currentVersion: 'v1.1.0-test4',
       onJobsImport: _openJobsImport,
       onLogout: _logout,
+      onRefreshApp: () => refreshApplication(),
+      onClearCacheAndRefresh: () => refreshApplication(clearCache: true),
       directorTestMode: {
         PilotRole.owner,
         PilotRole.supervisor,
@@ -1620,6 +1633,8 @@ final class _SettingsView extends StatelessWidget {
     required this.currentVersion,
     required this.onJobsImport,
     required this.onLogout,
+    required this.onRefreshApp,
+    required this.onClearCacheAndRefresh,
     required this.directorTestMode,
     required this.pilotState,
     required this.onSimulationChanged,
@@ -1630,6 +1645,8 @@ final class _SettingsView extends StatelessWidget {
   final String currentVersion;
   final VoidCallback onJobsImport;
   final VoidCallback onLogout;
+  final Future<void> Function() onRefreshApp;
+  final Future<void> Function() onClearCacheAndRefresh;
   final bool directorTestMode;
   final SupervisorCenterState pilotState;
   final void Function(PilotRole role, String? userId) onSimulationChanged;
@@ -1693,6 +1710,58 @@ final class _SettingsView extends StatelessWidget {
                 icon: Icons.logout_outlined,
                 value: context.tr('auth.logoutHelp'),
                 onTap: onLogout,
+              ),
+            ],
+          ),
+          _SettingsSection(
+            title: 'Sistema',
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(
+                  Icons.system_update_alt_outlined,
+                  color: AppColors.blue,
+                ),
+                title: const Text('Atualizar aplicativo'),
+                subtitle: Text('Versão instalada: $currentVersion'),
+                trailing: const Icon(Icons.refresh),
+                onTap: onRefreshApp,
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(
+                  Icons.cleaning_services_outlined,
+                  color: AppColors.amber,
+                ),
+                title: const Text('Limpar cache e atualizar'),
+                subtitle: const Text(
+                  'Remove apenas arquivos temporários do JKDD Field e baixa novamente a versão publicada. Seus registros locais não são apagados.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: const Text('Limpar cache e atualizar?'),
+                      content: const Text(
+                        'Esta ação limpa somente o cache do aplicativo. Timesheets, recibos e demais dados locais continuam preservados.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext, false),
+                          child: const Text('Cancelar'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(dialogContext, true),
+                          child: const Text('Limpar e atualizar'),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed == true) {
+                    await onClearCacheAndRefresh();
+                  }
+                },
               ),
             ],
           ),
