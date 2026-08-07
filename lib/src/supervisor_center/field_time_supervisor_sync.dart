@@ -24,10 +24,12 @@ final fieldTimeSupervisorSyncProvider = Provider<void>((ref) {
     final userId = sessionUser?.id ?? day.workerId;
 
     unawaited(
-      syncCompletedWorkDayForSupervisor(day: day, userId: userId).then((changed) {
-        if (!changed) return;
-        return ref.read(supervisorCenterProvider.notifier).initialize();
-      }),
+      syncCompletedWorkDayForSupervisor(day: day, userId: userId).then(
+        (changed) async {
+          if (!changed) return;
+          await ref.read(supervisorCenterProvider.notifier).initialize();
+        },
+      ),
     );
   });
 });
