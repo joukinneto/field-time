@@ -243,8 +243,7 @@ final class _ManagementDashboard extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _ResponsiveGrid(
-          minWidth: 180,
+        _ManagementMetricsGrid(
           children: [
             InkWell(
               borderRadius: BorderRadius.circular(16),
@@ -1800,6 +1799,29 @@ final class _ActionCard extends StatelessWidget {
         ),
       ),
     ),
+  );
+}
+
+final class _ManagementMetricsGrid extends StatelessWidget {
+  const _ManagementMetricsGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final columns = constraints.maxWidth >= 900 ? 4 : 2;
+      final ratio = constraints.maxWidth < 520 ? 1.22 : 1.38;
+      return GridView.count(
+        crossAxisCount: columns,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: AppSpacing.md,
+        mainAxisSpacing: AppSpacing.md,
+        childAspectRatio: ratio,
+        children: children,
+      );
+    },
   );
 }
 
