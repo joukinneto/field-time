@@ -8,10 +8,10 @@ import 'package:jkdd_field_time_records_production/src/domain/field_time_models.
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
 
 final class ReceiptSubmission {
-  const ReceiptSubmission({required this.draft, required this.file});
+  const ReceiptSubmission({required this.draft, this.file});
 
   final ReceiptDraft draft;
-  final XFile file;
+  final XFile? file;
 }
 
 final class ReceiptDialog extends StatefulWidget {
@@ -19,11 +19,13 @@ final class ReceiptDialog extends StatefulWidget {
     super.key,
     required this.jobs,
     this.initialJob,
+    this.initialReceipt,
     this.imagePicker,
   });
 
   final List<Job> jobs;
   final Job? initialJob;
+  final Receipt? initialReceipt;
   final ImagePicker? imagePicker;
 
   @override
@@ -44,11 +46,30 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
   XFile? _file;
   bool _reviewed = false;
 
+  bool get _editing => widget.initialReceipt != null;
+
   @override
   void initState() {
     super.initState();
     _picker = widget.imagePicker ?? ImagePicker();
-    _job = widget.initialJob ?? widget.jobs.first;
+    final receipt = widget.initialReceipt;
+    _job = widget.initialJob ??
+        (receipt == null
+            ? widget.jobs.first
+            : widget.jobs.firstWhere(
+                (job) => job.id == receipt.jobId,
+                orElse: () => widget.jobs.first,
+              ));
+    if (receipt != null) {
+      _merchant.text = receipt.merchant;
+      _total.text = receipt.total.toStringAsFixed(2);
+      _tax.text = receipt.tax.toStringAsFixed(2);
+      _receiptNumber.text = receipt.receiptNumber ?? '';
+      _description.text = receipt.description;
+      _notes.text = receipt.notes ?? '';
+      _purchaseDate = receipt.purchaseDate;
+      _reviewed = receipt.userReviewed;
+    }
   }
 
   @override
@@ -87,7 +108,9 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
-                  context.tr('home.requestReimbursement'),
+                  _editing
+                      ? 'Editar recibo em rascunho'
+                      : context.tr('home.requestReimbursement'),
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
@@ -106,7 +129,9 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
               borderRadius: BorderRadius.circular(AppRadius.md),
               border: Border.all(color: const Color(0xffbfdbfe)),
             ),
-            child: Text(context.tr('receipts.mockNotice')),
+            child: Text(_editing
+                ? 'Você pode alterar os dados do rascunho, trocar a foto e depois salvar ou enviar.'
+                : context.tr('receipts.mockNotice')),
           ),
           const SizedBox(height: AppSpacing.lg),
           DropdownButtonFormField<Job>(
@@ -135,7 +160,9 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
                 child: OutlinedButton.icon(
                   onPressed: () => _pick(ImageSource.gallery),
                   icon: const Icon(Icons.photo_library_outlined),
-                  label: Text(context.tr('receipts.selectImage')),
+                  label: Text(_editing
+                      ? 'Trocar imagem'
+                      : context.tr('receipts.selectImage')),
                 ),
               ),
             ],
@@ -143,6 +170,9 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
           if (_file != null) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(context.tr('receipts.file', {'name': _file!.name})),
+          ] else if (_editing) ...[
+            const SizedBox(height: AppSpacing.sm),
+            const Text('A imagem já anexada será mantida.'),
           ],
           const SizedBox(height: AppSpacing.md),
           _ResponsiveFormRow(
@@ -282,7 +312,7 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
 
   void _submit(bool submit) {
     if (!_formKey.currentState!.validate()) return;
-    if (_file == null) {
+    if (_file == null && !_editing) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.tr('receipts.attachPhotoRequired'))),
       );
@@ -291,7 +321,7 @@ final class _ReceiptDialogState extends State<ReceiptDialog> {
     Navigator.pop(
       context,
       ReceiptSubmission(
-        file: _file!,
+        file: _file,
         draft: ReceiptDraft(
           job: _job,
           merchant: _merchant.text,
