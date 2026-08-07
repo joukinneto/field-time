@@ -59,3 +59,5 @@ jobs:
           git add lib/src/supervisor_center/supervisor_center_models.dart lib/src/supervisor_center/supervisor_center_controller.dart lib/src/presentation/screens/time_records_screen.dart lib/src/supervisor_center/supervisor_center_screen.dart
           git commit -m "feat: add director master-login profile simulation"
           git push origin HEAD:test04-director-simulation
+
+# validation trigger
