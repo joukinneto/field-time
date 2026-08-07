@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jkdd_field_time_records_production/src/application/field_time_controller.dart';
-import 'package:jkdd_field_time_records_production/src/auth/auth_session.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
 import 'package:jkdd_field_time_records_production/src/domain/registration_number.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_controller.dart';
@@ -28,16 +27,15 @@ final fieldTimeSupervisorSyncProvider = Provider<void>((ref) {
     final day = next.lastCompletedDay;
     if (day == null || day.id == previous?.lastCompletedDay?.id) return;
 
-    final sessionUser = ref.read(authSessionProvider).user;
-    final userId = sessionUser?.id ?? day.workerId;
+    final userId = day.workerId;
 
     unawaited(
-      syncCompletedWorkDayForSupervisor(day: day, userId: userId).then(
-        (changed) async {
-          if (!changed) return;
-          await ref.read(supervisorCenterProvider.notifier).initialize();
-        },
-      ),
+      syncCompletedWorkDayForSupervisor(day: day, userId: userId).then((
+        changed,
+      ) async {
+        if (!changed) return;
+        await ref.read(supervisorCenterProvider.notifier).initialize();
+      }),
     );
   });
 });
@@ -191,18 +189,48 @@ Future<bool> ensureSupervisorHomologationData() async {
       .whereType<String>()
       .toSet();
   final assignmentFixtures = <Map<String, dynamic>>[
-    _homologationAssignment('test04-assignment-carlos', 'test-worker-0002',
-        job217, date, 'finished'),
-    _homologationAssignment('test04-assignment-lucas', 'test-worker-0003',
-        job630, date, 'finished'),
-    _homologationAssignment('test04-assignment-marcos', 'test-worker-0004',
-        job217, date, 'finished'),
-    _homologationAssignment('test04-assignment-rafael', 'test-worker-0005',
-        job630, date, 'finished'),
-    _homologationAssignment('test04-assignment-andre', 'test-worker-0006',
-        job217, date, 'finished'),
-    _homologationAssignment('test04-assignment-bruno', 'test-worker-0007',
-        job217, date, 'finished'),
+    _homologationAssignment(
+      'test04-assignment-carlos',
+      'test-worker-0002',
+      job217,
+      date,
+      'finished',
+    ),
+    _homologationAssignment(
+      'test04-assignment-lucas',
+      'test-worker-0003',
+      job630,
+      date,
+      'finished',
+    ),
+    _homologationAssignment(
+      'test04-assignment-marcos',
+      'test-worker-0004',
+      job217,
+      date,
+      'finished',
+    ),
+    _homologationAssignment(
+      'test04-assignment-rafael',
+      'test-worker-0005',
+      job630,
+      date,
+      'finished',
+    ),
+    _homologationAssignment(
+      'test04-assignment-andre',
+      'test-worker-0006',
+      job217,
+      date,
+      'finished',
+    ),
+    _homologationAssignment(
+      'test04-assignment-bruno',
+      'test-worker-0007',
+      job217,
+      date,
+      'finished',
+    ),
   ];
   for (final fixture in assignmentFixtures) {
     if (assignmentIds.add(fixture['id']! as String)) {
@@ -220,7 +248,10 @@ Future<bool> ensureSupervisorHomologationData() async {
   stateJson.putIfAbsent('reviews', () => <dynamic>[]);
   stateJson.putIfAbsent('auditLogs', () => <dynamic>[]);
 
-  await preferences.setString(supervisorCenterStorageKey, jsonEncode(stateJson));
+  await preferences.setString(
+    supervisorCenterStorageKey,
+    jsonEncode(stateJson),
+  );
   return true;
 }
 
@@ -238,31 +269,32 @@ Map<String, dynamic> _homologationEntry({
   String supervisorNote = '',
   String? rejectionReason,
   String? reviewNote,
-}) =>
-    <String, dynamic>{
-      'id': id,
-      'userId': userId,
-      'jobId': jobId,
-      'date': date.toIso8601String(),
-      'clockIn': clockIn,
-      'clockOut': clockOut,
-      'breakMinutes': breakMinutes,
-      'employeeNote': employeeNote,
-      'status': status,
-      'travelBonusHours': travelBonusHours,
-      'supervisorNote': supervisorNote,
-      'approvedAt': null,
-      'approvedBy': null,
-      'rejectedAt': status == 'rejected' ? date.toIso8601String() : null,
-      'rejectedBy': status == 'rejected' ? 'Supervisor Test' : null,
-      'rejectionReason': rejectionReason,
-      'reviewRequestedAt':
-          status == 'correctionRequested' ? date.toIso8601String() : null,
-      'reviewRequestedBy':
-          status == 'correctionRequested' ? 'Supervisor Test' : null,
-      'reviewNote': reviewNote,
-      'resubmittedAt': status == 'resubmitted' ? date.toIso8601String() : null,
-    };
+}) => <String, dynamic>{
+  'id': id,
+  'userId': userId,
+  'jobId': jobId,
+  'date': date.toIso8601String(),
+  'clockIn': clockIn,
+  'clockOut': clockOut,
+  'breakMinutes': breakMinutes,
+  'employeeNote': employeeNote,
+  'status': status,
+  'travelBonusHours': travelBonusHours,
+  'supervisorNote': supervisorNote,
+  'approvedAt': null,
+  'approvedBy': null,
+  'rejectedAt': status == 'rejected' ? date.toIso8601String() : null,
+  'rejectedBy': status == 'rejected' ? 'Supervisor Test' : null,
+  'rejectionReason': rejectionReason,
+  'reviewRequestedAt': status == 'correctionRequested'
+      ? date.toIso8601String()
+      : null,
+  'reviewRequestedBy': status == 'correctionRequested'
+      ? 'Supervisor Test'
+      : null,
+  'reviewNote': reviewNote,
+  'resubmittedAt': status == 'resubmitted' ? date.toIso8601String() : null,
+};
 
 Map<String, dynamic> _homologationAssignment(
   String id,
@@ -270,19 +302,18 @@ Map<String, dynamic> _homologationAssignment(
   String jobId,
   DateTime date,
   String status,
-) =>
-    <String, dynamic>{
-      'id': id,
-      'userId': userId,
-      'jobId': jobId,
-      'assignmentDate': date.toIso8601String(),
-      'scheduledStart': '7:00 AM',
-      'scheduledEnd': '5:00 PM',
-      'assignedBy': 'Director Test',
-      'supervisorId': 'test-supervisor',
-      'status': status,
-      'notes': 'TESTE — alocação fictícia para homologação do Test 04.',
-    };
+) => <String, dynamic>{
+  'id': id,
+  'userId': userId,
+  'jobId': jobId,
+  'assignmentDate': date.toIso8601String(),
+  'scheduledStart': '7:00 AM',
+  'scheduledEnd': '5:00 PM',
+  'assignedBy': 'Director Test',
+  'supervisorId': 'test-supervisor',
+  'status': status,
+  'notes': 'TESTE — alocação fictícia para homologação do Test 04.',
+};
 
 /// Persists one completed work day into the Supervisor Center approval queue.
 /// Returns true when at least one new entry or compensation metadata was added.
@@ -359,14 +390,14 @@ Future<bool> syncCompletedWorkDayForSupervisor({
   stateJson.putIfAbsent('reviews', () => <dynamic>[]);
   stateJson.putIfAbsent('auditLogs', () => <dynamic>[]);
 
-  await preferences.setString(supervisorCenterStorageKey, jsonEncode(stateJson));
+  await preferences.setString(
+    supervisorCenterStorageKey,
+    jsonEncode(stateJson),
+  );
   return true;
 }
 
-bool _syncJobCompensation(
-  Map<String, dynamic> stateJson,
-  WorkSegment segment,
-) {
+bool _syncJobCompensation(Map<String, dynamic> stateJson, WorkSegment segment) {
   final jobs = stateJson['jobs'];
   if (jobs is! List) return false;
 
@@ -405,10 +436,7 @@ String _payPremiumLabel(WorkSegment segment) {
   };
 }
 
-String _supervisorJobId(
-  Map<String, dynamic> stateJson,
-  WorkSegment segment,
-) {
+String _supervisorJobId(Map<String, dynamic> stateJson, WorkSegment segment) {
   final jobs = stateJson['jobs'];
   if (jobs is List) {
     for (final item in jobs) {
