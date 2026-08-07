@@ -30,7 +30,7 @@ jobs:
 
       - name: Apply Test 04 UI refresh patch
         if: github.event_name == 'pull_request'
-        run: python3 tooling/test04_ui_refresh_patch.py
+        run: python3 tooling/test04_ui_refresh_patch_v2.py
 
       - name: Format changed Dart files
         if: github.event_name == 'pull_request'
