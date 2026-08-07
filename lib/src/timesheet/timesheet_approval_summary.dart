@@ -46,13 +46,16 @@ TimesheetApprovalSummary summarizeApprovals({
       switch (status) {
         case 'approved':
           approved++;
+          break;
         case 'rejected':
           rejected++;
+          break;
         case 'underReview':
         case 'correctionRequested':
         case 'corrected':
         case 'resubmitted':
           underReview++;
+          break;
         default:
           pending++;
       }
