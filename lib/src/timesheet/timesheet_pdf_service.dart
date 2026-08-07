@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_assets.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
+import 'package:jkdd_field_time_records_production/src/timesheet/timesheet_approval_service.dart';
+import 'package:jkdd_field_time_records_production/src/timesheet/timesheet_approval_summary.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
@@ -64,6 +66,11 @@ final class TimesheetPdfService {
         .where((day) => week.contains(day.workDate))
         .toList(growable: false)
       ..sort((left, right) => left.workDate.compareTo(right.workDate));
+    final approvalStamps = await const TimesheetApprovalService().load();
+    final approvalSummary = summarizeApprovals(
+      days: days,
+      stamps: approvalStamps,
+    );
     final receipts = snapshot.receipts.where((receipt) {
       final linkedJob = snapshot.jobs.any((job) => job.id == receipt.jobId);
       return linkedJob && week.contains(receipt.purchaseDate);
@@ -95,8 +102,10 @@ final class TimesheetPdfService {
         build: (context) => [
           _header(snapshot, week, employerName, strings, logoBytes,
               timesheetRegistrationNumbers),
-          pw.SizedBox(height: 14),
-          _recordsTable(days, strings),
+          pw.SizedBox(height: 10),
+          _approvalBanner(approvalSummary),
+          pw.SizedBox(height: 10),
+          _recordsTable(days, strings, approvalStamps),
           pw.SizedBox(height: 12),
           pw.Align(
             alignment: pw.Alignment.centerRight,
@@ -115,6 +124,12 @@ final class TimesheetPdfService {
             alignment: pw.Alignment.centerRight,
             child: pw.Text(
               'Pay Premium Records: ${premiumSegments.length}',
+            ),
+          ),
+          pw.Align(
+            alignment: pw.Alignment.centerRight,
+            child: pw.Text(
+              'Approved Records: ${approvalSummary.approved}/${approvalSummary.total}',
             ),
           ),
           pw.Align(
@@ -143,6 +158,12 @@ final class TimesheetPdfService {
         pageFormat: PdfPageFormat.letter.landscape,
         margin: const pw.EdgeInsets.all(24),
         build: (context) => [
+          pw.Text('Approval Audit Summary',
+              style:
+                  pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 10),
+          _approvalAuditTable(days, approvalStamps),
+          pw.SizedBox(height: 18),
           pw.Text(strings.t('pdf.receiptsSummary'),
               style:
                   pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
@@ -175,6 +196,36 @@ final class TimesheetPdfService {
     }
 
     return document.save();
+  }
+
+  pw.Widget _approvalBanner(TimesheetApprovalSummary summary) {
+    final background = summary.fullyApproved
+        ? PdfColors.green100
+        : summary.rejected > 0
+            ? PdfColors.red100
+            : PdfColors.amber100;
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: pw.BoxDecoration(
+        color: background,
+        border: pw.Border.all(color: PdfColors.blueGrey300),
+        borderRadius: pw.BorderRadius.circular(6),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            'Approval Status: ${summary.formalStatus}',
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          ),
+          pw.Text(
+            'Approved ${summary.approved} | Pending ${summary.pending} | '
+            'Review ${summary.underReview} | Rejected ${summary.rejected}',
+            style: const pw.TextStyle(fontSize: 8),
+          ),
+        ],
+      ),
+    );
   }
 
   pw.Widget _header(
@@ -249,10 +300,16 @@ final class TimesheetPdfService {
     );
   }
 
-  pw.Widget _recordsTable(List<WorkDay> days, AppStrings strings) {
+  pw.Widget _recordsTable(
+    List<WorkDay> days,
+    AppStrings strings,
+    Map<String, TimesheetApprovalStamp> approvalStamps,
+  ) {
     final rows = <List<String>>[];
     for (final day in days) {
       for (final segment in day.segments) {
+        final approval =
+            approvalStamps[approvalEntryId(day.id, segment.id)];
         rows.add([
           _date(day.workDate),
           _weekDay(day.workDate),
@@ -263,6 +320,7 @@ final class TimesheetPdfService {
           _duration(segment.duration()),
           '',
           _payPremiumLabel(segment),
+          approval?.displayStatus ?? 'Pending',
           _duration(segment.duration()),
           segment.notes ?? '',
         ]);
@@ -280,6 +338,7 @@ final class TimesheetPdfService {
           '00:00',
           _duration(bonusDuration),
           '',
+          '',
           _duration(bonusDuration),
           'Travel Bonus',
         ]);
@@ -296,6 +355,7 @@ final class TimesheetPdfService {
         'Worked Hours',
         'Travel Bonus',
         'Pay Premium',
+        'Approval',
         'Total Hours',
         'Observations',
       ],
@@ -311,25 +371,67 @@ final class TimesheetPdfService {
                 '00:00',
                 '00:00',
                 '-',
+                '-',
                 '00:00',
                 strings.t('pdf.noRecords')
               ],
             ]
           : rows,
       headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey100),
-      headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7.5),
-      cellStyle: const pw.TextStyle(fontSize: 7.5),
+      headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7),
+      cellStyle: const pw.TextStyle(fontSize: 7),
       cellAlignment: pw.Alignment.centerLeft,
       columnWidths: const {
-        0: pw.FixedColumnWidth(48),
-        1: pw.FixedColumnWidth(48),
-        4: pw.FixedColumnWidth(38),
-        5: pw.FixedColumnWidth(38),
-        6: pw.FixedColumnWidth(50),
-        7: pw.FixedColumnWidth(50),
-        8: pw.FixedColumnWidth(54),
-        9: pw.FixedColumnWidth(50),
+        0: pw.FixedColumnWidth(44),
+        1: pw.FixedColumnWidth(44),
+        4: pw.FixedColumnWidth(36),
+        5: pw.FixedColumnWidth(36),
+        6: pw.FixedColumnWidth(46),
+        7: pw.FixedColumnWidth(46),
+        8: pw.FixedColumnWidth(50),
+        9: pw.FixedColumnWidth(62),
+        10: pw.FixedColumnWidth(46),
       },
+    );
+  }
+
+  pw.Widget _approvalAuditTable(
+    List<WorkDay> days,
+    Map<String, TimesheetApprovalStamp> approvalStamps,
+  ) {
+    final rows = <List<String>>[];
+    for (final day in days) {
+      for (final segment in day.segments) {
+        if (segment.endedAt == null) continue;
+        final stamp = approvalStamps[approvalEntryId(day.id, segment.id)];
+        rows.add([
+          _date(day.workDate),
+          'Job ${segment.jobNumber}',
+          stamp?.displayStatus ?? 'Pending',
+          stamp?.approvedBy ?? stamp?.rejectedBy ?? stamp?.reviewRequestedBy ?? '-',
+          _approvalDate(stamp),
+          stamp?.rejectionReason ?? stamp?.reviewNote ?? '-',
+        ]);
+      }
+    }
+    return pw.TableHelper.fromTextArray(
+      headers: [
+        'Date',
+        'Job',
+        'Approval Status',
+        'Reviewed By',
+        'Reviewed At',
+        'Reason / Note',
+      ],
+      data: rows.isEmpty
+          ? [
+              ['-', '-', 'No approval records', '-', '-', '-']
+            ]
+          : rows,
+      headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey100),
+      headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8),
+      cellStyle: const pw.TextStyle(fontSize: 8),
+      cellAlignment: pw.Alignment.centerLeft,
     );
   }
 
@@ -441,6 +543,13 @@ String _payPremiumLabel(WorkSegment segment) {
     PayPremiumType.doubleTime => 'Double time',
     null => '',
   };
+}
+
+String _approvalDate(TimesheetApprovalStamp? stamp) {
+  if (stamp == null) return '-';
+  final value = stamp.approvedAt ?? stamp.rejectedAt ?? stamp.reviewRequestedAt;
+  if (value == null) return '-';
+  return '${_date(value)} ${_time(value)}';
 }
 
 String _jobLabel(FieldTimeSnapshot snapshot, String jobId) {
