@@ -263,17 +263,12 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
                 .setSimulatedWorker(userId),
           );
         }
-        setState(() {
-          _destination =
-              {
-                PilotRole.owner,
-                PilotRole.administrator,
-                PilotRole.coordinator,
-                PilotRole.supervisor,
-              }.contains(role)
-              ? _Destination.management
-              : _Destination.home;
-        });
+        // Keep the user inside Settings after changing the simulated
+        // profile. The new identity is reflected when they intentionally
+        // navigate to Home, Timesheet, Management, or another section.
+        if (mounted) {
+          setState(() => _destination = _Destination.settings);
+        }
       },
       currentLanguage: ref.watch(appLanguageControllerProvider),
       onLanguageChanged: (language) async {
