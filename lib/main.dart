@@ -5,6 +5,7 @@ import 'package:jkdd_field_time_records_production/src/auth/auth_session.dart';
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
 import 'package:jkdd_field_time_records_production/src/presentation/screens/login_screen.dart';
 import 'package:jkdd_field_time_records_production/src/presentation/screens/time_records_screen.dart';
+import 'package:jkdd_field_time_records_production/src/supervisor_center/field_time_supervisor_sync.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +19,7 @@ final class FieldTimeApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final language = ref.watch(appLanguageControllerProvider);
     final session = ref.watch(authSessionProvider);
+    ref.watch(fieldTimeSupervisorSyncProvider);
     final strings = AppStrings(language);
     return MaterialApp(
       title: strings.t('app.title'),
