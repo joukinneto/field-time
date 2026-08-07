@@ -496,51 +496,98 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
     await ref.read(fieldTimeControllerProvider.notifier).addObservation(value!);
   }
 
-  Future<Job?> _selectJob(String title, List<Job> jobs) => showDialog<Job>(
-    context: context,
-    builder: (context) => SimpleDialog(
-      title: Text(title),
-      children: [
-        if (jobs.isEmpty)
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: JkddEmptyState(
-              icon: Icons.apartment_outlined,
-              title: context.tr('jobs.noJobsAvailable'),
-              message: context.tr('jobs.noJobsAvailableHelp'),
-            ),
-          )
-        else
-          for (final job in jobs)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, job),
-              child: ListTile(
-                leading: const Icon(Icons.apartment_outlined),
-                title: Text('${job.number} - ${job.name}'),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(job.address),
-                    if (job.city?.trim().isNotEmpty == true) Text(job.city!),
-                    const SizedBox(height: AppSpacing.xs),
-                    JkddStatusChip(
-                      label: job.active
-                          ? context.tr('jobs.active')
-                          : context.tr('jobs.inactive'),
-                      icon: job.active
-                          ? Icons.check_circle_outline
-                          : Icons.block,
-                      tone: job.active
-                          ? JkddStatusTone.success
-                          : JkddStatusTone.neutral,
+  Future<Job?> _selectJob(String title, List<Job> jobs) async {
+    final search = TextEditingController();
+    var query = '';
+    final selected = await showDialog<Job>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final normalized = query.trim().toLowerCase();
+          final filtered = normalized.isEmpty
+              ? jobs
+              : jobs
+                    .where((job) {
+                      final haystack = [
+                        job.number,
+                        job.name,
+                        job.address,
+                        job.city ?? '',
+                        job.client ?? '',
+                      ].join(' ').toLowerCase();
+                      return haystack.contains(normalized);
+                    })
+                    .toList(growable: false);
+          return AlertDialog(
+            title: Text(title),
+            content: SizedBox(
+              width: 560,
+              height: MediaQuery.sizeOf(context).height * 0.62,
+              child: Column(
+                children: [
+                  TextField(
+                    controller: search,
+                    autofocus: jobs.length > 6,
+                    onChanged: (value) => setDialogState(() => query = value),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      labelText: 'Buscar obra',
+                      hintText: 'Número, nome, endereço, cidade ou cliente',
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Expanded(
+                    child: jobs.isEmpty
+                        ? JkddEmptyState(
+                            icon: Icons.apartment_outlined,
+                            title: context.tr('jobs.noJobsAvailable'),
+                            message: context.tr('jobs.noJobsAvailableHelp'),
+                          )
+                        : filtered.isEmpty
+                        ? const JkddEmptyState(
+                            icon: Icons.search_off_outlined,
+                            title: 'Nenhuma obra encontrada',
+                            message:
+                                'Tente outro número, nome, endereço ou cliente.',
+                          )
+                        : ListView.separated(
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final job = filtered[index];
+                              return ListTile(
+                                leading: const Icon(Icons.apartment_outlined),
+                                title: Text('${job.number} - ${job.name}'),
+                                subtitle: Text(
+                                  [
+                                    job.address,
+                                    if (job.city?.trim().isNotEmpty == true)
+                                      job.city!,
+                                  ].join(' • '),
+                                ),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: () => Navigator.pop(context, job),
+                              );
+                            },
+                          ),
+                  ),
+                ],
               ),
             ),
-      ],
-    ),
-  );
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(context.tr('common.cancel')),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    search.dispose();
+    return selected;
+  }
 
   Future<void> _openJobsImport() async {
     await Navigator.of(context).push(
