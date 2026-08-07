@@ -5,7 +5,7 @@ on:
     branches:
       - fix/test04-homologation
     paths:
-      - tooling/test04_homologation_patch.py
+      - tooling/test04_time_records_patch.py
       - .github/workflows/test04-homologation-patch.yml
 
 permissions:
@@ -30,8 +30,8 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Apply Test 04 corrections
-        run: python3 tooling/test04_homologation_patch.py
+      - name: Apply Test 04 time-record corrections
+        run: python3 tooling/test04_time_records_patch.py
 
       - name: Format changed Dart files
         run: dart format lib/src/application/field_time_controller.dart lib/src/presentation/screens/time_records_screen.dart
