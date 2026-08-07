@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Test 04: profile simulation changes must not navigate away from Settings.
 path = Path('lib/src/presentation/screens/time_records_screen.dart')
 text = path.read_text()
 old = """        setState(() {
