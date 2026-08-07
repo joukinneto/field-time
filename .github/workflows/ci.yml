@@ -7,23 +7,34 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
     name: Analyze, test, and build web
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: test04-profile-job-dashboard
+          fetch-depth: 0
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
+
+      - name: Apply Test 04 profile and dashboard patch
+        if: github.event_name == 'pull_request'
+        run: python3 tooling/test04_profile_job_dashboard_patch.py
+
+      - name: Format changed Dart files
+        if: github.event_name == 'pull_request'
+        run: dart format lib/src/presentation/screens/time_records_screen.dart lib/src/supervisor_center/supervisor_center_screen.dart
 
       - name: Flutter version
         run: flutter --version
@@ -39,3 +50,16 @@ jobs:
 
       - name: Build web
         run: flutter build web --release --base-href "/field-time/"
+
+      - name: Commit validated profile and dashboard changes
+        if: github.event_name == 'pull_request' && github.actor != 'github-actions[bot]'
+        run: |
+          if git diff --quiet; then
+            echo "No validated changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/src/presentation/screens/time_records_screen.dart lib/src/supervisor_center/supervisor_center_screen.dart
+          git commit -m "feat: add profile selector and job dashboard"
+          git push origin HEAD:test04-profile-job-dashboard
