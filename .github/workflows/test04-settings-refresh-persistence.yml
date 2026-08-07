@@ -1,0 +1,43 @@
+name: Test 04 Settings Refresh Persistence
+
+on:
+  push:
+    branches:
+      - fix-settings-stay
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix-settings-stay
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply patch
+        run: python3 tooling/test04_settings_refresh_persistence_patch.py
+      - name: Format
+        run: dart format lib/src/presentation/screens/time_records_screen.dart lib/src/platform/app_refresh_stub.dart lib/src/platform/app_refresh_web.dart
+      - name: Dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze
+      - name: Tests
+        run: flutter test
+      - name: Build web
+        run: flutter build web --release --base-href "/field-time/"
+      - name: Commit validated changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/src/presentation/screens/time_records_screen.dart lib/src/platform/app_refresh_stub.dart lib/src/platform/app_refresh_web.dart
+          git commit -m "fix: keep settings selected after refresh"
+          git pull --rebase origin fix-settings-stay
+          git push origin HEAD:fix-settings-stay
