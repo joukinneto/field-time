@@ -255,6 +255,14 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
         ref
             .read(supervisorCenterProvider.notifier)
             .setSimulation(role, userId: userId);
+        if ({PilotRole.employee, PilotRole.contractor}.contains(role) &&
+            userId != null) {
+          unawaited(
+            ref
+                .read(fieldTimeControllerProvider.notifier)
+                .setSimulatedWorker(userId),
+          );
+        }
         setState(() {
           _destination =
               {
