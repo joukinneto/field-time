@@ -30,7 +30,9 @@ jobs:
 
       - name: Apply Test 04 homologation patch
         if: github.event_name == 'pull_request'
-        run: python3 tooling/test04_time_records_patch.py
+        run: |
+          python3 tooling/test04_time_records_patch.py
+          python3 tooling/test04_cleanup_patch.py
 
       - name: Format changed Dart files
         if: github.event_name == 'pull_request'
