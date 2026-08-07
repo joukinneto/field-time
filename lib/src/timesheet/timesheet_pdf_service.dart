@@ -76,6 +76,10 @@ final class TimesheetPdfService {
       0,
       (total, day) => total + (day.travelBonusHours * 60).round(),
     );
+    final premiumSegments = days
+        .expand((day) => day.segments)
+        .where((segment) => segment.hasPayPremium)
+        .toList(growable: false);
     final totalWithBonus = totalDuration + Duration(minutes: bonusMinutes);
     final document = pw.Document(title: strings.t('pdf.title'));
     final logoBytes = await _loadLogoBytes();
@@ -110,10 +114,26 @@ final class TimesheetPdfService {
           pw.Align(
             alignment: pw.Alignment.centerRight,
             child: pw.Text(
-              'Grand Total: ${decimalHoursText(totalWithBonus)}',
+              'Pay Premium Records: ${premiumSegments.length}',
+            ),
+          ),
+          pw.Align(
+            alignment: pw.Alignment.centerRight,
+            child: pw.Text(
+              'Grand Total Hours: ${decimalHoursText(totalWithBonus)}',
               style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14),
             ),
           ),
+          if (premiumSegments.isNotEmpty) ...[
+            pw.SizedBox(height: 8),
+            pw.Align(
+              alignment: pw.Alignment.centerRight,
+              child: pw.Text(
+                'Pay Premium is shown per work record and is not added to hour totals.',
+                style: const pw.TextStyle(fontSize: 8),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -242,6 +262,7 @@ final class TimesheetPdfService {
           segment.endedAt == null ? '--:--' : _time(segment.endedAt!),
           _duration(segment.duration()),
           '',
+          _payPremiumLabel(segment),
           _duration(segment.duration()),
           segment.notes ?? '',
         ]);
@@ -258,6 +279,7 @@ final class TimesheetPdfService {
           '',
           '00:00',
           _duration(bonusDuration),
+          '',
           _duration(bonusDuration),
           'Travel Bonus',
         ]);
@@ -273,6 +295,7 @@ final class TimesheetPdfService {
         'Time Out',
         'Worked Hours',
         'Travel Bonus',
+        'Pay Premium',
         'Total Hours',
         'Observations',
       ],
@@ -287,23 +310,25 @@ final class TimesheetPdfService {
                 '-',
                 '00:00',
                 '00:00',
+                '-',
                 '00:00',
                 strings.t('pdf.noRecords')
               ],
             ]
           : rows,
       headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey100),
-      headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8),
-      cellStyle: const pw.TextStyle(fontSize: 8),
+      headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7.5),
+      cellStyle: const pw.TextStyle(fontSize: 7.5),
       cellAlignment: pw.Alignment.centerLeft,
       columnWidths: const {
-        0: pw.FixedColumnWidth(54),
-        1: pw.FixedColumnWidth(54),
-        4: pw.FixedColumnWidth(40),
-        5: pw.FixedColumnWidth(40),
-        6: pw.FixedColumnWidth(54),
-        7: pw.FixedColumnWidth(54),
+        0: pw.FixedColumnWidth(48),
+        1: pw.FixedColumnWidth(48),
+        4: pw.FixedColumnWidth(38),
+        5: pw.FixedColumnWidth(38),
+        6: pw.FixedColumnWidth(50),
+        7: pw.FixedColumnWidth(50),
         8: pw.FixedColumnWidth(54),
+        9: pw.FixedColumnWidth(50),
       },
     );
   }
@@ -404,6 +429,18 @@ List<WorkSegment> _bonusSegments(WorkDay day) {
   }
   return byJob.values.toList(growable: false)
     ..sort((left, right) => left.jobNumber.compareTo(right.jobNumber));
+}
+
+String _payPremiumLabel(WorkSegment segment) {
+  if (!segment.hasPayPremium) return '';
+  return switch (segment.payPremiumType) {
+    PayPremiumType.percentage =>
+      '${(segment.payPremiumValue * 100).toStringAsFixed(0)}%',
+    PayPremiumType.fixedHourly =>
+      '\$${segment.payPremiumValue.toStringAsFixed(2)}/h',
+    PayPremiumType.doubleTime => 'Double time',
+    null => '',
+  };
 }
 
 String _jobLabel(FieldTimeSnapshot snapshot, String jobId) {
