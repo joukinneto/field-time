@@ -13,22 +13,24 @@ import 'package:jkdd_field_time_records_production/src/platform/network_status.d
 import 'package:uuid/uuid.dart';
 
 final fieldTimeRepositoryProvider = Provider<FieldTimeRepository>(
-    (ref) => SharedPreferencesFieldTimeRepository());
+  (ref) => SharedPreferencesFieldTimeRepository(),
+);
 
-final fieldTimeApplicationServiceProvider =
-    Provider((ref) => const FieldTimeApplicationService());
+final fieldTimeApplicationServiceProvider = Provider(
+  (ref) => const FieldTimeApplicationService(),
+);
 
 final fieldTimeControllerProvider =
     StateNotifierProvider<FieldTimeController, FieldTimeState>((ref) {
-  final controller = FieldTimeController(
-    repository: ref.watch(fieldTimeRepositoryProvider),
-    jobRepository: ref.watch(jobAssetRepositoryProvider),
-    employeeRepository: ref.watch(employeeAssetRepositoryProvider),
-    service: ref.watch(fieldTimeApplicationServiceProvider),
-  );
-  controller.initialize();
-  return controller;
-});
+      final controller = FieldTimeController(
+        repository: ref.watch(fieldTimeRepositoryProvider),
+        jobRepository: ref.watch(jobAssetRepositoryProvider),
+        employeeRepository: ref.watch(employeeAssetRepositoryProvider),
+        service: ref.watch(fieldTimeApplicationServiceProvider),
+      );
+      controller.initialize();
+      return controller;
+    });
 
 final class FieldTimeState {
   const FieldTimeState({
@@ -151,82 +153,97 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
   }
 
   Future<void> clockIn(Job job, String? notes) => _withLocation(
-        progress: 'fieldTime.clockInProgress',
-        success: 'fieldTime.clockInSuccess',
-        successValues: {'job': job.number},
-        mutate: (snapshot, at, location) => service.clockIn(
-          snapshot: snapshot,
-          job: job,
-          at: at,
-          location: location,
-          notes: notes,
-        ),
-      );
+    progress: 'fieldTime.clockInProgress',
+    success: 'fieldTime.clockInSuccess',
+    successValues: {'job': job.number},
+    mutate: (snapshot, at, location) => service.clockIn(
+      snapshot: snapshot,
+      job: job,
+      at: at,
+      location: location,
+      notes: notes,
+    ),
+  );
 
   Future<void> switchJob(Job job, String? notes) => _withLocation(
-        progress: 'fieldTime.switchJobProgress',
-        success: 'fieldTime.switchJobSuccess',
-        successValues: {'job': job.number},
-        mutate: (snapshot, at, location) => service.switchJob(
-          snapshot: snapshot,
-          nextJob: job,
-          at: at,
-          location: location,
-          notes: notes,
-        ),
-      );
+    progress: 'fieldTime.switchJobProgress',
+    success: 'fieldTime.switchJobSuccess',
+    successValues: {'job': job.number},
+    mutate: (snapshot, at, location) => service.switchJob(
+      snapshot: snapshot,
+      nextJob: job,
+      at: at,
+      location: location,
+      notes: notes,
+    ),
+  );
 
   Future<void> endDay(String? notes) => _withLocation(
-        progress: 'fieldTime.endDayProgress',
-        success: 'fieldTime.endDaySuccess',
-        rememberCompletedDay: true,
-        mutate: (snapshot, at, location) => service.endDay(
-          snapshot: snapshot,
-          at: at,
-          location: location,
-          notes: notes,
-        ),
-      );
+    progress: 'fieldTime.endDayProgress',
+    success: 'fieldTime.endDaySuccess',
+    rememberCompletedDay: true,
+    mutate: (snapshot, at, location) => service.endDay(
+      snapshot: snapshot,
+      at: at,
+      location: location,
+      notes: notes,
+    ),
+  );
 
   Future<void> addJobPhoto(XFile file, Job job) async {
-    await _run('fieldTime.savePhotoProgress', () async {
-      final attachment = await _attachment(file, job, AttachmentKind.jobPhoto);
-      final snapshot = service.addJobPhoto(
-        snapshot: state.snapshot,
-        attachment: attachment,
-      );
-      await repository.save(snapshot);
-      return snapshot;
-    }, 'fieldTime.photoLinked', successValues: {'job': job.number});
+    await _run(
+      'fieldTime.savePhotoProgress',
+      () async {
+        final attachment = await _attachment(
+          file,
+          job,
+          AttachmentKind.jobPhoto,
+        );
+        final snapshot = service.addJobPhoto(
+          snapshot: state.snapshot,
+          attachment: attachment,
+        );
+        await repository.save(snapshot);
+        return snapshot;
+      },
+      'fieldTime.photoLinked',
+      successValues: {'job': job.number},
+    );
   }
 
   Future<void> saveReceipt(ReceiptDraft draft, XFile? file) async {
-    await _run('fieldTime.saveReceiptProgress', () async {
-      if (file == null) {
-        throw StateError('receipts.attachPhotoRequired');
-      }
-      final attachment =
-          await _attachment(file, draft.job, AttachmentKind.receipt);
-      final snapshot = await service.saveReceipt(
-        snapshot: state.snapshot,
-        job: draft.job,
-        attachment: attachment,
-        merchant: draft.merchant,
-        purchaseDate: draft.purchaseDate,
-        total: draft.total,
-        tax: draft.tax,
-        receiptNumber: draft.receiptNumber,
-        description: draft.description,
-        notes: draft.notes,
-        submit: draft.submit,
-        userReviewed: draft.userReviewed,
-      );
-      await repository.save(snapshot);
-      return snapshot;
-    },
-        draft.submit
-            ? 'fieldTime.reimbursementSubmitted'
-            : 'fieldTime.draftSaved');
+    await _run(
+      'fieldTime.saveReceiptProgress',
+      () async {
+        if (file == null) {
+          throw StateError('receipts.attachPhotoRequired');
+        }
+        final attachment = await _attachment(
+          file,
+          draft.job,
+          AttachmentKind.receipt,
+        );
+        final snapshot = await service.saveReceipt(
+          snapshot: state.snapshot,
+          job: draft.job,
+          attachment: attachment,
+          merchant: draft.merchant,
+          purchaseDate: draft.purchaseDate,
+          total: draft.total,
+          tax: draft.tax,
+          receiptNumber: draft.receiptNumber,
+          description: draft.description,
+          notes: draft.notes,
+          submit: draft.submit,
+          userReviewed: draft.userReviewed,
+        );
+        await repository.save(snapshot);
+        return snapshot;
+      },
+      draft.submit
+          ? 'fieldTime.reimbursementSubmitted'
+          : 'fieldTime.draftSaved',
+    );
   }
 
   Future<void> updateReceipt(
@@ -234,113 +251,123 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
     ReceiptDraft draft,
     XFile? file,
   ) async {
-    await _run('fieldTime.saveReceiptProgress', () async {
-      if (receipt.status != ReceiptStatus.draft) {
-        throw StateError('receipts.onlyDraftCanBeEdited');
-      }
-
-      final snapshot = state.snapshot;
-      final now = DateTime.now();
-      final nextStatus =
-          draft.submit ? ReceiptStatus.submitted : ReceiptStatus.draft;
-      Attachment? replacementAttachment;
-      if (file != null) {
-        replacementAttachment =
-            await _attachment(file, draft.job, AttachmentKind.receipt);
-      }
-      final attachmentIds = replacementAttachment == null
-          ? receipt.attachmentIds
-          : [replacementAttachment.id];
-
-      final updatedReceipt = Receipt(
-        id: receipt.id,
-        registrationNumber: receipt.registrationNumber,
-        companyId: receipt.companyId,
-        subcontractorCompanyId: receipt.subcontractorCompanyId,
-        workerId: receipt.workerId,
-        jobId: draft.job.id,
-        purchaseDate: draft.purchaseDate,
-        merchant: draft.merchant.trim(),
-        total: draft.total,
-        tax: draft.tax,
-        receiptNumber: draft.receiptNumber?.trim().isEmpty == true
-            ? null
-            : draft.receiptNumber?.trim(),
-        description: draft.description.trim(),
-        notes: draft.notes?.trim().isEmpty == true ? null : draft.notes?.trim(),
-        status: nextStatus,
-        attachmentIds: attachmentIds,
-        extractionResult:
-            replacementAttachment == null ? receipt.extractionResult : null,
-        userReviewed: draft.userReviewed,
-        createdAt: receipt.createdAt,
-        updatedAt: now,
-      );
-
-      final updatedReimbursements = <ReimbursementRequest>[];
-      final changedReimbursementIds = <String>[];
-      for (final reimbursement in snapshot.reimbursements) {
-        if (!reimbursement.receiptIds.contains(receipt.id)) {
-          updatedReimbursements.add(reimbursement);
-          continue;
+    await _run(
+      'fieldTime.saveReceiptProgress',
+      () async {
+        if (receipt.status != ReceiptStatus.draft) {
+          throw StateError('receipts.onlyDraftCanBeEdited');
         }
-        changedReimbursementIds.add(reimbursement.id);
-        updatedReimbursements.add(
-          ReimbursementRequest(
-            id: reimbursement.id,
-            registrationNumber: reimbursement.registrationNumber,
-            companyId: reimbursement.companyId,
-            subcontractorCompanyId: reimbursement.subcontractorCompanyId,
-            workerId: reimbursement.workerId,
-            jobId: draft.job.id,
-            receiptIds: reimbursement.receiptIds,
-            attachmentIds: attachmentIds,
-            amount: draft.total,
-            status: nextStatus,
-            createdAt: reimbursement.createdAt,
-            updatedAt: now,
-          ),
-        );
-      }
 
-      final updatedSnapshot = snapshot.copyWith(
-        receipts: [
-          for (final current in snapshot.receipts)
-            if (current.id == receipt.id) updatedReceipt else current,
-        ],
-        reimbursements: updatedReimbursements,
-        attachments: replacementAttachment == null
-            ? snapshot.attachments
-            : [...snapshot.attachments, replacementAttachment],
-        syncQueue: [
-          ...snapshot.syncQueue,
-          SyncQueueItem(
-            id: uuid.v7(),
-            companyId: snapshot.companyId,
-            subcontractorCompanyId: snapshot.subcontractor.id,
-            entityType: 'Receipt',
-            entityId: receipt.id,
-            operation: SyncOperation.update,
-            createdAt: now,
-          ),
-          for (final reimbursementId in changedReimbursementIds)
+        final snapshot = state.snapshot;
+        final now = DateTime.now();
+        final nextStatus = draft.submit
+            ? ReceiptStatus.submitted
+            : ReceiptStatus.draft;
+        Attachment? replacementAttachment;
+        if (file != null) {
+          replacementAttachment = await _attachment(
+            file,
+            draft.job,
+            AttachmentKind.receipt,
+          );
+        }
+        final attachmentIds = replacementAttachment == null
+            ? receipt.attachmentIds
+            : [replacementAttachment.id];
+
+        final updatedReceipt = Receipt(
+          id: receipt.id,
+          registrationNumber: receipt.registrationNumber,
+          companyId: receipt.companyId,
+          subcontractorCompanyId: receipt.subcontractorCompanyId,
+          workerId: receipt.workerId,
+          jobId: draft.job.id,
+          purchaseDate: draft.purchaseDate,
+          merchant: draft.merchant.trim(),
+          total: draft.total,
+          tax: draft.tax,
+          receiptNumber: draft.receiptNumber?.trim().isEmpty == true
+              ? null
+              : draft.receiptNumber?.trim(),
+          description: draft.description.trim(),
+          notes: draft.notes?.trim().isEmpty == true
+              ? null
+              : draft.notes?.trim(),
+          status: nextStatus,
+          attachmentIds: attachmentIds,
+          extractionResult: replacementAttachment == null
+              ? receipt.extractionResult
+              : null,
+          userReviewed: draft.userReviewed,
+          createdAt: receipt.createdAt,
+          updatedAt: now,
+        );
+
+        final updatedReimbursements = <ReimbursementRequest>[];
+        final changedReimbursementIds = <String>[];
+        for (final reimbursement in snapshot.reimbursements) {
+          if (!reimbursement.receiptIds.contains(receipt.id)) {
+            updatedReimbursements.add(reimbursement);
+            continue;
+          }
+          changedReimbursementIds.add(reimbursement.id);
+          updatedReimbursements.add(
+            ReimbursementRequest(
+              id: reimbursement.id,
+              registrationNumber: reimbursement.registrationNumber,
+              companyId: reimbursement.companyId,
+              subcontractorCompanyId: reimbursement.subcontractorCompanyId,
+              workerId: reimbursement.workerId,
+              jobId: draft.job.id,
+              receiptIds: reimbursement.receiptIds,
+              attachmentIds: attachmentIds,
+              amount: draft.total,
+              status: nextStatus,
+              createdAt: reimbursement.createdAt,
+              updatedAt: now,
+            ),
+          );
+        }
+
+        final updatedSnapshot = snapshot.copyWith(
+          receipts: [
+            for (final current in snapshot.receipts)
+              if (current.id == receipt.id) updatedReceipt else current,
+          ],
+          reimbursements: updatedReimbursements,
+          attachments: replacementAttachment == null
+              ? snapshot.attachments
+              : [...snapshot.attachments, replacementAttachment],
+          syncQueue: [
+            ...snapshot.syncQueue,
             SyncQueueItem(
               id: uuid.v7(),
               companyId: snapshot.companyId,
               subcontractorCompanyId: snapshot.subcontractor.id,
-              entityType: 'ReimbursementRequest',
-              entityId: reimbursementId,
+              entityType: 'Receipt',
+              entityId: receipt.id,
               operation: SyncOperation.update,
               createdAt: now,
             ),
-        ],
-      );
-      await repository.save(updatedSnapshot);
-      return updatedSnapshot;
-    },
-        draft.submit
-            ? 'fieldTime.reimbursementSubmitted'
-            : 'fieldTime.draftSaved');
+            for (final reimbursementId in changedReimbursementIds)
+              SyncQueueItem(
+                id: uuid.v7(),
+                companyId: snapshot.companyId,
+                subcontractorCompanyId: snapshot.subcontractor.id,
+                entityType: 'ReimbursementRequest',
+                entityId: reimbursementId,
+                operation: SyncOperation.update,
+                createdAt: now,
+              ),
+          ],
+        );
+        await repository.save(updatedSnapshot);
+        return updatedSnapshot;
+      },
+      draft.submit
+          ? 'fieldTime.reimbursementSubmitted'
+          : 'fieldTime.draftSaved',
+    );
   }
 
   Future<void> addObservation(String notes) async {
@@ -363,11 +390,15 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
       FieldTimeSnapshot snapshot,
       DateTime at,
       GeoPoint location,
-    ) mutate,
+    )
+    mutate,
     bool rememberCompletedDay = false,
   }) async {
     state = FieldTimeState(
-        snapshot: state.snapshot, loading: true, message: progress);
+      snapshot: state.snapshot,
+      loading: true,
+      message: progress,
+    );
     try {
       final location = await locationService.currentLocation();
       final snapshot = mutate(state.snapshot, DateTime.now(), location);
@@ -396,7 +427,10 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
     Map<String, Object?>? successValues,
   }) async {
     state = FieldTimeState(
-        snapshot: state.snapshot, loading: true, message: progress);
+      snapshot: state.snapshot,
+      loading: true,
+      message: progress,
+    );
     try {
       final snapshot = await action();
       state = FieldTimeState(

@@ -35,10 +35,8 @@ enum _Destination {
   receipts,
   employees,
   management,
-  settings
+  settings,
 }
-
-enum _EndDayReceiptChoice { attachNow, noReceipts, back }
 
 final class TimeRecordsScreen extends ConsumerStatefulWidget {
   const TimeRecordsScreen({super.key});
@@ -122,9 +120,8 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
                   selectedItemColor: AppColors.blue,
                   unselectedItemColor: AppColors.gray,
                   showUnselectedLabels: true,
-                  onTap: (index) => setState(
-                    () => _destination = destinations[index],
-                  ),
+                  onTap: (index) =>
+                      setState(() => _destination = destinations[index]),
                   items: [
                     for (final destination in destinations)
                       _bottomItem(context, destination),
@@ -152,96 +149,93 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
   }
 
   List<_Destination> _visibleDestinations(SupervisorCenterState pilotState) => [
-        _Destination.home,
-        _Destination.timesheet,
-        _Destination.jobs,
-        _Destination.receipts,
-        if (pilotState.hasPermission(PilotPermission.viewManagement))
-          _Destination.employees,
-        if (pilotState.hasPermission(PilotPermission.viewManagement))
-          _Destination.management,
-        _Destination.settings,
-      ];
+    _Destination.home,
+    _Destination.timesheet,
+    _Destination.jobs,
+    _Destination.receipts,
+    if (pilotState.hasPermission(PilotPermission.viewManagement))
+      _Destination.employees,
+    if (pilotState.hasPermission(PilotPermission.viewManagement))
+      _Destination.management,
+    _Destination.settings,
+  ];
 
   BottomNavigationBarItem _bottomItem(
     BuildContext context,
     _Destination destination,
-  ) =>
-      switch (destination) {
-        _Destination.home => BottomNavigationBarItem(
-            icon: const Icon(Icons.dashboard),
-            label: context.tr('nav.home'),
-          ),
-        _Destination.timesheet => BottomNavigationBarItem(
-            icon: const Icon(Icons.table_chart),
-            label: context.tr('nav.timesheet'),
-          ),
-        _Destination.jobs => BottomNavigationBarItem(
-            icon: const Icon(Icons.apartment),
-            label: context.tr('nav.jobs'),
-          ),
-        _Destination.receipts => BottomNavigationBarItem(
-            icon: const Icon(Icons.receipt_long),
-            label: context.tr('nav.receipts'),
-          ),
-        _Destination.employees => BottomNavigationBarItem(
-            icon: const Icon(Icons.badge),
-            label: context.tr('nav.employees'),
-          ),
-        _Destination.management => BottomNavigationBarItem(
-            icon: const Icon(Icons.engineering_outlined),
-            label: context.tr('nav.management'),
-          ),
-        _Destination.settings => BottomNavigationBarItem(
-            icon: const Icon(Icons.menu),
-            label: context.tr('nav.menu'),
-          ),
-      };
+  ) => switch (destination) {
+    _Destination.home => BottomNavigationBarItem(
+      icon: const Icon(Icons.dashboard),
+      label: context.tr('nav.home'),
+    ),
+    _Destination.timesheet => BottomNavigationBarItem(
+      icon: const Icon(Icons.table_chart),
+      label: context.tr('nav.timesheet'),
+    ),
+    _Destination.jobs => BottomNavigationBarItem(
+      icon: const Icon(Icons.apartment),
+      label: context.tr('nav.jobs'),
+    ),
+    _Destination.receipts => BottomNavigationBarItem(
+      icon: const Icon(Icons.receipt_long),
+      label: context.tr('nav.receipts'),
+    ),
+    _Destination.employees => BottomNavigationBarItem(
+      icon: const Icon(Icons.badge),
+      label: context.tr('nav.employees'),
+    ),
+    _Destination.management => BottomNavigationBarItem(
+      icon: const Icon(Icons.engineering_outlined),
+      label: context.tr('nav.management'),
+    ),
+    _Destination.settings => BottomNavigationBarItem(
+      icon: const Icon(Icons.menu),
+      label: context.tr('nav.menu'),
+    ),
+  };
 
   Widget _selectedScreen(
     FieldTimeState state,
     SupervisorCenterState pilotState,
     _Destination selected,
-  ) =>
-      switch (selected) {
-        _Destination.home => _HomeView(
-            state: state,
-            now: _now,
-            onClockIn: _clockIn,
-            onSwitchJob: _switchJob,
-            onEndDay: _endDay,
-            onReceipt: _receipt,
-            onPhoto: _photo,
-            onObservation: _observation,
-            onTimesheet: () =>
-                setState(() => _destination = _Destination.timesheet),
-          ),
-        _Destination.timesheet => const TimesheetScreen(embedded: true),
-        _Destination.jobs => _JobsView(
-            snapshot: state.snapshot,
-            canCreateJob: pilotState.hasPermission(PilotPermission.createJob),
-          ),
-        _Destination.receipts => _ReceiptsView(
-            snapshot: state.snapshot,
-            onReceipt: _receipt,
-          ),
-        _Destination.employees =>
-          const EmployeesManagementScreen(embedded: true),
-        _Destination.management => const SupervisorCenterScreen(),
-        _Destination.settings => _SettingsView(
-            currentVersion: 'v1.1.0-test3',
-            onJobsImport: _openJobsImport,
-            onLogout: _logout,
-            currentLanguage: ref.watch(appLanguageControllerProvider),
-            onLanguageChanged: (language) async {
-              final savedMessage = context.tr('settings.saved');
-              await ref
-                  .read(appLanguageControllerProvider.notifier)
-                  .setLanguage(language);
-              if (mounted) _message(savedMessage);
-            },
-          ),
-      };
+  ) => switch (selected) {
+    _Destination.home => _HomeView(
+      state: state,
+      now: _now,
+      onClockIn: _clockIn,
+      onSwitchJob: _switchJob,
+      onEndDay: _endDay,
+      onReceipt: _receipt,
+      onPhoto: _photo,
+      onObservation: _observation,
+      onTimesheet: () => setState(() => _destination = _Destination.timesheet),
+    ),
+    _Destination.timesheet => const TimesheetScreen(embedded: true),
+    _Destination.jobs => _JobsView(
+      snapshot: state.snapshot,
+      canCreateJob: pilotState.hasPermission(PilotPermission.createJob),
+    ),
+    _Destination.receipts => _ReceiptsView(
+      snapshot: state.snapshot,
+      onReceipt: _receipt,
+      onEditReceipt: _editReceipt,
+    ),
+    _Destination.employees => const EmployeesManagementScreen(embedded: true),
+    _Destination.management => const SupervisorCenterScreen(),
+    _Destination.settings => _SettingsView(
+      currentVersion: 'v1.1.0-test4',
+      onJobsImport: _openJobsImport,
+      onLogout: _logout,
+      currentLanguage: ref.watch(appLanguageControllerProvider),
+      onLanguageChanged: (language) async {
+        final savedMessage = context.tr('settings.saved');
+        await ref
+            .read(appLanguageControllerProvider.notifier)
+            .setLanguage(language);
+        if (mounted) _message(savedMessage);
+      },
+    ),
+  };
 
   Future<void> _logout() async {
     final confirmed = await showDialog<bool>(
@@ -303,44 +297,27 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    final receiptChoice = await showDialog<_EndDayReceiptChoice>(
+
+    await ref.read(fieldTimeControllerProvider.notifier).endDay(null);
+    if (!mounted) return;
+    final state = ref.read(fieldTimeControllerProvider);
+    if (state.lastCompletedDay == null) return;
+
+    await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(context.tr('receipts.title')),
-        content: Text(context.tr('endDay.receiptQuestion')),
+        title: Text(context.tr('endDay.success')),
+        content: Text(
+          '${context.tr('endDay.success')}. ${context.tr('endDay.rest')}!',
+        ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, _EndDayReceiptChoice.back),
-            child: Text(context.tr('common.cancel')),
-          ),
-          TextButton(
-            onPressed: () =>
-                Navigator.pop(context, _EndDayReceiptChoice.noReceipts),
-            child: Text(context.tr('endDay.noReceipts')),
-          ),
           FilledButton(
-            onPressed: () =>
-                Navigator.pop(context, _EndDayReceiptChoice.attachNow),
-            child: Text(context.tr('endDay.attachNow')),
+            onPressed: () => Navigator.pop(context),
+            child: Text(context.tr('common.done')),
           ),
         ],
       ),
     );
-    if (!mounted ||
-        receiptChoice == null ||
-        receiptChoice == _EndDayReceiptChoice.back) {
-      return;
-    }
-    if (receiptChoice == _EndDayReceiptChoice.attachNow) {
-      await _receipt();
-      if (!mounted) return;
-    }
-    await ref.read(fieldTimeControllerProvider.notifier).endDay(null);
-    if (!mounted) return;
-    final state = ref.read(fieldTimeControllerProvider);
-    if (state.lastCompletedDay != null) {
-      await _showDaySummary(state.lastCompletedDay!, state.snapshot);
-    }
   }
 
   Future<void> _receipt() async {
@@ -352,15 +329,35 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
     }
     final submission = await showDialog<ReceiptSubmission>(
       context: context,
-      builder: (_) => ReceiptDialog(
-        jobs: state.snapshot.jobs,
-        initialJob: initialJob,
-      ),
+      builder: (_) =>
+          ReceiptDialog(jobs: state.snapshot.jobs, initialJob: initialJob),
     );
     if (submission == null) return;
     await ref
         .read(fieldTimeControllerProvider.notifier)
         .saveReceipt(submission.draft, submission.file);
+  }
+
+  Future<void> _editReceipt(Receipt receipt) async {
+    if (receipt.status != ReceiptStatus.draft) return;
+    final state = ref.read(fieldTimeControllerProvider);
+    if (state.snapshot.jobs.isEmpty) return;
+    Job? initialJob;
+    for (final job in state.snapshot.jobs) {
+      if (job.id == receipt.jobId) initialJob = job;
+    }
+    final submission = await showDialog<ReceiptSubmission>(
+      context: context,
+      builder: (_) => ReceiptDialog(
+        jobs: state.snapshot.jobs,
+        initialJob: initialJob,
+        initialReceipt: receipt,
+      ),
+    );
+    if (submission == null) return;
+    await ref
+        .read(fieldTimeControllerProvider.notifier)
+        .updateReceipt(receipt, submission.draft, submission.file);
   }
 
   Future<void> _photo() async {
@@ -456,127 +453,60 @@ final class _TimeRecordsScreenState extends ConsumerState<TimeRecordsScreen> {
   }
 
   Future<Job?> _selectJob(String title, List<Job> jobs) => showDialog<Job>(
-        context: context,
-        builder: (context) => SimpleDialog(
-          title: Text(title),
-          children: [
-            if (jobs.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                child: JkddEmptyState(
-                  icon: Icons.apartment_outlined,
-                  title: context.tr('jobs.noJobsAvailable'),
-                  message: context.tr('jobs.noJobsAvailableHelp'),
-                ),
-              )
-            else
-              for (final job in jobs)
-                SimpleDialogOption(
-                  onPressed: () => Navigator.pop(context, job),
-                  child: ListTile(
-                    leading: const Icon(Icons.apartment_outlined),
-                    title: Text('${job.number} - ${job.name}'),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(job.address),
-                        if (job.city?.trim().isNotEmpty == true)
-                          Text(job.city!),
-                        const SizedBox(height: AppSpacing.xs),
-                        JkddStatusChip(
-                          label: job.active
-                              ? context.tr('jobs.active')
-                              : context.tr('jobs.inactive'),
-                          icon: job.active
-                              ? Icons.check_circle_outline
-                              : Icons.block,
-                          tone: job.active
-                              ? JkddStatusTone.success
-                              : JkddStatusTone.neutral,
-                        ),
-                      ],
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: Text(title),
+      children: [
+        if (jobs.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: JkddEmptyState(
+              icon: Icons.apartment_outlined,
+              title: context.tr('jobs.noJobsAvailable'),
+              message: context.tr('jobs.noJobsAvailableHelp'),
+            ),
+          )
+        else
+          for (final job in jobs)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, job),
+              child: ListTile(
+                leading: const Icon(Icons.apartment_outlined),
+                title: Text('${job.number} - ${job.name}'),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(job.address),
+                    if (job.city?.trim().isNotEmpty == true) Text(job.city!),
+                    const SizedBox(height: AppSpacing.xs),
+                    JkddStatusChip(
+                      label: job.active
+                          ? context.tr('jobs.active')
+                          : context.tr('jobs.inactive'),
+                      icon: job.active
+                          ? Icons.check_circle_outline
+                          : Icons.block,
+                      tone: job.active
+                          ? JkddStatusTone.success
+                          : JkddStatusTone.neutral,
                     ),
-                  ),
+                  ],
                 ),
-          ],
-        ),
-      );
+              ),
+            ),
+      ],
+    ),
+  );
 
   Future<void> _openJobsImport() async {
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => const JobsImportScreen(),
-      ),
+      MaterialPageRoute<void>(builder: (context) => const JobsImportScreen()),
     );
   }
 
-  Future<void> _showDaySummary(WorkDay day, FieldTimeSnapshot snapshot) async {
-    final sentReceipts = snapshot.receipts
-        .where(
-          (receipt) =>
-              _sameDate(receipt.purchaseDate, day.workDate) &&
-              receipt.status != ReceiptStatus.draft,
-        )
-        .length;
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.tr('endDay.summary')),
-        content: SizedBox(
-          width: 520,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SummaryLine(
-                    context.tr('endDay.firstClockIn'), _time(day.firstClockIn)),
-                _SummaryLine(
-                    context.tr('endDay.lastClockOut'), _time(day.lastClockOut)),
-                _SummaryLine(context.tr('home.hoursWorked'),
-                    _duration(day.workedDuration)),
-                _SummaryLine(context.tr('home.bonusHours'),
-                    _hours(day.travelBonusHours)),
-                _SummaryLine(context.tr('endDay.receiptsSubmitted'),
-                    sentReceipts.toString()),
-                _SummaryLine(
-                  context.tr('home.pendingSync'),
-                  snapshot.syncQueue.length.toString(),
-                ),
-                const Divider(height: 24),
-                Text(context.tr('home.jobsVisited'),
-                    style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                for (final segment in day.segments)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(
-                      '${segment.jobNumber} - ${segment.jobName}: '
-                      '${_duration(segment.duration())}',
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() => _destination = _Destination.timesheet);
-            },
-            child: Text(context.tr('endDay.viewTimesheet')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(context.tr('common.done')),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _message(String value) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(value)));
+  void _message(String value) => ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text(value)));
 }
 
 final class _DesktopNavigation extends StatelessWidget {
@@ -617,7 +547,9 @@ final class _DesktopNavigation extends StatelessWidget {
             child: Text(
               context.tr('brand.byDeveloper'),
               style: const TextStyle(
-                  color: Color(0xffcbd5e1), fontWeight: FontWeight.w700),
+                color: Color(0xffcbd5e1),
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -628,44 +560,43 @@ final class _DesktopNavigation extends StatelessWidget {
   NavigationRailDestination _railDestination(
     BuildContext context,
     _Destination destination,
-  ) =>
-      switch (destination) {
-        _Destination.home => NavigationRailDestination(
-            icon: const Icon(Icons.dashboard_outlined),
-            selectedIcon: const Icon(Icons.dashboard),
-            label: Text(context.tr('nav.home')),
-          ),
-        _Destination.timesheet => NavigationRailDestination(
-            icon: const Icon(Icons.table_chart_outlined),
-            selectedIcon: const Icon(Icons.table_chart),
-            label: Text(context.tr('nav.timesheet')),
-          ),
-        _Destination.jobs => NavigationRailDestination(
-            icon: const Icon(Icons.apartment_outlined),
-            selectedIcon: const Icon(Icons.apartment),
-            label: Text(context.tr('nav.jobs')),
-          ),
-        _Destination.receipts => NavigationRailDestination(
-            icon: const Icon(Icons.receipt_long_outlined),
-            selectedIcon: const Icon(Icons.receipt_long),
-            label: Text(context.tr('nav.receipts')),
-          ),
-        _Destination.employees => NavigationRailDestination(
-            icon: const Icon(Icons.badge_outlined),
-            selectedIcon: const Icon(Icons.badge),
-            label: Text(context.tr('nav.employees')),
-          ),
-        _Destination.management => NavigationRailDestination(
-            icon: const Icon(Icons.engineering_outlined),
-            selectedIcon: const Icon(Icons.engineering),
-            label: Text(context.tr('nav.management')),
-          ),
-        _Destination.settings => NavigationRailDestination(
-            icon: const Icon(Icons.settings_outlined),
-            selectedIcon: const Icon(Icons.settings),
-            label: Text(context.tr('settings.title')),
-          ),
-      };
+  ) => switch (destination) {
+    _Destination.home => NavigationRailDestination(
+      icon: const Icon(Icons.dashboard_outlined),
+      selectedIcon: const Icon(Icons.dashboard),
+      label: Text(context.tr('nav.home')),
+    ),
+    _Destination.timesheet => NavigationRailDestination(
+      icon: const Icon(Icons.table_chart_outlined),
+      selectedIcon: const Icon(Icons.table_chart),
+      label: Text(context.tr('nav.timesheet')),
+    ),
+    _Destination.jobs => NavigationRailDestination(
+      icon: const Icon(Icons.apartment_outlined),
+      selectedIcon: const Icon(Icons.apartment),
+      label: Text(context.tr('nav.jobs')),
+    ),
+    _Destination.receipts => NavigationRailDestination(
+      icon: const Icon(Icons.receipt_long_outlined),
+      selectedIcon: const Icon(Icons.receipt_long),
+      label: Text(context.tr('nav.receipts')),
+    ),
+    _Destination.employees => NavigationRailDestination(
+      icon: const Icon(Icons.badge_outlined),
+      selectedIcon: const Icon(Icons.badge),
+      label: Text(context.tr('nav.employees')),
+    ),
+    _Destination.management => NavigationRailDestination(
+      icon: const Icon(Icons.engineering_outlined),
+      selectedIcon: const Icon(Icons.engineering),
+      label: Text(context.tr('nav.management')),
+    ),
+    _Destination.settings => NavigationRailDestination(
+      icon: const Icon(Icons.settings_outlined),
+      selectedIcon: const Icon(Icons.settings),
+      label: Text(context.tr('settings.title')),
+    ),
+  };
 }
 
 final class _HomeView extends StatelessWidget {
@@ -801,18 +732,16 @@ final class _GreetingBand extends StatelessWidget {
               children: [
                 Text(
                   '${_greeting(context, now)}, ${state.snapshot.worker.displayName.isEmpty ? 'Santana' : state.snapshot.worker.displayName}.',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(color: AppColors.white),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.headlineSmall?.copyWith(color: AppColors.white),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   '${_date(now)} - ${working ? context.tr('home.workdayInProgress') : context.tr('home.readyToClockIn')}',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyLarge
-                      ?.copyWith(color: const Color(0xffcbd5e1)),
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: const Color(0xffcbd5e1),
+                  ),
                 ),
               ],
             ),
@@ -842,10 +771,9 @@ final class _GreetingBand extends StatelessWidget {
                     : JkddStatusTone.warning,
               ),
               JkddStatusChip(
-                label: context.tr(
-                  'home.pendingItems',
-                  {'count': state.pendingItems},
-                ),
+                label: context.tr('home.pendingItems', {
+                  'count': state.pendingItems,
+                }),
                 icon: Icons.sync_problem_outlined,
                 tone: state.pendingItems == 0
                     ? JkddStatusTone.success
@@ -907,10 +835,9 @@ final class _CurrentStatusCard extends StatelessWidget {
                   child: Text(
                     segment?.jobAddress ??
                         context.tr('home.selectJobWhenClockingIn'),
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyLarge
-                        ?.copyWith(color: AppColors.gray),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyLarge?.copyWith(color: AppColors.gray),
                   ),
                 ),
                 if (segment != null)
@@ -989,8 +916,10 @@ final class _ActionCenter extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(context.tr('home.primaryAction'),
-                style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              context.tr('home.primaryAction'),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: AppSpacing.md),
             JkddPrimaryButton(
               label: working
@@ -1008,24 +937,41 @@ final class _ActionCenter extends StatelessWidget {
               const LinearProgressIndicator(),
             ],
             const SizedBox(height: AppSpacing.xl),
-            Text(context.tr('home.secondaryActions'),
-                style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              context.tr('home.secondaryActions'),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: AppSpacing.md),
             _ActionButtonGrid(
               actions: [
                 _ActionSpec(
-                    context.tr('home.switchJob'), Icons.swap_horiz, onSwitchJob,
-                    enabled: working),
-                _ActionSpec(context.tr('home.attachReceipt'),
-                    Icons.receipt_long_outlined, onReceipt),
-                _ActionSpec(context.tr('home.addPhoto'),
-                    Icons.add_a_photo_outlined, onPhoto,
-                    enabled: working),
-                _ActionSpec(context.tr('home.addNote'), Icons.note_add_outlined,
-                    onObservation,
-                    enabled: working),
-                _ActionSpec(context.tr('home.myTimesheet'),
-                    Icons.table_chart_outlined, onTimesheet),
+                  context.tr('home.switchJob'),
+                  Icons.swap_horiz,
+                  onSwitchJob,
+                  enabled: working,
+                ),
+                _ActionSpec(
+                  context.tr('home.attachReceipt'),
+                  Icons.receipt_long_outlined,
+                  onReceipt,
+                ),
+                _ActionSpec(
+                  context.tr('home.addPhoto'),
+                  Icons.add_a_photo_outlined,
+                  onPhoto,
+                  enabled: working,
+                ),
+                _ActionSpec(
+                  context.tr('home.addNote'),
+                  Icons.note_add_outlined,
+                  onObservation,
+                  enabled: working,
+                ),
+                _ActionSpec(
+                  context.tr('home.myTimesheet'),
+                  Icons.table_chart_outlined,
+                  onTimesheet,
+                ),
               ],
             ),
           ],
@@ -1036,8 +982,12 @@ final class _ActionCenter extends StatelessWidget {
 }
 
 final class _ActionSpec {
-  const _ActionSpec(this.label, this.icon, this.onPressed,
-      {this.enabled = true});
+  const _ActionSpec(
+    this.label,
+    this.icon,
+    this.onPressed, {
+    this.enabled = true,
+  });
 
   final String label;
   final IconData icon;
@@ -1110,8 +1060,10 @@ final class _ReceiptOverview extends StatelessWidget {
             Card(
               margin: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: ListTile(
-                leading: const Icon(Icons.receipt_long_outlined,
-                    color: AppColors.amber),
+                leading: const Icon(
+                  Icons.receipt_long_outlined,
+                  color: AppColors.amber,
+                ),
                 title: Text(receipt.merchant),
                 subtitle: Text(_receiptStatus(context, receipt.status)),
                 trailing: Text(_money(receipt.total)),
@@ -1147,22 +1099,24 @@ final class _JobsViewState extends State<_JobsView> {
 
   List<Job> get _filteredJobs {
     final query = _search.text.trim().toLowerCase();
-    return widget.snapshot.jobs.where((job) {
-      final matchesFilter = switch (_filter) {
-        _JobFilter.active => job.active,
-        _JobFilter.inactive => !job.active,
-        _JobFilter.withBonus => job.travelBonusHours > 0,
-        _JobFilter.all => true,
-      };
-      if (!matchesFilter) return false;
-      if (query.isEmpty) return true;
-      return [
-        job.number,
-        job.name,
-        job.address,
-        job.city ?? '',
-      ].any((value) => value.toLowerCase().contains(query));
-    }).toList(growable: false);
+    return widget.snapshot.jobs
+        .where((job) {
+          final matchesFilter = switch (_filter) {
+            _JobFilter.active => job.active,
+            _JobFilter.inactive => !job.active,
+            _JobFilter.withBonus => job.travelBonusHours > 0,
+            _JobFilter.all => true,
+          };
+          if (!matchesFilter) return false;
+          if (query.isEmpty) return true;
+          return [
+            job.number,
+            job.name,
+            job.address,
+            job.city ?? '',
+          ].any((value) => value.toLowerCase().contains(query));
+        })
+        .toList(growable: false);
   }
 
   @override
@@ -1376,16 +1330,14 @@ final class _JobsViewState extends State<_JobsView> {
   }
 
   Future<void> _showNewJobRequest() async {
-    final requestNumber = RegistrationNumberPolicy.next(
-      RegistrationRecordType.newJobRequest,
-      [
-        if (_newJobRequestSequence > 0)
-          RegistrationNumberPolicy.format(
-            RegistrationRecordType.newJobRequest,
-            _newJobRequestSequence,
-          ),
-      ],
-    );
+    final requestNumber =
+        RegistrationNumberPolicy.next(RegistrationRecordType.newJobRequest, [
+          if (_newJobRequestSequence > 0)
+            RegistrationNumberPolicy.format(
+              RegistrationRecordType.newJobRequest,
+              _newJobRequestSequence,
+            ),
+        ]);
     final number = TextEditingController(text: requestNumber);
     final name = TextEditingController();
     final address = TextEditingController();
@@ -1411,13 +1363,15 @@ final class _JobsViewState extends State<_JobsView> {
               ),
               TextField(
                 controller: name,
-                decoration:
-                    InputDecoration(labelText: context.tr('jobs.jobName')),
+                decoration: InputDecoration(
+                  labelText: context.tr('jobs.jobName'),
+                ),
               ),
               TextField(
                 controller: address,
-                decoration:
-                    InputDecoration(labelText: context.tr('jobs.address')),
+                decoration: InputDecoration(
+                  labelText: context.tr('jobs.address'),
+                ),
               ),
               TextField(
                 controller: city,
@@ -1425,20 +1379,23 @@ final class _JobsViewState extends State<_JobsView> {
               ),
               TextField(
                 controller: state,
-                decoration:
-                    InputDecoration(labelText: context.tr('jobs.state')),
+                decoration: InputDecoration(
+                  labelText: context.tr('jobs.state'),
+                ),
               ),
               TextField(
                 controller: zip,
-                decoration:
-                    InputDecoration(labelText: context.tr('jobs.zipCode')),
+                decoration: InputDecoration(
+                  labelText: context.tr('jobs.zipCode'),
+                ),
               ),
               TextField(
                 controller: note,
                 minLines: 2,
                 maxLines: 4,
-                decoration:
-                    InputDecoration(labelText: context.tr('timesheet.notes')),
+                decoration: InputDecoration(
+                  labelText: context.tr('timesheet.notes'),
+                ),
               ),
             ],
           ),
@@ -1455,9 +1412,11 @@ final class _JobsViewState extends State<_JobsView> {
         ],
       ),
     );
-    final duplicate = widget.snapshot.jobs.any((job) =>
-        job.number == number.text.trim() ||
-        job.address.toLowerCase() == address.text.trim().toLowerCase());
+    final duplicate = widget.snapshot.jobs.any(
+      (job) =>
+          job.number == number.text.trim() ||
+          job.address.toLowerCase() == address.text.trim().toLowerCase(),
+    );
     number.dispose();
     name.dispose();
     address.dispose();
@@ -1474,8 +1433,9 @@ final class _JobsViewState extends State<_JobsView> {
     );
   }
 
-  void _message(String value) => ScaffoldMessenger.of(context)
-      .showSnackBar(SnackBar(content: Text(value)));
+  void _message(String value) => ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text(value)));
 }
 
 final class _JobCompactTile extends StatelessWidget {
@@ -1486,83 +1446,86 @@ final class _JobCompactTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-        margin: EdgeInsets.zero,
-        child: ListTile(
-          minVerticalPadding: AppSpacing.xs,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.xs,
+    margin: EdgeInsets.zero,
+    child: ListTile(
+      minVerticalPadding: AppSpacing.xs,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
+      leading: const Icon(Icons.apartment_outlined, color: AppColors.blue),
+      title: Text(
+        _jobLabel(context, job.number),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.xs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          JkddStatusChip(
+            label: job.active
+                ? context.tr('jobs.active')
+                : context.tr('jobs.inactive'),
+            icon: job.active ? Icons.check_circle_outline : Icons.block,
+            tone: job.active ? JkddStatusTone.success : JkddStatusTone.neutral,
           ),
-          leading: const Icon(Icons.apartment_outlined, color: AppColors.blue),
-          title: Text(
-            _jobLabel(context, job.number),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          if (job.travelBonusHours > 0)
+            JkddStatusChip(
+              label: context.tr('jobs.travelBonusValue', {
+                'hours': _hours(job.travelBonusHours),
+              }),
+              icon: Icons.route_outlined,
+              tone: JkddStatusTone.warning,
+            ),
+          if (job.hasPayPremium)
+            JkddStatusChip(
+              label: context.tr('jobs.payPremiumValue', {
+                'value': _payPremiumLabel(context, job),
+              }),
+              icon: Icons.workspace_premium_outlined,
+              tone: JkddStatusTone.info,
+            ),
+        ],
+      ),
+      trailing: Wrap(
+        spacing: AppSpacing.xs,
+        children: [
+          JkddJobNavigationButton(
+            address: [job.address, job.city].whereType<String>().join(' '),
+            latitude: job.latitude,
+            longitude: job.longitude,
           ),
-          subtitle: Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.xs,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              JkddStatusChip(
-                label: job.active
-                    ? context.tr('jobs.active')
-                    : context.tr('jobs.inactive'),
-                icon: job.active ? Icons.check_circle_outline : Icons.block,
-                tone: job.active
-                    ? JkddStatusTone.success
-                    : JkddStatusTone.neutral,
-              ),
-              if (job.travelBonusHours > 0)
-                JkddStatusChip(
-                  label: context.tr(
-                    'jobs.travelBonusValue',
-                    {'hours': _hours(job.travelBonusHours)},
-                  ),
-                  icon: Icons.route_outlined,
-                  tone: JkddStatusTone.warning,
-                ),
-              if (job.hasPayPremium)
-                JkddStatusChip(
-                  label: context.tr(
-                    'jobs.payPremiumValue',
-                    {'value': _payPremiumLabel(context, job)},
-                  ),
-                  icon: Icons.workspace_premium_outlined,
-                  tone: JkddStatusTone.info,
-                ),
-            ],
+          IconButton(
+            tooltip: context.tr('common.details'),
+            icon: const Icon(Icons.chevron_right),
+            onPressed: onTap,
           ),
-          trailing: Wrap(
-            spacing: AppSpacing.xs,
-            children: [
-              JkddJobNavigationButton(
-                address: [job.address, job.city].whereType<String>().join(' '),
-                latitude: job.latitude,
-                longitude: job.longitude,
-              ),
-              IconButton(
-                tooltip: context.tr('common.details'),
-                icon: const Icon(Icons.chevron_right),
-                onPressed: onTap,
-              ),
-            ],
-          ),
-          onTap: onTap,
-        ),
-      );
+        ],
+      ),
+      onTap: onTap,
+    ),
+  );
 }
 
 final class _ReceiptsView extends StatelessWidget {
-  const _ReceiptsView({required this.snapshot, required this.onReceipt});
+  const _ReceiptsView({
+    required this.snapshot,
+    required this.onReceipt,
+    required this.onEditReceipt,
+  });
 
   final FieldTimeSnapshot snapshot;
   final VoidCallback onReceipt;
+  final ValueChanged<Receipt> onEditReceipt;
 
   @override
   Widget build(BuildContext context) {
-    final total = snapshot.reimbursements
-        .fold<double>(0, (sum, item) => sum + item.amount);
+    final total = snapshot.reimbursements.fold<double>(
+      0,
+      (sum, item) => sum + item.amount,
+    );
     return _PageFrame(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1591,13 +1554,31 @@ final class _ReceiptsView extends StatelessWidget {
               Card(
                 margin: const EdgeInsets.only(bottom: AppSpacing.md),
                 child: ListTile(
-                  leading: const Icon(Icons.receipt_long_outlined,
-                      color: AppColors.amber),
+                  leading: const Icon(
+                    Icons.receipt_long_outlined,
+                    color: AppColors.amber,
+                  ),
                   title: Text(receipt.merchant),
                   subtitle: Text(
-                      '${receipt.registrationNumber.isEmpty ? '' : '${receipt.registrationNumber} - '}'
-                      '${_date(receipt.purchaseDate)} - ${_receiptStatus(context, receipt.status)}'),
-                  trailing: Text(_money(receipt.total)),
+                    '${receipt.registrationNumber.isEmpty ? '' : '${receipt.registrationNumber} - '}'
+                    '${_date(receipt.purchaseDate)} - ${_receiptStatus(context, receipt.status)}',
+                  ),
+                  trailing: Wrap(
+                    spacing: AppSpacing.sm,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(_money(receipt.total)),
+                      if (receipt.status == ReceiptStatus.draft)
+                        OutlinedButton.icon(
+                          onPressed: () => onEditReceipt(receipt),
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          label: const Text('Editar'),
+                        ),
+                    ],
+                  ),
+                  onTap: receipt.status == ReceiptStatus.draft
+                      ? () => onEditReceipt(receipt)
+                      : null,
                 ),
               ),
         ],
@@ -1646,14 +1627,21 @@ final class _SettingsView extends StatelessWidget {
           _SettingsSection(
             title: context.tr('settings.account'),
             children: [
-              _SettingsTile(context.tr('settings.profile'),
-                  Icons.person_outline, context.tr('common.comingSoon')),
-              _SettingsTile(context.tr('settings.company'),
-                  Icons.business_outlined, context.tr('common.comingSoon')),
               _SettingsTile(
-                  context.tr('settings.permissions'),
-                  Icons.verified_user_outlined,
-                  context.tr('common.comingSoon')),
+                context.tr('settings.profile'),
+                Icons.person_outline,
+                context.tr('common.comingSoon'),
+              ),
+              _SettingsTile(
+                context.tr('settings.company'),
+                Icons.business_outlined,
+                context.tr('common.comingSoon'),
+              ),
+              _SettingsTile(
+                context.tr('settings.permissions'),
+                Icons.verified_user_outlined,
+                context.tr('common.comingSoon'),
+              ),
               _SettingsActionTile(
                 title: context.tr('auth.logout'),
                 icon: Icons.logout_outlined,
@@ -1669,44 +1657,71 @@ final class _SettingsView extends StatelessWidget {
                 currentLanguage: currentLanguage,
                 onChanged: onLanguageChanged,
               ),
-              _SettingsTile(context.tr('settings.theme'),
-                  Icons.dark_mode_outlined, context.tr('common.systemDefault')),
               _SettingsTile(
-                  context.tr('settings.dateFormat'),
-                  Icons.calendar_today_outlined,
-                  context.tr('settings.dateFormatValue')),
+                context.tr('settings.theme'),
+                Icons.dark_mode_outlined,
+                context.tr('common.systemDefault'),
+              ),
               _SettingsTile(
-                  context.tr('settings.timeFormat'),
-                  Icons.schedule_outlined,
-                  context.tr('settings.timeFormatValue')),
-              _SettingsTile(context.tr('settings.units'),
-                  Icons.straighten_outlined, context.tr('common.us')),
+                context.tr('settings.dateFormat'),
+                Icons.calendar_today_outlined,
+                context.tr('settings.dateFormatValue'),
+              ),
+              _SettingsTile(
+                context.tr('settings.timeFormat'),
+                Icons.schedule_outlined,
+                context.tr('settings.timeFormatValue'),
+              ),
+              _SettingsTile(
+                context.tr('settings.units'),
+                Icons.straighten_outlined,
+                context.tr('common.us'),
+              ),
             ],
           ),
           _SettingsSection(
             title: context.tr('settings.reports'),
             children: [
-              _SettingsTile(context.tr('settings.timesheetFormat'),
-                  Icons.table_chart_outlined, context.tr('common.comingSoon')),
-              _SettingsTile(context.tr('settings.defaultPaperSize'),
-                  Icons.description_outlined, context.tr('common.letter')),
               _SettingsTile(
-                  context.tr('settings.pdfOrientation'),
-                  Icons.screen_rotation_alt_outlined,
-                  context.tr('settings.landscapePlanned')),
+                context.tr('settings.timesheetFormat'),
+                Icons.table_chart_outlined,
+                context.tr('common.comingSoon'),
+              ),
+              _SettingsTile(
+                context.tr('settings.defaultPaperSize'),
+                Icons.description_outlined,
+                context.tr('common.letter'),
+              ),
+              _SettingsTile(
+                context.tr('settings.pdfOrientation'),
+                Icons.screen_rotation_alt_outlined,
+                context.tr('settings.landscapePlanned'),
+              ),
             ],
           ),
           _SettingsSection(
             title: context.tr('settings.about'),
             children: [
-              _SettingsTile(context.tr('app.title'), Icons.info_outline,
-                  context.tr('brand.byDeveloper')),
-              _SettingsTile(context.tr('settings.version'), Icons.tag_outlined,
-                  currentVersion),
-              _SettingsTile(context.tr('settings.privacy'),
-                  Icons.privacy_tip_outlined, context.tr('common.comingSoon')),
-              _SettingsTile(context.tr('settings.terms'),
-                  Icons.article_outlined, context.tr('common.comingSoon')),
+              _SettingsTile(
+                context.tr('app.title'),
+                Icons.info_outline,
+                context.tr('brand.byDeveloper'),
+              ),
+              _SettingsTile(
+                context.tr('settings.version'),
+                Icons.tag_outlined,
+                currentVersion,
+              ),
+              _SettingsTile(
+                context.tr('settings.privacy'),
+                Icons.privacy_tip_outlined,
+                context.tr('common.comingSoon'),
+              ),
+              _SettingsTile(
+                context.tr('settings.terms'),
+                Icons.article_outlined,
+                context.tr('common.comingSoon'),
+              ),
             ],
           ),
         ],
@@ -1787,10 +1802,7 @@ final class _SettingsActionTile extends StatelessWidget {
 }
 
 final class _LanguageTile extends StatefulWidget {
-  const _LanguageTile({
-    required this.currentLanguage,
-    required this.onChanged,
-  });
+  const _LanguageTile({required this.currentLanguage, required this.onChanged});
 
   final AppLanguage currentLanguage;
   final ValueChanged<AppLanguage> onChanged;
@@ -1835,15 +1847,16 @@ final class _LanguageTileState extends State<_LanguageTile> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(context.tr('settings.language'),
-                    style: Theme.of(context).textTheme.bodyLarge),
+                Text(
+                  context.tr('settings.language'),
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
                 const SizedBox(height: 4),
                 Text(
                   context.tr('settings.languageHelp'),
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(color: AppColors.gray),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: AppColors.gray),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Wrap(
@@ -1874,7 +1887,8 @@ final class _LanguageTileState extends State<_LanguageTile> {
                     OutlinedButton.icon(
                       onPressed: _dirty
                           ? () => setState(
-                              () => _draftLanguage = widget.currentLanguage)
+                              () => _draftLanguage = widget.currentLanguage,
+                            )
                           : null,
                       icon: const Icon(Icons.undo_outlined),
                       label: Text(context.tr('common.discard')),
@@ -1897,42 +1911,20 @@ final class _LanguageTileState extends State<_LanguageTile> {
   }
 }
 
-final class _SummaryLine extends StatelessWidget {
-  const _SummaryLine(this.label, this.value);
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(
-          children: [
-            Expanded(child: Text(label)),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
-          ],
-        ),
-      );
-}
-
-bool _sameDate(DateTime left, DateTime right) =>
-    left.year == right.year &&
-    left.month == right.month &&
-    left.day == right.day;
-
 String _greeting(BuildContext context, DateTime value) {
   if (value.hour < 12) return context.tr('home.goodMorning');
   if (value.hour < 18) return context.tr('home.goodAfternoon');
   return context.tr('home.goodEvening');
 }
 
-String _date(DateTime value) => '${value.month.toString().padLeft(2, '0')}/'
+String _date(DateTime value) =>
+    '${value.month.toString().padLeft(2, '0')}/'
     '${value.day.toString().padLeft(2, '0')}/${value.year}';
 
 String _time(DateTime? value) => value == null
     ? '--:--'
     : '${value.hour.toString().padLeft(2, '0')}:'
-        '${value.minute.toString().padLeft(2, '0')}';
+          '${value.minute.toString().padLeft(2, '0')}';
 
 String _duration(Duration value) =>
     '${value.inHours}h ${value.inMinutes.remainder(60).toString().padLeft(2, '0')}m';
@@ -1985,7 +1977,8 @@ String _localizedFeedback(
   String text, [
   Map<String, Object?>? values,
 ]) {
-  final isTranslationKey =
-      RegExp(r'^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z0-9]+)+$').hasMatch(text);
+  final isTranslationKey = RegExp(
+    r'^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z0-9]+)+$',
+  ).hasMatch(text);
   return isTranslationKey ? context.tr(text, values ?? const {}) : text;
 }
