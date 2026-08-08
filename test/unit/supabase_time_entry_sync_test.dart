@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:jkdd_field_time_records_production/src/data/remote/supabase_clock_sync_coordinator.dart';
 import 'package:jkdd_field_time_records_production/src/data/remote/supabase_time_entry_sync.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
 import 'package:jkdd_field_time_records_production/src/domain/value_objects/geo_point.dart';
@@ -11,7 +12,7 @@ void main() {
     capturedAt: DateTime.utc(2026, 8, 8, 12),
   );
 
-  WorkSegment segment({DateTime? endedAt}) => WorkSegment(
+  WorkSegment segment({DateTime? endedAt, String? notes}) => WorkSegment(
         id: '018f3f4a-8a10-7c91-8000-000000000001',
         companyId: 'local-company',
         subcontractorCompanyId: 'local-subcontractor',
@@ -24,8 +25,25 @@ void main() {
         startedLocation: location,
         endedAt: endedAt,
         endedLocation: endedAt == null ? null : location,
+        notes: notes,
         laborType: LaborType.subcontractor,
       );
+
+  WorkDay day(WorkSegment value) => WorkDay(
+        id: 'day-1',
+        companyId: value.companyId,
+        subcontractorCompanyId: value.subcontractorCompanyId,
+        workerId: value.workerId,
+        workDate: DateTime.utc(2026, 8, 8),
+        status: value.isOpen ? WorkDayStatus.open : WorkDayStatus.completed,
+        segments: [value],
+        createdAt: DateTime.utc(2026, 8, 8, 12),
+        updatedAt: value.endedAt ?? value.startedAt,
+        completedAt: value.endedAt,
+      );
+
+  FieldTimeSnapshot snapshotWith(WorkSegment value) =>
+      FieldTimeSnapshot.seeded().copyWith(workDays: [day(value)]);
 
   test('open segment maps to active sync entry', () {
     final payload = SupabaseTimeEntrySync.buildPayload(
@@ -53,5 +71,42 @@ void main() {
     expect(payload['source'], 'sync');
     expect(payload['status'], 'submitted');
     expect(payload['clock_out_at'], isNotNull);
+  });
+
+  test('coordinator detects a newly created clock segment', () {
+    final before = FieldTimeSnapshot.seeded();
+    final after = snapshotWith(segment());
+
+    final changed = SupabaseClockSyncCoordinator.changedSegments(
+      before: before,
+      after: after,
+    );
+
+    expect(changed, hasLength(1));
+    expect(changed.single.id, segment().id);
+  });
+
+  test('coordinator detects Clock Out as material change', () {
+    final beforeSegment = segment();
+    final afterSegment = segment(endedAt: DateTime.utc(2026, 8, 8, 20));
+
+    final changed = SupabaseClockSyncCoordinator.changedSegments(
+      before: snapshotWith(beforeSegment),
+      after: snapshotWith(afterSegment),
+    );
+
+    expect(changed, hasLength(1));
+    expect(changed.single.endedAt, isNotNull);
+  });
+
+  test('coordinator ignores unchanged segments', () {
+    final same = segment(notes: 'same');
+
+    final changed = SupabaseClockSyncCoordinator.changedSegments(
+      before: snapshotWith(same),
+      after: snapshotWith(same),
+    );
+
+    expect(changed, isEmpty);
   });
 }
