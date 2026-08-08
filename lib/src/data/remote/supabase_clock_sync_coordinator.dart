@@ -6,7 +6,7 @@ import 'package:jkdd_field_time_records_production/src/domain/field_time_models.
 /// Local persistence remains authoritative for the current TEST build. This
 /// coordinator mirrors only segments that are new or materially changed after
 /// a successful local save. Remote failures must never roll back a local clock
-/// mutation; the existing sync queue remains available for later retries.
+/// mutation; the persisted snapshot can later be replayed idempotently.
 final class SupabaseClockSyncCoordinator {
   const SupabaseClockSyncCoordinator({SupabaseTimeEntrySync? sync})
       : _sync = sync;
@@ -23,6 +23,24 @@ final class SupabaseClockSyncCoordinator {
     final sync = _sync ?? SupabaseTimeEntrySync();
     await sync.syncSegments(changed);
   }
+
+  /// Replays persisted clock segments after connectivity/session recovery.
+  ///
+  /// The remote adapter uses upsert semantics, so replaying the persisted
+  /// snapshot is intentionally idempotent and avoids depending on a perfect
+  /// local queue history while the TEST architecture is still evolving.
+  Future<void> retryPersistedSnapshot(FieldTimeSnapshot snapshot) async {
+    final segments = segmentsForRetry(snapshot);
+    if (segments.isEmpty) return;
+
+    final sync = _sync ?? SupabaseTimeEntrySync();
+    await sync.syncSegments(segments);
+  }
+
+  static List<WorkSegment> segmentsForRetry(FieldTimeSnapshot snapshot) => [
+        for (final day in snapshot.workDays)
+          for (final segment in day.segments) segment,
+      ];
 
   static List<WorkSegment> changedSegments({
     required FieldTimeSnapshot before,
