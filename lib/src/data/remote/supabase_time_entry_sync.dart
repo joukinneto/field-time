@@ -59,6 +59,22 @@ final class SupabaseTimeEntrySync {
     final jobId = job['id'] as String;
 
     await _client.from('time_entries').upsert(
+      buildPayload(
+        segment: segment,
+        companyId: companyId,
+        workerId: workerId,
+        jobId: jobId,
+      ),
+      onConflict: 'id',
+    );
+  }
+
+  static Map<String, Object?> buildPayload({
+    required WorkSegment segment,
+    required String companyId,
+    required String workerId,
+    required String jobId,
+  }) =>
       {
         'id': segment.id,
         'company_id': companyId,
@@ -73,12 +89,14 @@ final class SupabaseTimeEntrySync {
         'clock_out_longitude': segment.endedLocation?.longitude,
         'clock_out_accuracy_meters': segment.endedLocation?.accuracyMeters,
         'notes': segment.notes,
-        'source': 'field_time_flutter',
+        // `sync` is one of the values accepted by the TEST database constraint.
+        'source': 'sync',
+        // The database requires open entries to be `active` and closed entries
+        // to have a non-active status. A locally completed segment is submitted
+        // for supervisor review rather than self-approved by the worker.
+        'status': segment.isOpen ? 'active' : 'submitted',
         'sync_status': 'synced',
-      },
-      onConflict: 'id',
-    );
-  }
+      };
 
   Future<void> syncSegments(Iterable<WorkSegment> segments) async {
     for (final segment in segments) {
