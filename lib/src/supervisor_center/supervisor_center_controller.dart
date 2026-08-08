@@ -243,6 +243,8 @@ final class SupervisorCenterController
     required String? clockOut,
     required int breakMinutes,
     required double travelBonusHours,
+    double? extraBonusHours,
+    double? payPremiumPercent,
     required String supervisorNote,
     required String justification,
   }) {
@@ -251,15 +253,14 @@ final class SupervisorCenterController
     if (entry.isLocked) {
       throw StateError('supervisor.approvedRecordLocked');
     }
-    if (justification.trim().isEmpty) {
-      throw StateError('supervisor.changeJustificationRequired');
-    }
     final updated = entry.copyWith(
       clockIn: clockIn,
       clockOut: clockOut,
       clearClockOut: clockOut == null,
       breakMinutes: breakMinutes,
       travelBonusHours: travelBonusHours,
+      extraBonusHours: extraBonusHours ?? entry.extraBonusHours,
+      payPremiumPercent: payPremiumPercent ?? entry.payPremiumPercent,
       supervisorNote: supervisorNote,
       status: TimeReviewStatus.underReview,
     );
@@ -291,6 +292,16 @@ final class SupervisorCenterController
       'travelBonusHours',
       entry.travelBonusHours.toStringAsFixed(2),
       updated.travelBonusHours.toStringAsFixed(2),
+    );
+    addLog(
+      'extraBonusHours',
+      entry.extraBonusHours.toStringAsFixed(2),
+      updated.extraBonusHours.toStringAsFixed(2),
+    );
+    addLog(
+      'payPremiumPercent',
+      entry.payPremiumPercent.toStringAsFixed(0),
+      updated.payPremiumPercent.toStringAsFixed(0),
     );
     if (logs.isEmpty && supervisorNote.trim().isNotEmpty) {
       addLog('supervisorNote', entry.supervisorNote, supervisorNote.trim());
