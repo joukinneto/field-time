@@ -57,6 +57,19 @@ final class TimesheetPdfService {
   String decimalHoursText(Duration duration) =>
       '${decimalHours(duration).toStringAsFixed(2)} h';
 
+  List<WorkDay> reportDays({
+    required FieldTimeSnapshot snapshot,
+    required TimesheetRange range,
+  }) =>
+      snapshot.workDays
+          .where(
+            (day) =>
+                day.workerId == snapshot.worker.id &&
+                range.contains(day.workDate),
+          )
+          .toList(growable: false)
+        ..sort((left, right) => left.workDate.compareTo(right.workDate));
+
   Future<Uint8List> buildWeeklyTimesheetPdf({
     required FieldTimeSnapshot snapshot,
     required DateTime anchorDate,
@@ -66,11 +79,7 @@ final class TimesheetPdfService {
   }) async {
     const strings = AppStrings(AppLanguage.en);
     final week = rangeFor(period, anchorDate);
-    final days =
-        snapshot.workDays
-            .where((day) => week.contains(day.workDate))
-            .toList(growable: false)
-          ..sort((left, right) => left.workDate.compareTo(right.workDate));
+    final days = reportDays(snapshot: snapshot, range: week);
     final approvalStamps = await const TimesheetApprovalService().load();
     final approvalSummary = summarizeApprovals(
       days: days,
@@ -79,7 +88,9 @@ final class TimesheetPdfService {
     final receipts = snapshot.receipts
         .where((receipt) {
           final linkedJob = snapshot.jobs.any((job) => job.id == receipt.jobId);
-          return linkedJob && week.contains(receipt.purchaseDate);
+          return receipt.workerId == snapshot.worker.id &&
+              linkedJob &&
+              week.contains(receipt.purchaseDate);
         })
         .toList(growable: false);
     final totalDuration = days.fold<Duration>(
@@ -298,10 +309,21 @@ final class TimesheetPdfService {
                       ? employerName!.trim()
                       : snapshot.companyName,
                 ),
-                pw.Text('Subcontractor:'),
-                pw.Text(snapshot.subcontractor.displayName),
-                pw.Text('Responsible:'),
+                if (snapshot.worker.isSubcontractor) ...[
+                  pw.Text('Subcontractor Company:'),
+                  pw.Text(snapshot.subcontractor.displayName),
+                ],
+                pw.Text('Collaborator:'),
                 pw.Text(snapshot.worker.displayName),
+                if (snapshot.worker.registrationNumber.trim().isNotEmpty)
+                  pw.Text(
+                    'Collaborator ID: ${snapshot.worker.registrationNumber}',
+                  ),
+                if (snapshot.worker.role.trim().isNotEmpty)
+                  pw.Text('Role: ${snapshot.worker.role}'),
+                pw.Text(
+                  'Employment Type: ${_employmentTypeLabel(snapshot.worker)}',
+                ),
                 pw.Text(
                   'Reporting Period: ${_date(week.start)} to '
                   '${_date(week.end)}',
@@ -317,6 +339,14 @@ final class TimesheetPdfService {
         ],
       ),
     );
+  }
+
+  String _employmentTypeLabel(WorkerProfile worker) {
+    if (worker.isPayroll) return 'Payroll';
+    if (worker.isSubcontractor) return 'Subcontractor';
+    return worker.employmentTypeLabel.trim().isNotEmpty
+        ? worker.employmentTypeLabel.trim()
+        : 'Not defined';
   }
 
   pw.Widget _recordsTable(
