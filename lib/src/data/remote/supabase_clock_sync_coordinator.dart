@@ -4,14 +4,14 @@ import 'package:jkdd_field_time_records_production/src/domain/field_time_models.
 /// Coordinates offline-first clock mutations with the Supabase TEST mirror.
 ///
 /// Local persistence remains authoritative for the current TEST build. This
-/// coordinator only mirrors segments that are new or materially changed after
-/// a successful local save. It is intentionally separate from the controller
-/// until authenticated end-to-end tests are available.
+/// coordinator mirrors only segments that are new or materially changed after
+/// a successful local save. Remote failures must never roll back a local clock
+/// mutation; the existing sync queue remains available for later retries.
 final class SupabaseClockSyncCoordinator {
-  SupabaseClockSyncCoordinator({SupabaseTimeEntrySync? sync})
-      : _sync = sync ?? SupabaseTimeEntrySync();
+  const SupabaseClockSyncCoordinator({SupabaseTimeEntrySync? sync})
+      : _sync = sync;
 
-  final SupabaseTimeEntrySync _sync;
+  final SupabaseTimeEntrySync? _sync;
 
   Future<void> syncAfterMutation({
     required FieldTimeSnapshot before,
@@ -19,7 +19,9 @@ final class SupabaseClockSyncCoordinator {
   }) async {
     final changed = changedSegments(before: before, after: after);
     if (changed.isEmpty) return;
-    await _sync.syncSegments(changed);
+
+    final sync = _sync ?? SupabaseTimeEntrySync();
+    await sync.syncSegments(changed);
   }
 
   static List<WorkSegment> changedSegments({
