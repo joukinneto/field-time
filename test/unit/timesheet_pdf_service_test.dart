@@ -17,12 +17,47 @@ void main() {
     expect(week.end, DateTime(2026, 8, 9));
   });
 
+  test('reportDays isolates the current collaborator', () {
+    final snapshot = _snapshotWithJobs();
+    final range = service.rangeFor(TimesheetPeriod.week, DateTime(2026, 8, 5));
+    final currentDay = WorkDay(
+      id: 'current-worker-day',
+      companyId: snapshot.companyId,
+      subcontractorCompanyId: snapshot.subcontractor.id,
+      workerId: snapshot.worker.id,
+      workDate: DateTime(2026, 8, 4),
+      status: WorkDayStatus.completed,
+      segments: const [],
+      createdAt: DateTime(2026, 8, 4),
+      updatedAt: DateTime(2026, 8, 4),
+    );
+    final otherDay = WorkDay(
+      id: 'other-worker-day',
+      companyId: snapshot.companyId,
+      subcontractorCompanyId: snapshot.subcontractor.id,
+      workerId: 'another-worker',
+      workDate: DateTime(2026, 8, 4),
+      status: WorkDayStatus.completed,
+      segments: const [],
+      createdAt: DateTime(2026, 8, 4),
+      updatedAt: DateTime(2026, 8, 4),
+    );
+    final mixed = snapshot.copyWith(workDays: [currentDay, otherDay]);
+
+    final days = service.reportDays(snapshot: mixed, range: range);
+
+    expect(days, hasLength(1));
+    expect(days.single.workerId, snapshot.worker.id);
+  });
+
   test('minute conversion uses decimal hours for grand total', () {
     expect(service.decimalHours(const Duration(minutes: 30)), 0.5);
     expect(service.decimalHours(const Duration(minutes: 15)), 0.25);
     expect(service.decimalHours(const Duration(minutes: 45)), 0.75);
-    expect(service.decimalHoursText(const Duration(hours: 42, minutes: 30)),
-        '42.50 h');
+    expect(
+      service.decimalHoursText(const Duration(hours: 42, minutes: 30)),
+      '42.50 h',
+    );
   });
 
   test('generates a PDF without wage or salary labels', () async {
@@ -53,74 +88,80 @@ void main() {
     final text = String.fromCharCodes(bytes);
 
     expect(
-        bytes.take(4).map((byte) => String.fromCharCode(byte)).join(), '%PDF');
+      bytes.take(4).map((byte) => String.fromCharCode(byte)).join(),
+      '%PDF',
+    );
     expect(text.contains('hourly rate'), isFalse);
     expect(text.contains('salary'), isFalse);
     expect(text.contains('total payment'), isFalse);
   });
 
-  test('includes linked weekly receipt attachments in the generated PDF',
-      () async {
-    var snapshot = _snapshotWithJobs();
-    final job = snapshot.jobs.first;
-    final attachment = Attachment(
-      id: 'receipt-photo-1',
-      companyId: snapshot.companyId,
-      subcontractorCompanyId: snapshot.subcontractor.id,
-      workerId: snapshot.worker.id,
-      jobId: job.id,
-      kind: AttachmentKind.receipt,
-      fileName: 'receipt.png',
-      mimeType: 'image/png',
-      dataBase64: base64Encode(base64Decode(_onePixelPngBase64)),
-      createdAt: DateTime.utc(2026, 8, 3, 18),
-    );
-    final receipt = Receipt(
-      id: 'receipt-1',
-      companyId: snapshot.companyId,
-      subcontractorCompanyId: snapshot.subcontractor.id,
-      workerId: snapshot.worker.id,
-      jobId: job.id,
-      purchaseDate: DateTime.utc(2026, 8, 3),
-      merchant: 'Supply Store',
-      total: 18.75,
-      tax: 0,
-      description: 'Materials',
-      status: ReceiptStatus.submitted,
-      attachmentIds: [attachment.id],
-      userReviewed: true,
-      createdAt: DateTime.utc(2026, 8, 3, 18),
-      updatedAt: DateTime.utc(2026, 8, 3, 18),
-      notes: 'Linked receipt',
-    );
-    snapshot = snapshot.copyWith(
-      receipts: [receipt],
-      attachments: [attachment],
-    );
+  test(
+    'includes linked weekly receipt attachments in the generated PDF',
+    () async {
+      var snapshot = _snapshotWithJobs();
+      final job = snapshot.jobs.first;
+      final attachment = Attachment(
+        id: 'receipt-photo-1',
+        companyId: snapshot.companyId,
+        subcontractorCompanyId: snapshot.subcontractor.id,
+        workerId: snapshot.worker.id,
+        jobId: job.id,
+        kind: AttachmentKind.receipt,
+        fileName: 'receipt.png',
+        mimeType: 'image/png',
+        dataBase64: base64Encode(base64Decode(_onePixelPngBase64)),
+        createdAt: DateTime.utc(2026, 8, 3, 18),
+      );
+      final receipt = Receipt(
+        id: 'receipt-1',
+        companyId: snapshot.companyId,
+        subcontractorCompanyId: snapshot.subcontractor.id,
+        workerId: snapshot.worker.id,
+        jobId: job.id,
+        purchaseDate: DateTime.utc(2026, 8, 3),
+        merchant: 'Supply Store',
+        total: 18.75,
+        tax: 0,
+        description: 'Materials',
+        status: ReceiptStatus.submitted,
+        attachmentIds: [attachment.id],
+        userReviewed: true,
+        createdAt: DateTime.utc(2026, 8, 3, 18),
+        updatedAt: DateTime.utc(2026, 8, 3, 18),
+        notes: 'Linked receipt',
+      );
+      snapshot = snapshot.copyWith(
+        receipts: [receipt],
+        attachments: [attachment],
+      );
 
-    final bytes = await service.buildWeeklyTimesheetPdf(
-      snapshot: snapshot,
-      anchorDate: DateTime(2026, 8, 5),
-    );
+      final bytes = await service.buildWeeklyTimesheetPdf(
+        snapshot: snapshot,
+        anchorDate: DateTime(2026, 8, 5),
+      );
 
-    expect(
-        bytes.take(4).map((byte) => String.fromCharCode(byte)).join(), '%PDF');
-    expect(bytes.length, greaterThan(2500));
-  });
+      expect(
+        bytes.take(4).map((byte) => String.fromCharCode(byte)).join(),
+        '%PDF',
+      );
+      expect(bytes.length, greaterThan(2500));
+    },
+  );
 }
 
 const _onePixelPngBase64 =
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
 
 FieldTimeSnapshot _snapshotWithJobs() => FieldTimeSnapshot.seeded().copyWith(
-      jobs: const [
-        Job(
-          id: 'job-1001',
-          companyId: FieldTimeSnapshot.companyIdEww,
-          subcontractorCompanyId: FieldTimeSnapshot.subcontractorIdJkdd,
-          number: '1001',
-          name: 'Imported Job 1001',
-          address: 'Boca Raton, FL',
-        ),
-      ],
-    );
+  jobs: const [
+    Job(
+      id: 'job-1001',
+      companyId: FieldTimeSnapshot.companyIdEww,
+      subcontractorCompanyId: FieldTimeSnapshot.subcontractorIdJkdd,
+      number: '1001',
+      name: 'Imported Job 1001',
+      address: 'Boca Raton, FL',
+    ),
+  ],
+);

@@ -8,8 +8,9 @@ import 'package:jkdd_field_time_records_production/src/domain/field_time_models.
     as field_time;
 import 'package:shared_preferences/shared_preferences.dart';
 
-final employeeAssetRepositoryProvider =
-    Provider((ref) => const EmployeeAssetRepository());
+final employeeAssetRepositoryProvider = Provider(
+  (ref) => const EmployeeAssetRepository(),
+);
 
 final employeeCatalogProvider = FutureProvider<EmployeeCatalog>((ref) {
   return ref.watch(employeeAssetRepositoryProvider).loadCatalog();
@@ -46,8 +47,9 @@ final class EmployeeCatalogMetadata {
   factory EmployeeCatalogMetadata.fromJson(Map<String, dynamic> json) =>
       EmployeeCatalogMetadata(
         schemaVersion: _nullableString(json['schema_version']),
-        generatedAt:
-            DateTime.tryParse(_nullableString(json['generated_at']) ?? ''),
+        generatedAt: DateTime.tryParse(
+          _nullableString(json['generated_at']) ?? '',
+        ),
         sourceWorkbook: _nullableString(json['source_workbook']),
         company: _nullableString(json['company']),
         recordCount: _int(json['record_count']),
@@ -85,7 +87,8 @@ final class EmployeeFilters {
 
   bool matches(Employee employee) {
     final normalizedQuery = query.trim().toLowerCase();
-    final matchesQuery = normalizedQuery.isEmpty ||
+    final matchesQuery =
+        normalizedQuery.isEmpty ||
         employee.searchableText.contains(normalizedQuery);
     return matchesQuery &&
         _matches(status, employee.status) &&
@@ -103,8 +106,9 @@ final class EmployeeFilters {
 }
 
 final class EmployeeAssetRepository {
-  const EmployeeAssetRepository(
-      {this.assetPath = 'assets/data/employees.json'});
+  const EmployeeAssetRepository({
+    this.assetPath = 'assets/data/employees.json',
+  });
 
   static const _localEmployeesKey = 'field_time_local_employees';
 
@@ -120,7 +124,8 @@ final class EmployeeAssetRepository {
       final rows = decoded['employees'];
       if (rows is! List) {
         throw const FormatException(
-            'Employees database must contain an employees list.');
+          'Employees database must contain an employees list.',
+        );
       }
       final employees = rows
           .whereType<Map<String, dynamic>>()
@@ -182,11 +187,24 @@ final class EmployeeAssetRepository {
         subcontractorCompanyId:
             field_time.FieldTimeSnapshot.subcontractorIdJkdd,
         displayName: employee.displayName,
-        laborType: field_time.LaborType.subcontractor,
+        laborType: _laborTypeFor(employee.employmentType),
         registrationNumber: employee.registrationNumber.isNotEmpty
             ? employee.registrationNumber
             : employee.employeeId,
+        role: employee.role ?? '',
+        employmentTypeLabel: employee.employmentType ?? '',
       );
+
+  field_time.LaborType _laborTypeFor(String? employmentType) {
+    final value = employmentType?.trim().toLowerCase() ?? '';
+    if (value.contains('payroll') ||
+        value.contains('w-2') ||
+        value.contains('w2') ||
+        value.contains('employee')) {
+      return field_time.LaborType.payroll;
+    }
+    return field_time.LaborType.subcontractor;
+  }
 }
 
 int _int(Object? value) {

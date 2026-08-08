@@ -2,7 +2,7 @@ import 'package:jkdd_field_time_records_production/src/domain/value_objects/geo_
 
 enum WorkDayStatus { open, completed }
 
-enum LaborType { subcontractor }
+enum LaborType { subcontractor, payroll }
 
 enum ReceiptStatus { draft, submitted, underReview, approved, rejected, paid }
 
@@ -167,6 +167,8 @@ final class WorkerProfile {
     required this.displayName,
     required this.laborType,
     this.registrationNumber = '',
+    this.role = '',
+    this.employmentTypeLabel = '',
   });
 
   final String id;
@@ -175,8 +177,11 @@ final class WorkerProfile {
   final String displayName;
   final LaborType laborType;
   final String registrationNumber;
+  final String role;
+  final String employmentTypeLabel;
 
   bool get isSubcontractor => laborType == LaborType.subcontractor;
+  bool get isPayroll => laborType == LaborType.payroll;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -185,6 +190,8 @@ final class WorkerProfile {
     'displayName': displayName,
     'laborType': laborType.name,
     'registrationNumber': registrationNumber,
+    'role': role,
+    'employmentTypeLabel': employmentTypeLabel,
   };
 
   factory WorkerProfile.fromJson(Map<String, dynamic> json) => WorkerProfile(
@@ -194,6 +201,8 @@ final class WorkerProfile {
     displayName: json['displayName'] as String,
     laborType: LaborType.values.byName(json['laborType'] as String),
     registrationNumber: json['registrationNumber'] as String? ?? '',
+    role: json['role'] as String? ?? '',
+    employmentTypeLabel: json['employmentTypeLabel'] as String? ?? '',
   );
 }
 
