@@ -24,18 +24,25 @@ void main() {
 
     controller.approveEntry(entryId, 'Hours reviewed against job log.');
 
-    final entry =
-        controller.state.timeEntries.firstWhere((item) => item.id == entryId);
+    final entry = controller.state.timeEntries.firstWhere(
+      (item) => item.id == entryId,
+    );
     expect(entry.status, TimeReviewStatus.approved);
     expect(entry.isLocked, isTrue);
     expect(entry.approvedAt, isNotNull);
     expect(entry.approvedBy, 'Santana');
-    expect(controller.state.reviews.single.previousStatus,
-        TimeReviewStatus.pending);
     expect(
-        controller.state.reviews.single.newStatus, TimeReviewStatus.approved);
-    expect(controller.state.reviews.single.reason,
-        'Hours reviewed against job log.');
+      controller.state.reviews.single.previousStatus,
+      TimeReviewStatus.pending,
+    );
+    expect(
+      controller.state.reviews.single.newStatus,
+      TimeReviewStatus.approved,
+    );
+    expect(
+      controller.state.reviews.single.reason,
+      'Hours reviewed against job log.',
+    );
   });
 
   test('reject requires reason and exposes rejection details', () {
@@ -48,15 +55,18 @@ void main() {
     );
 
     controller.rejectEntry(entryId, 'Clock-out photo is missing.');
-    final entry =
-        controller.state.timeEntries.firstWhere((item) => item.id == entryId);
+    final entry = controller.state.timeEntries.firstWhere(
+      (item) => item.id == entryId,
+    );
 
     expect(entry.status, TimeReviewStatus.rejected);
     expect(entry.rejectedBy, 'Santana');
     expect(entry.rejectedAt, isNotNull);
     expect(entry.rejectionReason, 'Clock-out photo is missing.');
     expect(
-        controller.state.reviews.single.newStatus, TimeReviewStatus.rejected);
+      controller.state.reviews.single.newStatus,
+      TimeReviewStatus.rejected,
+    );
   });
 
   test('review request keeps data and stores history observation', () {
@@ -69,14 +79,17 @@ void main() {
       observation: 'Worker can correct and resubmit.',
     );
 
-    final entry =
-        controller.state.timeEntries.firstWhere((item) => item.id == entryId);
+    final entry = controller.state.timeEntries.firstWhere(
+      (item) => item.id == entryId,
+    );
     expect(entry.status, TimeReviewStatus.correctionRequested);
     expect(entry.reviewRequestedBy, 'Santana');
     expect(entry.reviewNote, 'Please confirm break minutes.');
     expect(entry.clockIn, '7:10 AM');
-    expect(controller.state.reviews.single.observation,
-        'Worker can correct and resubmit.');
+    expect(
+      controller.state.reviews.single.observation,
+      'Worker can correct and resubmit.',
+    );
   });
 
   test('approved entries cannot be edited by common review form', () {
@@ -100,8 +113,9 @@ void main() {
   });
 
   test('reviewer cannot approve own time record', () {
-    final controller =
-        _controllerWithEntries(currentRole: PilotRole.supervisor);
+    final controller = _controllerWithEntries(
+      currentRole: PilotRole.supervisor,
+    );
 
     expect(
       () => controller.approveEntry('entry-ter-0001', 'Approving myself.'),
@@ -110,30 +124,71 @@ void main() {
   });
 
   test(
-      'worker correction and resubmission use corrected and resubmitted status',
-      () {
-    final controller = _controllerWithEntries(currentRole: PilotRole.employee);
-    const entryId = 'entry-ter-0002';
-    controller.setRole(PilotRole.supervisor);
-    controller.rejectEntry(entryId, 'Fix required.');
-    controller.setRole(PilotRole.employee);
+    'worker correction and resubmission use corrected and resubmitted status',
+    () {
+      final controller = _controllerWithEntries(
+        currentRole: PilotRole.employee,
+      );
+      const entryId = 'entry-ter-0002';
+      controller.setRole(PilotRole.supervisor);
+      controller.rejectEntry(entryId, 'Fix required.');
+      controller.setRole(PilotRole.employee);
 
-    controller.requestCorrection(entryId, 'Fixed the clock-out note.');
+      controller.requestCorrection(entryId, 'Fixed the clock-out note.');
+      expect(
+        controller.state.timeEntries
+            .firstWhere((entry) => entry.id == entryId)
+            .status,
+        TimeReviewStatus.corrected,
+      );
+
+      controller.submitOwnTime(clockOut: '5:00 PM', note: 'Resubmitting.');
+      expect(
+        controller.state.timeEntries
+            .firstWhere((entry) => entry.id == entryId)
+            .status,
+        TimeReviewStatus.resubmitted,
+      );
+    },
+  );
+  test('approval follows the immediate command chain', () {
+    final controller = _controllerWithEntries();
     expect(
-      controller.state.timeEntries
-          .firstWhere((entry) => entry.id == entryId)
-          .status,
-      TimeReviewStatus.corrected,
+      controller.state.canCurrentUserReview(
+        controller.state.timeEntries.firstWhere(
+          (e) => e.id == 'entry-ter-0002',
+        ),
+      ),
+      isTrue,
+    );
+    expect(
+      controller.state.canCurrentUserReview(
+        controller.state.timeEntries.firstWhere(
+          (e) => e.id == 'entry-ter-0001',
+        ),
+      ),
+      isFalse,
     );
 
-    controller.submitOwnTime(clockOut: '5:00 PM', note: 'Resubmitting.');
+    controller.setSimulation(PilotRole.owner, userId: 'test-director');
+    controller.approveEntry('entry-ter-0001');
     expect(
       controller.state.timeEntries
-          .firstWhere((entry) => entry.id == entryId)
+          .firstWhere((e) => e.id == 'entry-ter-0001')
           .status,
-      TimeReviewStatus.resubmitted,
+      TimeReviewStatus.approved,
     );
   });
+
+  test(
+    'supervisor own time uses office cost center and no lunch by default',
+    () {
+      final controller = _controllerWithEntries();
+      final supervisor = controller.state.currentUser;
+      expect(supervisor.costCenter, 'Escritório');
+      expect(controller.state.approverLabelFor(supervisor), 'Director Test');
+    },
+  );
 }
 
 SupervisorCenterController _controllerWithEntries({
@@ -148,12 +203,22 @@ SupervisorCenterController _controllerWithEntries({
         name: 'Santana',
         role: PilotRole.supervisor,
         company: 'JKDD Finish & Remodeling Corp.',
+        supervisor: 'Director Test',
+        costCenter: 'Escritório',
       ),
       PilotUser(
         id: 'TER-0002',
         name: 'Employee Under Review',
         role: PilotRole.employee,
         company: 'JKDD Finish & Remodeling Corp.',
+        supervisor: 'Santana',
+      ),
+      PilotUser(
+        id: 'test-director',
+        name: 'Director Test',
+        role: PilotRole.owner,
+        company: 'JKDD Finish & Remodeling Corp.',
+        costCenter: 'Escritório',
       ),
     ],
     jobs: [
