@@ -12,8 +12,12 @@ void main() {
     capturedAt: DateTime.utc(2026, 8, 8, 12),
   );
 
-  WorkSegment segment({DateTime? endedAt, String? notes}) => WorkSegment(
-        id: '018f3f4a-8a10-7c91-8000-000000000001',
+  WorkSegment segment({
+    DateTime? endedAt,
+    String? notes,
+    String id = '018f3f4a-8a10-7c91-8000-000000000001',
+  }) => WorkSegment(
+        id: id,
         companyId: 'local-company',
         subcontractorCompanyId: 'local-subcontractor',
         workerId: 'local-worker',
@@ -29,8 +33,8 @@ void main() {
         laborType: LaborType.subcontractor,
       );
 
-  WorkDay day(WorkSegment value) => WorkDay(
-        id: 'day-1',
+  WorkDay day(WorkSegment value, {String id = 'day-1'}) => WorkDay(
+        id: id,
         companyId: value.companyId,
         subcontractorCompanyId: value.subcontractorCompanyId,
         workerId: value.workerId,
@@ -116,5 +120,32 @@ void main() {
     );
 
     expect(changed, isEmpty);
+  });
+
+  test('retry selection replays every persisted clock segment', () {
+    final first = segment();
+    final second = segment(
+      id: '018f3f4a-8a10-7c91-8000-000000000002',
+      endedAt: DateTime.utc(2026, 8, 8, 20),
+    );
+    final snapshot = FieldTimeSnapshot.seeded().copyWith(
+      workDays: [
+        day(first, id: 'day-1'),
+        day(second, id: 'day-2'),
+      ],
+    );
+
+    final retry = SupabaseClockSyncCoordinator.segmentsForRetry(snapshot);
+
+    expect(retry, hasLength(2));
+    expect(retry.map((item) => item.id), containsAll([first.id, second.id]));
+  });
+
+  test('retry selection is empty when no persisted work exists', () {
+    final retry = SupabaseClockSyncCoordinator.segmentsForRetry(
+      FieldTimeSnapshot.seeded(),
+    );
+
+    expect(retry, isEmpty);
   });
 }
