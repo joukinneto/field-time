@@ -1,0 +1,43 @@
+name: Test 04 Individual Timesheet PDF
+
+on:
+  push:
+    branches:
+      - fix-test04-individual-timesheet-pdf
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix-test04-individual-timesheet-pdf
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply patch
+        run: python3 tooling/test04_individual_timesheet_pdf_patch.py
+      - name: Format
+        run: dart format lib/src/domain/field_time_models.dart lib/features/employees/data/employee_asset_repository.dart lib/src/timesheet/timesheet_pdf_service.dart test/unit/timesheet_pdf_service_test.dart
+      - name: Commit patched source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib test
+          git commit -m "fix: isolate collaborator timesheet PDF and show employment type"
+          git pull --rebase origin fix-test04-individual-timesheet-pdf
+          git push origin HEAD:fix-test04-individual-timesheet-pdf
+      - name: Install dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze
+      - name: Tests
+        run: flutter test
+      - name: Build web
+        run: flutter build web --release --base-href "/field-time/"
