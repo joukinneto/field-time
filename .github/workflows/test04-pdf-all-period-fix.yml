@@ -1,0 +1,28 @@
+name: Test 04 PDF All Period Fix
+on:
+  push:
+    branches: [feat-test04-timesheet-receipts-sync]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat-test04-timesheet-receipts-sync
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: python3 tooling/test04_pdf_all_period_fix.py
+      - run: dart format lib/src/timesheet/timesheet_pdf_service.dart
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib/src/timesheet/timesheet_pdf_service.dart
+          git commit -m "fix: support all-period PDF range"
+          git pull --rebase origin feat-test04-timesheet-receipts-sync
+          git push origin HEAD:feat-test04-timesheet-receipts-sync
