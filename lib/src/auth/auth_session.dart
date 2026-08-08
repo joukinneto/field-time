@@ -1,8 +1,8 @@
-import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_models.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 final authSessionProvider =
     StateNotifierProvider<AuthSessionController, AuthSessionState>(
@@ -40,114 +40,183 @@ final class AuthSessionState {
       );
 }
 
+/// Application-facing authenticated account.
+///
+/// Authentication credentials are owned by Supabase Auth and are never stored
+/// in this model or in SharedPreferences.
 final class HomologationAccount {
   const HomologationAccount({
     required this.id,
     required this.name,
     required this.username,
-    required this.password,
     required this.role,
     required this.roleLabelKey,
+    required this.companyId,
+    required this.authUserId,
   });
 
+  /// Worker id for worker/supervisor accounts when available. Company admins
+  /// fall back to the Supabase Auth user UUID.
   final String id;
   final String name;
   final String username;
-  final String password;
   final PilotRole role;
   final String roleLabelKey;
-
-  Map<String, dynamic> toSessionJson() => {
-        'id': id,
-        'username': username,
-        'role': role.name,
-      };
+  final String companyId;
+  final String authUserId;
 }
 
 final class AuthSessionController extends StateNotifier<AuthSessionState> {
-  AuthSessionController() : super(const AuthSessionState());
+  AuthSessionController()
+      : _client = Supabase.instance.client,
+        super(const AuthSessionState()) {
+    _subscription = _client.auth.onAuthStateChange.listen((event) async {
+      if (event.session == null) {
+        state = const AuthSessionState(loading: false);
+        return;
+      }
+      await _hydrateAuthenticatedUser(event.session!.user);
+    });
+  }
 
-  static const storageKey = 'field_time_homologation_session_v1';
-
-  static const accounts = [
-    HomologationAccount(
-      id: 'TER-0001',
-      name: 'Santana',
-      username: 'collaborator@test.jkdd',
-      password: 'Test123!',
-      role: PilotRole.employee,
-      roleLabelKey: 'auth.roleCollaborator',
-    ),
-    HomologationAccount(
-      id: 'test-supervisor',
-      name: 'Supervisor Test',
-      username: 'supervisor@test.jkdd',
-      password: 'Test123!',
-      role: PilotRole.supervisor,
-      roleLabelKey: 'auth.roleSupervisor',
-    ),
-    HomologationAccount(
-      id: 'test-director',
-      name: 'Director Test',
-      username: 'director@test.jkdd',
-      password: 'Test123!',
-      role: PilotRole.owner,
-      roleLabelKey: 'auth.roleDirector',
-    ),
-  ];
+  final SupabaseClient _client;
+  late final StreamSubscription<AuthState> _subscription;
 
   Future<void> load() async {
-    final preferences = await SharedPreferences.getInstance();
-    final raw = preferences.getString(storageKey);
-    if (raw == null || raw.isEmpty) {
+    final session = _client.auth.currentSession;
+    if (session == null) {
       state = const AuthSessionState(loading: false);
       return;
     }
-    try {
-      final json = jsonDecode(raw) as Map<String, dynamic>;
-      final id = json['id'] as String?;
-      final username = json['username'] as String?;
-      final roleName = json['role'] as String?;
-      final account = accounts.firstWhere(
-        (account) =>
-            account.id == id &&
-            account.username == username &&
-            account.role.name == roleName,
-      );
-      state = AuthSessionState(loading: false, user: account);
-    } on Object {
-      await preferences.remove(storageKey);
-      state = const AuthSessionState(loading: false);
-    }
+    await _hydrateAuthenticatedUser(session.user);
   }
 
   Future<void> login(String username, String password) async {
     state = state.copyWith(authenticating: true, clearError: true);
-    await Future<void>.delayed(const Duration(milliseconds: 250));
-    HomologationAccount? matched;
-    for (final account in accounts) {
-      if (account.username.toLowerCase() == username.trim().toLowerCase() &&
-          account.password == password) {
-        matched = account;
-        break;
+    try {
+      final response = await _client.auth.signInWithPassword(
+        email: username.trim(),
+        password: password,
+      );
+      final user = response.user;
+      if (user == null) {
+        state = const AuthSessionState(
+          loading: false,
+          errorKey: 'auth.invalidCredentials',
+        );
+        return;
       }
-    }
-    if (matched == null) {
+      await _hydrateAuthenticatedUser(user);
+    } on AuthException {
       state = const AuthSessionState(
         loading: false,
         errorKey: 'auth.invalidCredentials',
       );
-      return;
+    } on PostgrestException {
+      await _client.auth.signOut();
+      state = const AuthSessionState(
+        loading: false,
+        errorKey: 'auth.invalidCredentials',
+      );
+    } on Object {
+      state = const AuthSessionState(
+        loading: false,
+        errorKey: 'auth.invalidCredentials',
+      );
     }
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setString(
-        storageKey, jsonEncode(matched.toSessionJson()));
-    state = AuthSessionState(loading: false, user: matched);
+  }
+
+  Future<void> requestPasswordRecovery(String email) async {
+    await _client.auth.resetPasswordForEmail(email.trim());
   }
 
   Future<void> logout() async {
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.remove(storageKey);
+    await _client.auth.signOut();
     state = const AuthSessionState(loading: false);
+  }
+
+  Future<void> _hydrateAuthenticatedUser(User authUser) async {
+    try {
+      final membership = await _client
+          .from('company_members')
+          .select('company_id, role')
+          .eq('user_id', authUser.id)
+          .eq('status', 'active')
+          .limit(1)
+          .maybeSingle();
+
+      if (membership == null) {
+        await _client.auth.signOut();
+        state = const AuthSessionState(
+          loading: false,
+          errorKey: 'auth.invalidCredentials',
+        );
+        return;
+      }
+
+      final companyId = membership['company_id'] as String;
+      final databaseRole = membership['role'] as String;
+      final profile = await _client
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', authUser.id)
+          .maybeSingle();
+
+      final firstName = (profile?['first_name'] as String?)?.trim() ?? '';
+      final lastName = (profile?['last_name'] as String?)?.trim() ?? '';
+      final displayName = '$firstName $lastName'.trim();
+
+      String? workerId;
+      if (databaseRole == 'worker' || databaseRole == 'supervisor') {
+        final worker = await _client
+            .from('workers')
+            .select('id')
+            .eq('company_id', companyId)
+            .eq('user_id', authUser.id)
+            .eq('status', 'active')
+            .limit(1)
+            .maybeSingle();
+        workerId = worker?['id'] as String?;
+      }
+
+      final mappedRole = switch (databaseRole) {
+        'company_admin' => PilotRole.owner,
+        'supervisor' => PilotRole.supervisor,
+        _ => PilotRole.employee,
+      };
+
+      final roleLabelKey = switch (databaseRole) {
+        'company_admin' => 'auth.roleDirector',
+        'supervisor' => 'auth.roleSupervisor',
+        _ => 'auth.roleCollaborator',
+      };
+
+      state = AuthSessionState(
+        loading: false,
+        user: HomologationAccount(
+          id: workerId ?? authUser.id,
+          authUserId: authUser.id,
+          companyId: companyId,
+          name: displayName.isEmpty
+              ? (authUser.email ?? 'JKDD Field User')
+              : displayName,
+          username: authUser.email ?? '',
+          role: mappedRole,
+          roleLabelKey: roleLabelKey,
+        ),
+      );
+    } on Object {
+      await _client.auth.signOut();
+      state = const AuthSessionState(
+        loading: false,
+        errorKey: 'auth.invalidCredentials',
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
   }
 }
