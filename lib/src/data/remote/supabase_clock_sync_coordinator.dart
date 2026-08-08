@@ -24,7 +24,9 @@ final class SupabaseClockSyncCoordinator {
     await sync.syncSegments(changed);
   }
 
-  /// Replays persisted clock segments after connectivity/session recovery.
+  /// Explicit TEST retry for persisted clock segments after connectivity or
+  /// authentication recovery. Automatic scheduling will be wired only after
+  /// authenticated end-to-end validation is available.
   ///
   /// The remote adapter uses upsert semantics, so replaying the persisted
   /// snapshot is intentionally idempotent and avoids depending on a perfect
