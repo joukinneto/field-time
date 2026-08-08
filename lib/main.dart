@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_theme.dart';
+import 'package:jkdd_field_time_records_production/src/application/field_time_controller.dart';
 import 'package:jkdd_field_time_records_production/src/auth/auth_session.dart';
 import 'package:jkdd_field_time_records_production/src/config/supabase_config.dart';
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
@@ -26,6 +27,13 @@ final class FieldTimeApp extends ConsumerWidget {
     final language = ref.watch(appLanguageControllerProvider);
     final session = ref.watch(authSessionProvider);
     ref.watch(fieldTimeSupervisorSyncProvider);
+    ref.listen<AuthSessionState>(authSessionProvider, (previous, next) {
+      final becameAuthenticated =
+          previous?.authenticated != true && next.authenticated;
+      if (becameAuthenticated) {
+        _retryPersistedClockSnapshot(ref);
+      }
+    });
     final strings = AppStrings(language);
     return MaterialApp(
       title: strings.t('app.title'),
@@ -40,6 +48,18 @@ final class FieldTimeApp extends ConsumerWidget {
               ? const TimeRecordsScreen()
               : const LoginScreen(),
     );
+  }
+
+  Future<void> _retryPersistedClockSnapshot(WidgetRef ref) async {
+    try {
+      final snapshot = await ref.read(fieldTimeRepositoryProvider).load();
+      await ref
+          .read(fieldTimeClockSyncCoordinatorProvider)
+          .retryPersistedSnapshot(snapshot);
+    } on Object {
+      // Offline-first invariant: recovery sync is best-effort. A failed retry
+      // must never block an authenticated user or modify the local snapshot.
+    }
   }
 }
 
