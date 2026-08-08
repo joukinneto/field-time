@@ -24,31 +24,38 @@ final class JkddAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       toolbarHeight: 72,
       titleSpacing: 16,
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Image.asset(
-            AppAssets.fieldTimeLogoHorizontal,
-            height: compact ? 32 : 44,
-            width: compact ? 154 : null,
-            fit: BoxFit.contain,
+      title: Align(
+        alignment: Alignment.centerLeft,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset(
+                AppAssets.fieldTimeLogoHorizontal,
+                height: compact ? 32 : 44,
+                width: compact ? 154 : null,
+                fit: BoxFit.contain,
+              ),
+              if (!compact) ...[
+                const SizedBox(width: 12),
+                Container(
+                  width: 1,
+                  height: 34,
+                  color: Theme.of(context).dividerColor,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'v1.1.0-test4',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelMedium?.copyWith(color: AppColors.gray),
+                ),
+              ],
+            ],
           ),
-          if (!compact) ...[
-            const SizedBox(width: 12),
-            Container(
-              width: 1,
-              height: 34,
-              color: Theme.of(context).dividerColor,
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'v1.1.0-test4',
-              style: Theme.of(
-                context,
-              ).textTheme.labelMedium?.copyWith(color: AppColors.gray),
-            ),
-          ],
-        ],
+        ),
       ),
       actions: compact
           ? [
