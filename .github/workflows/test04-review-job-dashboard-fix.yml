@@ -1,0 +1,40 @@
+name: Test 04 Review Job Dashboard Fix
+on:
+  push:
+    branches:
+      - feat-test04-review-job-dashboard-polish
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat-test04-review-job-dashboard-polish
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply fix
+        run: python3 tooling/test04_review_job_dashboard_fix.py
+      - name: Format
+        run: dart format lib/src/supervisor_center/supervisor_center_controller.dart lib/src/supervisor_center/supervisor_center_screen.dart
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lib
+          git commit -m "fix: complete review dashboard integration"
+          git pull --rebase origin feat-test04-review-job-dashboard-polish
+          git push origin HEAD:feat-test04-review-job-dashboard-polish
+      - name: Dependencies
+        run: flutter pub get
+      - name: Analyze
+        run: flutter analyze
+      - name: Tests
+        run: flutter test
+      - name: Build web
+        run: flutter build web --release --base-href "/field-time/"
