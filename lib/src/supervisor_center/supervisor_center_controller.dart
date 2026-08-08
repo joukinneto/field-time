@@ -243,8 +243,8 @@ final class SupervisorCenterController
     required String? clockOut,
     required int breakMinutes,
     required double travelBonusHours,
-    required double extraBonusHours,
-    required double payPremiumPercent,
+    double? extraBonusHours,
+    double? payPremiumPercent,
     required String supervisorNote,
     required String justification,
   }) {
@@ -259,8 +259,8 @@ final class SupervisorCenterController
       clearClockOut: clockOut == null,
       breakMinutes: breakMinutes,
       travelBonusHours: travelBonusHours,
-      extraBonusHours: extraBonusHours,
-      payPremiumPercent: payPremiumPercent,
+      extraBonusHours: extraBonusHours ?? entry.extraBonusHours,
+      payPremiumPercent: payPremiumPercent ?? entry.payPremiumPercent,
       supervisorNote: supervisorNote,
       status: TimeReviewStatus.underReview,
     );

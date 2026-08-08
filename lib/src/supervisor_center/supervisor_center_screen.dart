@@ -1268,6 +1268,7 @@ final class _ScheduleCard extends ConsumerWidget {
   }
 }
 
+// ignore: unused_element
 final class _JobListCard extends ConsumerWidget {
   const _JobListCard({required this.job});
 
@@ -2645,7 +2646,7 @@ Future<void> _reviewEntry(
       ),
     ),
   );
-  if (action == null) return;
+  if (action == null || !context.mounted) return;
   try {
     final controller = ref.read(supervisorCenterProvider.notifier);
     if (action == 'reject' || action == 'correction') {
