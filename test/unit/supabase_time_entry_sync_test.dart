@@ -4,7 +4,7 @@ import 'package:jkdd_field_time_records_production/src/domain/field_time_models.
 import 'package:jkdd_field_time_records_production/src/domain/value_objects/geo_point.dart';
 
 void main() {
-  const location = GeoPoint(
+  final location = GeoPoint(
     latitude: 26.3683,
     longitude: -80.1289,
     accuracyMeters: 8,
