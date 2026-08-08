@@ -478,19 +478,20 @@ final class _JobsManagementViewState extends ConsumerState<JobsManagementView> {
         ifAbsent: () => _entryHoursValue(entry),
       );
     }
-    final rankedJobs = [...state.jobs]
-      ..sort(
-        (left, right) =>
-            (hoursByJob[right.id] ?? 0).compareTo(hoursByJob[left.id] ?? 0),
-      );
+    final rankedJobs =
+        state.jobs
+            .where((job) => (hoursByJob[job.id] ?? 0) > 0)
+            .toList(growable: false)
+          ..sort(
+            (left, right) =>
+                (hoursByJob[right.id] ?? 0).compareTo(hoursByJob[left.id] ?? 0),
+          );
     final totalHours = hoursByJob.values.fold<double>(
       0,
       (sum, value) => sum + value,
     );
-    final activeJobs = state.jobs
-        .where((job) => job.status == JobStatus.active)
-        .length;
-    final jobsWithHours = hoursByJob.values.where((value) => value > 0).length;
+    final activeJobs = hoursByJob.values.where((value) => value > 0).length;
+    final jobsWithHours = activeJobs;
     final pendingHours = entries
         .where(
           (entry) =>
@@ -621,42 +622,27 @@ final class _JobsManagementViewState extends ConsumerState<JobsManagementView> {
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                context.tr('jobs.listTitle'),
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-            Text(
-              '${state.jobs.length} obras',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppColors.gray),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
         Card(
-          child: SwitchListTile(
-            secondary: const Icon(Icons.admin_panel_settings_outlined),
-            title: Text(context.tr('jobs.allowSupervisorCreateJobs')),
-            subtitle: Text(
-              state.allowSupervisorCreateJobs
-                  ? context.tr('common.yes')
-                  : context.tr('common.no'),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: DropdownButtonFormField<String>(
+              decoration: const InputDecoration(
+                labelText: 'Selecionar obra',
+                prefixIcon: Icon(Icons.search_outlined),
+              ),
+              items: [
+                for (final job in state.jobs)
+                  DropdownMenuItem(
+                    value: job.id,
+                    child: Text('Obra ${job.number} — ${job.address}'),
+                  ),
+              ],
+              onChanged: (jobId) {
+                if (jobId != null) _openJob(context, jobId);
+              },
             ),
-            value: state.allowSupervisorCreateJobs,
-            onChanged: state.currentRole == PilotRole.supervisor
-                ? null
-                : (value) => ref
-                      .read(supervisorCenterProvider.notifier)
-                      .setSupervisorCreateJobs(value),
           ),
         ),
-        const SizedBox(height: AppSpacing.md),
-        for (final job in state.jobs) _JobListCard(job: job),
       ],
     );
   }
@@ -680,89 +666,75 @@ final class _JobsHoursChart extends StatelessWidget {
       (max, job) =>
           (hoursByJob[job.id] ?? 0) > max ? (hoursByJob[job.id] ?? 0) : max,
     );
+    if (jobs.isEmpty) {
+      return const JkddEmptyState(
+        icon: Icons.bar_chart_outlined,
+        title: 'Nenhuma obra com horas neste período',
+        message: 'Altere o período para consultar outras obras.',
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Comparativo de horas por obra',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        Text('Horas por obra', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: AppSpacing.md),
-        for (final job in jobs)
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => onOpenJob(job),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 150,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Obra ${job.number}',
-                          style: Theme.of(context).textTheme.titleSmall,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (job.name.trim().isNotEmpty)
-                          Text(
-                            job.name,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: AppColors.gray),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final hours = hoursByJob[job.id] ?? 0;
-                        final fraction = maxHours <= 0
-                            ? 0.0
-                            : (hours / maxHours).clamp(0.0, 1.0);
-                        return Stack(
-                          alignment: Alignment.centerLeft,
+        SizedBox(
+          height: 270,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                for (final job in jobs)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => onOpenJob(job),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: SizedBox(
+                        width: 82,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            Container(
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: AppColors.blue.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
+                            Text(
+                              _hours(hoursByJob[job.id] ?? 0),
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.labelMedium,
                             ),
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 250),
-                              height: 24,
-                              width: constraints.maxWidth * fraction,
+                            const SizedBox(height: 6),
+                            Container(
+                              width: 48,
+                              height: maxHours <= 0
+                                  ? 6
+                                  : 24 +
+                                        150 *
+                                            (hoursByJob[job.id] ?? 0) /
+                                            maxHours,
                               decoration: BoxDecoration(
                                 color: AppColors.blue.withValues(alpha: 0.55),
-                                borderRadius: BorderRadius.circular(999),
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(10),
+                                ),
+                                border: Border.all(color: AppColors.blue),
                               ),
                             ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Obra ${job.number}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.labelMedium,
+                            ),
                           ],
-                        );
-                      },
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.md),
-                  SizedBox(
-                    width: 88,
-                    child: Text(
-                      _hours(hoursByJob[job.id] ?? 0),
-                      textAlign: TextAlign.right,
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  const Icon(Icons.chevron_right),
-                ],
-              ),
+              ],
             ),
           ),
+        ),
       ],
     );
   }
@@ -1089,10 +1061,6 @@ final class _TimeEntryCard extends ConsumerWidget {
                   value: entry.clockOut ?? context.tr('supervisor.openStatus'),
                 ),
                 JkddInfoRow(
-                  label: context.tr('supervisor.interval'),
-                  value: '${entry.breakMinutes} min',
-                ),
-                JkddInfoRow(
                   label: context.tr('supervisor.total'),
                   value: _entryHours(entry),
                 ),
@@ -1100,6 +1068,15 @@ final class _TimeEntryCard extends ConsumerWidget {
                   label: context.tr('approval.travelBonus'),
                   value: '${entry.travelBonusHours.toStringAsFixed(2)} h',
                 ),
+                JkddInfoRow(
+                  label: 'Horas bônus',
+                  value: '${entry.extraBonusHours.toStringAsFixed(2)} h',
+                ),
+                if (entry.payPremiumPercent > 0)
+                  JkddInfoRow(
+                    label: 'Adicional salarial',
+                    value: '+${entry.payPremiumPercent.toStringAsFixed(0)}%',
+                  ),
               ],
             ),
             if (entry.employeeNote.isNotEmpty) ...[
@@ -1226,6 +1203,8 @@ String _auditFieldLabel(BuildContext context, String fieldName) =>
       'clockOut' => context.tr('approval.clockOut'),
       'breakMinutes' => context.tr('approval.breakMinutes'),
       'travelBonusHours' => context.tr('approval.travelBonus'),
+      'extraBonusHours' => 'Horas bônus',
+      'payPremiumPercent' => 'Adicional salarial',
       'supervisorNote' => context.tr('supervisor.supervisorNote'),
       _ => fieldName,
     };
@@ -2089,16 +2068,25 @@ final class _JobPeopleToday extends ConsumerWidget {
   }
 }
 
-final class _JobHours extends ConsumerWidget {
+enum _JobHoursFilter { today, all, approved, pending }
+
+final class _JobHours extends ConsumerStatefulWidget {
   const _JobHours({required this.job});
 
   final SupervisorJob job;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_JobHours> createState() => _JobHoursState();
+}
+
+final class _JobHoursState extends ConsumerState<_JobHours> {
+  _JobHoursFilter _filter = _JobHoursFilter.all;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(supervisorCenterProvider);
     final entries = state.timeEntries
-        .where((entry) => entry.jobId == job.id)
+        .where((entry) => entry.jobId == widget.job.id)
         .toList(growable: false);
     final todayEntries = entries.where(
       (entry) => _sameDay(entry.date, DateTime.now()),
@@ -2110,13 +2098,27 @@ final class _JobHours extends ConsumerWidget {
       (entry) =>
           entry.status != TimeReviewStatus.approved && entry.clockOut != null,
     );
+    final visibleEntries = entries
+        .where(
+          (entry) => switch (_filter) {
+            _JobHoursFilter.today => _sameDay(entry.date, DateTime.now()),
+            _JobHoursFilter.all => true,
+            _JobHoursFilter.approved =>
+              entry.status == TimeReviewStatus.approved,
+            _JobHoursFilter.pending =>
+              entry.status != TimeReviewStatus.approved &&
+                  entry.clockOut != null,
+          },
+        )
+        .toList(growable: false);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _ResponsiveGrid(
           minWidth: 170,
           children: [
-            JkddSummaryCard(
+            _InteractiveSummaryCard(
               label: context.tr('supervisor.hoursToday'),
               value: _hours(
                 todayEntries.fold<double>(
@@ -2126,8 +2128,9 @@ final class _JobHours extends ConsumerWidget {
               ),
               icon: Icons.today_outlined,
               color: AppColors.blue,
+              onTap: () => setState(() => _filter = _JobHoursFilter.today),
             ),
-            JkddSummaryCard(
+            _InteractiveSummaryCard(
               label: context.tr('timesheet.totalHours'),
               value: _hours(
                 entries.fold<double>(
@@ -2137,8 +2140,9 @@ final class _JobHours extends ConsumerWidget {
               ),
               icon: Icons.schedule_outlined,
               color: AppColors.purple,
+              onTap: () => setState(() => _filter = _JobHoursFilter.all),
             ),
-            JkddSummaryCard(
+            _InteractiveSummaryCard(
               label: context.tr('approval.approved'),
               value: _hours(
                 approvedEntries.fold<double>(
@@ -2148,8 +2152,9 @@ final class _JobHours extends ConsumerWidget {
               ),
               icon: Icons.verified_outlined,
               color: AppColors.green,
+              onTap: () => setState(() => _filter = _JobHoursFilter.approved),
             ),
-            JkddSummaryCard(
+            _InteractiveSummaryCard(
               label: context.tr('supervisor.pendingHours'),
               value: _hours(
                 pendingEntries.fold<double>(
@@ -2159,61 +2164,75 @@ final class _JobHours extends ConsumerWidget {
               ),
               icon: Icons.pending_actions_outlined,
               color: AppColors.amber,
+              onTap: () => setState(() => _filter = _JobHoursFilter.pending),
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.lg),
-        Align(
-          alignment: Alignment.centerRight,
-          child: FilledButton.icon(
-            onPressed: () async {
-              final reason = await _textDialog(
-                context,
-                context.tr('approval.approveAll'),
-                context.tr('approval.requiredJustification'),
-              );
-              if (reason?.trim().isEmpty != false) return;
-              ref
-                  .read(supervisorCenterProvider.notifier)
-                  .approveAllValidForJob(job.id, reason!);
-            },
-            icon: const Icon(Icons.done_all),
-            label: Text(context.tr('approval.approveAllValid')),
-          ),
+        const SizedBox(height: AppSpacing.md),
+        Row(
+          children: [
+            Expanded(
+              child: Text('Mostrando: ${_jobHoursFilterLabel(_filter)}'),
+            ),
+            if (_filter != _JobHoursFilter.all)
+              TextButton(
+                onPressed: () => setState(() => _filter = _JobHoursFilter.all),
+                child: const Text('Limpar filtro'),
+              ),
+          ],
         ),
         const SizedBox(height: AppSpacing.md),
-        for (final entry in entries)
-          _TimeEntryCard(
-            entry: entry,
-            showReviewButton: true,
-            trailing: Wrap(
-              spacing: AppSpacing.sm,
-              children: [
-                TextButton(
-                  onPressed: () => _reviewEntry(context, ref, entry),
-                  child: Text(context.tr('approval.review')),
-                ),
-                FilledButton(
-                  onPressed: () async {
-                    final reason = await _textDialog(
-                      context,
-                      context.tr('approval.approve'),
-                      context.tr('approval.requiredJustification'),
-                    );
-                    if (reason?.trim().isEmpty != false) return;
-                    ref
-                        .read(supervisorCenterProvider.notifier)
-                        .approveEntry(entry.id, reason!);
-                  },
-                  child: Text(context.tr('approval.approve')),
-                ),
-              ],
+        if (pendingEntries.isNotEmpty)
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: () => ref
+                  .read(supervisorCenterProvider.notifier)
+                  .approveAllValidForJob(widget.job.id),
+              icon: const Icon(Icons.done_all),
+              label: Text(context.tr('approval.approveAllValid')),
             ),
           ),
+        const SizedBox(height: AppSpacing.md),
+        if (visibleEntries.isEmpty)
+          const JkddEmptyState(
+            icon: Icons.schedule_outlined,
+            title: 'Nenhum registro neste filtro',
+            message: 'Escolha outro card para consultar as horas da obra.',
+          )
+        else
+          for (final entry in visibleEntries)
+            _TimeEntryCard(
+              entry: entry,
+              showReviewButton: true,
+              trailing: Wrap(
+                spacing: AppSpacing.sm,
+                children: [
+                  TextButton(
+                    onPressed: () => _reviewEntry(context, ref, entry),
+                    child: Text(context.tr('approval.review')),
+                  ),
+                  if (entry.status != TimeReviewStatus.approved)
+                    FilledButton(
+                      onPressed: () => ref
+                          .read(supervisorCenterProvider.notifier)
+                          .approveEntry(entry.id),
+                      child: Text(context.tr('approval.approve')),
+                    ),
+                ],
+              ),
+            ),
       ],
     );
   }
 }
+
+String _jobHoursFilterLabel(_JobHoursFilter filter) => switch (filter) {
+  _JobHoursFilter.today => 'horas de hoje',
+  _JobHoursFilter.all => 'todas as horas',
+  _JobHoursFilter.approved => 'horas aprovadas',
+  _JobHoursFilter.pending => 'horas pendentes',
+};
 
 final class _JobHistory extends ConsumerWidget {
   const _JobHistory({required this.job});
@@ -2532,136 +2551,140 @@ Future<void> _reviewEntry(
 ) async {
   final clockIn = TextEditingController(text: entry.clockIn);
   final clockOut = TextEditingController(text: entry.clockOut ?? '');
-  final breakMinutes = TextEditingController(text: '${entry.breakMinutes}');
   final bonus = TextEditingController(
+    text: entry.extraBonusHours.toStringAsFixed(2),
+  );
+  final travel = TextEditingController(
     text: entry.travelBonusHours.toStringAsFixed(2),
   );
-  final note = TextEditingController(text: entry.supervisorNote);
-  final justification = TextEditingController();
+  var premium25 = entry.payPremiumPercent == 25;
   final action = await showDialog<String>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text(context.tr('approval.reviewEntry')),
-      content: SizedBox(
-        width: 520,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: clockIn,
-                decoration: InputDecoration(
-                  labelText: context.tr('approval.clockIn'),
+    builder: (context) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: Text(context.tr('approval.reviewEntry')),
+        content: SizedBox(
+          width: 540,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: clockIn,
+                  decoration: InputDecoration(
+                    labelText: context.tr('approval.clockIn'),
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: clockOut,
-                decoration: InputDecoration(
-                  labelText: context.tr('approval.clockOut'),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: clockOut,
+                  decoration: InputDecoration(
+                    labelText: context.tr('approval.clockOut'),
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: breakMinutes,
-                decoration: InputDecoration(
-                  labelText: context.tr('approval.breakMinutes'),
+                const SizedBox(height: AppSpacing.md),
+                TextField(
+                  controller: bonus,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Horas bônus adicionais',
+                    helperText: 'Ex.: 1.00 para adicionar uma hora bônus.',
+                    prefixIcon: Icon(Icons.add_circle_outline),
+                  ),
                 ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: bonus,
-                decoration: InputDecoration(
-                  labelText: context.tr('approval.travelBonus'),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: travel,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Travel Bonus — horas de viagem',
+                    helperText: 'Informe a quantidade de horas de viagem.',
+                    prefixIcon: Icon(Icons.route_outlined),
+                  ),
                 ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: note,
-                decoration: InputDecoration(
-                  labelText: context.tr('approval.observation'),
+                const SizedBox(height: AppSpacing.sm),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: premium25,
+                  onChanged: (value) => setDialogState(() => premium25 = value),
+                  title: const Text('Adicional salarial +25%'),
+                  subtitle: const Text('Aplica 25% somente a este registro.'),
+                  secondary: const Icon(Icons.workspace_premium_outlined),
                 ),
-                minLines: 2,
-                maxLines: 4,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: justification,
-                decoration: InputDecoration(
-                  labelText: context.tr('approval.requiredJustification'),
-                ),
-                minLines: 2,
-                maxLines: 4,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(context.tr('common.cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'correction'),
+            child: Text(context.tr('supervisor.requestCorrection')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'reject'),
+            child: Text(context.tr('approval.reject')),
+          ),
+          if (entry.status != TimeReviewStatus.approved)
+            FilledButton(
+              onPressed: () => Navigator.pop(context, 'approve'),
+              child: Text(context.tr('approval.approve')),
+            ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.pop(context, 'save'),
+            child: Text(context.tr('approval.saveReview')),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(context.tr('common.cancel')),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, 'correction'),
-          child: Text(context.tr('supervisor.requestCorrection')),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, 'reject'),
-          child: Text(context.tr('approval.reject')),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, 'approve'),
-          child: Text(context.tr('approval.approve')),
-        ),
-        FilledButton.tonal(
-          onPressed: () => Navigator.pop(context, 'save'),
-          child: Text(context.tr('approval.saveReview')),
-        ),
-      ],
     ),
   );
   if (action == null) return;
-  final reason = justification.text.trim();
   try {
     final controller = ref.read(supervisorCenterProvider.notifier);
-    if (action == 'save') {
-      controller.updateTimeEntry(
-        entryId: entry.id,
-        clockIn: clockIn.text.trim(),
-        clockOut: clockOut.text.trim().isEmpty ? null : clockOut.text.trim(),
-        breakMinutes: int.tryParse(breakMinutes.text) ?? entry.breakMinutes,
-        travelBonusHours: double.tryParse(bonus.text) ?? entry.travelBonusHours,
-        supervisorNote: note.text.trim(),
-        justification: reason,
+    if (action == 'reject' || action == 'correction') {
+      final reason = await _textDialog(
+        context,
+        action == 'reject'
+            ? context.tr('approval.rejectRecord')
+            : context.tr('supervisor.requestCorrection'),
+        action == 'reject'
+            ? context.tr('approval.rejectionReasonRequired')
+            : context.tr('supervisor.correctionReason'),
       );
-    } else if (action == 'approve') {
-      controller.updateTimeEntry(
-        entryId: entry.id,
-        clockIn: clockIn.text.trim(),
-        clockOut: clockOut.text.trim().isEmpty ? null : clockOut.text.trim(),
-        breakMinutes: int.tryParse(breakMinutes.text) ?? entry.breakMinutes,
-        travelBonusHours: double.tryParse(bonus.text) ?? entry.travelBonusHours,
-        supervisorNote: note.text.trim(),
-        justification: reason,
-      );
-      controller.approveEntry(entry.id, reason);
-    } else if (action == 'reject') {
-      controller.rejectEntry(entry.id, reason);
-    } else {
-      controller.correctionRequestedBySupervisor(entry.id, reason);
+      if (reason?.trim().isEmpty != false) return;
+      if (action == 'reject') {
+        controller.rejectEntry(entry.id, reason!);
+      } else {
+        controller.correctionRequestedBySupervisor(entry.id, reason!);
+      }
+      return;
     }
+    controller.updateTimeEntry(
+      entryId: entry.id,
+      clockIn: clockIn.text.trim(),
+      clockOut: clockOut.text.trim().isEmpty ? null : clockOut.text.trim(),
+      breakMinutes: 0,
+      travelBonusHours: double.tryParse(travel.text) ?? entry.travelBonusHours,
+      extraBonusHours: double.tryParse(bonus.text) ?? entry.extraBonusHours,
+      payPremiumPercent: premium25 ? 25 : 0,
+      supervisorNote: entry.supervisorNote,
+      justification: '',
+    );
+    if (action == 'approve') controller.approveEntry(entry.id);
   } on StateError catch (error) {
     if (context.mounted) _snack(context, error.message);
   } finally {
     clockIn.dispose();
     clockOut.dispose();
-    breakMinutes.dispose();
     bonus.dispose();
-    note.dispose();
-    justification.dispose();
+    travel.dispose();
   }
 }
 
@@ -2677,22 +2700,8 @@ Future<void> _approveEntry(
     confirmLabel: context.tr('approval.approve'),
   );
   if (confirmed != true) return;
-  if (!context.mounted) return;
-  final reason = await _textDialog(
-    context,
-    context.tr('approval.confirmApproveTitle'),
-    context.tr('approval.approvalObservation'),
-    requiredValue: false,
-  );
-  if (reason == null) return;
-  if (!context.mounted) return;
   try {
-    ref
-        .read(supervisorCenterProvider.notifier)
-        .approveEntry(
-          entry.id,
-          reason.trim().isEmpty ? context.tr('approval.approved') : reason,
-        );
+    ref.read(supervisorCenterProvider.notifier).approveEntry(entry.id);
   } on StateError catch (error) {
     if (context.mounted) _snack(context, error.message);
   }

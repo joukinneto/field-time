@@ -231,6 +231,8 @@ final class TimeEntry {
     required this.employeeNote,
     required this.status,
     this.travelBonusHours = 0,
+    this.extraBonusHours = 0,
+    this.payPremiumPercent = 0,
     this.supervisorNote = '',
     this.approvedAt,
     this.approvedBy,
@@ -253,6 +255,8 @@ final class TimeEntry {
   final String employeeNote;
   final TimeReviewStatus status;
   final double travelBonusHours;
+  final double extraBonusHours;
+  final double payPremiumPercent;
   final String supervisorNote;
   final DateTime? approvedAt;
   final String? approvedBy;
@@ -274,6 +278,8 @@ final class TimeEntry {
     int? breakMinutes,
     TimeReviewStatus? status,
     double? travelBonusHours,
+    double? extraBonusHours,
+    double? payPremiumPercent,
     String? supervisorNote,
     DateTime? approvedAt,
     String? approvedBy,
@@ -298,6 +304,8 @@ final class TimeEntry {
     employeeNote: employeeNote,
     status: status ?? this.status,
     travelBonusHours: travelBonusHours ?? this.travelBonusHours,
+    extraBonusHours: extraBonusHours ?? this.extraBonusHours,
+    payPremiumPercent: payPremiumPercent ?? this.payPremiumPercent,
     supervisorNote: supervisorNote ?? this.supervisorNote,
     approvedAt: clearApproval ? null : approvedAt ?? this.approvedAt,
     approvedBy: clearApproval ? null : approvedBy ?? this.approvedBy,
