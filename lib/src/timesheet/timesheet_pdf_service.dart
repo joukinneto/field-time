@@ -38,13 +38,17 @@ final class TimesheetPdfService {
       TimesheetPeriod.today => TimesheetRange(start: day, end: day),
       TimesheetPeriod.week => weekFor(value),
       TimesheetPeriod.month => TimesheetRange(
-          start: DateTime(value.year, value.month),
-          end: DateTime(value.year, value.month + 1, 0),
-        ),
+        start: DateTime(value.year, value.month),
+        end: DateTime(value.year, value.month + 1, 0),
+      ),
       TimesheetPeriod.year => TimesheetRange(
-          start: DateTime(value.year),
-          end: DateTime(value.year, 12, 31),
-        ),
+        start: DateTime(value.year),
+        end: DateTime(value.year, 12, 31),
+      ),
+      TimesheetPeriod.all => TimesheetRange(
+        start: DateTime(1900),
+        end: DateTime(9999, 12, 31),
+      ),
     };
   }
 
@@ -62,19 +66,22 @@ final class TimesheetPdfService {
   }) async {
     const strings = AppStrings(AppLanguage.en);
     final week = rangeFor(period, anchorDate);
-    final days = snapshot.workDays
-        .where((day) => week.contains(day.workDate))
-        .toList(growable: false)
-      ..sort((left, right) => left.workDate.compareTo(right.workDate));
+    final days =
+        snapshot.workDays
+            .where((day) => week.contains(day.workDate))
+            .toList(growable: false)
+          ..sort((left, right) => left.workDate.compareTo(right.workDate));
     final approvalStamps = await const TimesheetApprovalService().load();
     final approvalSummary = summarizeApprovals(
       days: days,
       stamps: approvalStamps,
     );
-    final receipts = snapshot.receipts.where((receipt) {
-      final linkedJob = snapshot.jobs.any((job) => job.id == receipt.jobId);
-      return linkedJob && week.contains(receipt.purchaseDate);
-    }).toList(growable: false);
+    final receipts = snapshot.receipts
+        .where((receipt) {
+          final linkedJob = snapshot.jobs.any((job) => job.id == receipt.jobId);
+          return linkedJob && week.contains(receipt.purchaseDate);
+        })
+        .toList(growable: false);
     final totalDuration = days.fold<Duration>(
       Duration.zero,
       (total, day) => total + day.workedDuration,
@@ -100,8 +107,14 @@ final class TimesheetPdfService {
         pageFormat: PdfPageFormat.letter.landscape,
         margin: const pw.EdgeInsets.all(24),
         build: (context) => [
-          _header(snapshot, week, employerName, strings, logoBytes,
-              timesheetRegistrationNumbers),
+          _header(
+            snapshot,
+            week,
+            employerName,
+            strings,
+            logoBytes,
+            timesheetRegistrationNumbers,
+          ),
           pw.SizedBox(height: 10),
           _approvalBanner(approvalSummary),
           pw.SizedBox(height: 10),
@@ -122,9 +135,7 @@ final class TimesheetPdfService {
           ),
           pw.Align(
             alignment: pw.Alignment.centerRight,
-            child: pw.Text(
-              'Pay Premium Records: ${premiumSegments.length}',
-            ),
+            child: pw.Text('Pay Premium Records: ${premiumSegments.length}'),
           ),
           pw.Align(
             alignment: pw.Alignment.centerRight,
@@ -158,15 +169,17 @@ final class TimesheetPdfService {
         pageFormat: PdfPageFormat.letter.landscape,
         margin: const pw.EdgeInsets.all(24),
         build: (context) => [
-          pw.Text('Approval Audit Summary',
-              style:
-                  pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            'Approval Audit Summary',
+            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+          ),
           pw.SizedBox(height: 10),
           _approvalAuditTable(days, approvalStamps),
           pw.SizedBox(height: 18),
-          pw.Text(strings.t('pdf.receiptsSummary'),
-              style:
-                  pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+          pw.Text(
+            strings.t('pdf.receiptsSummary'),
+            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+          ),
           pw.SizedBox(height: 12),
           if (receipts.isEmpty)
             pw.Text(strings.t('pdf.noLinkedReceipts'))
@@ -202,8 +215,8 @@ final class TimesheetPdfService {
     final background = summary.fullyApproved
         ? PdfColors.green100
         : summary.rejected > 0
-            ? PdfColors.red100
-            : PdfColors.amber100;
+        ? PdfColors.red100
+        : PdfColors.amber100;
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: pw.BoxDecoration(
@@ -280,18 +293,24 @@ final class TimesheetPdfService {
                 pw.Text('BY JKDD TECH'),
                 pw.SizedBox(height: 6),
                 pw.Text('Contracting Company:'),
-                pw.Text(employerName?.trim().isNotEmpty == true
-                    ? employerName!.trim()
-                    : snapshot.companyName),
+                pw.Text(
+                  employerName?.trim().isNotEmpty == true
+                      ? employerName!.trim()
+                      : snapshot.companyName,
+                ),
                 pw.Text('Subcontractor:'),
                 pw.Text(snapshot.subcontractor.displayName),
                 pw.Text('Responsible:'),
                 pw.Text(snapshot.worker.displayName),
-                pw.Text('Reporting Period: ${_date(week.start)} to '
-                    '${_date(week.end)}'),
+                pw.Text(
+                  'Reporting Period: ${_date(week.start)} to '
+                  '${_date(week.end)}',
+                ),
                 if (timesheetRegistrationNumbers.isNotEmpty)
-                  pw.Text('Timesheet Registration Number: '
-                      '${timesheetRegistrationNumbers.join(', ')}'),
+                  pw.Text(
+                    'Timesheet Registration Number: '
+                    '${timesheetRegistrationNumbers.join(', ')}',
+                  ),
               ],
             ),
           ),
@@ -308,8 +327,7 @@ final class TimesheetPdfService {
     final rows = <List<String>>[];
     for (final day in days) {
       for (final segment in day.segments) {
-        final approval =
-            approvalStamps[approvalEntryId(day.id, segment.id)];
+        final approval = approvalStamps[approvalEntryId(day.id, segment.id)];
         rows.add([
           _date(day.workDate),
           _weekDay(day.workDate),
@@ -326,8 +344,9 @@ final class TimesheetPdfService {
         ]);
       }
       for (final segment in _bonusSegments(day)) {
-        final bonusDuration =
-            Duration(minutes: (segment.travelBonusHours * 60).round());
+        final bonusDuration = Duration(
+          minutes: (segment.travelBonusHours * 60).round(),
+        );
         rows.add([
           _date(day.workDate),
           _weekDay(day.workDate),
@@ -373,7 +392,7 @@ final class TimesheetPdfService {
                 '-',
                 '-',
                 '00:00',
-                strings.t('pdf.noRecords')
+                strings.t('pdf.noRecords'),
               ],
             ]
           : rows,
@@ -408,7 +427,10 @@ final class TimesheetPdfService {
           _date(day.workDate),
           'Job ${segment.jobNumber}',
           stamp?.displayStatus ?? 'Pending',
-          stamp?.approvedBy ?? stamp?.rejectedBy ?? stamp?.reviewRequestedBy ?? '-',
+          stamp?.approvedBy ??
+              stamp?.rejectedBy ??
+              stamp?.reviewRequestedBy ??
+              '-',
           _approvalDate(stamp),
           stamp?.rejectionReason ?? stamp?.reviewNote ?? '-',
         ]);
@@ -425,7 +447,7 @@ final class TimesheetPdfService {
       ],
       data: rows.isEmpty
           ? [
-              ['-', '-', 'No approval records', '-', '-', '-']
+              ['-', '-', 'No approval records', '-', '-', '-'],
             ]
           : rows,
       headerDecoration: const pw.BoxDecoration(color: PdfColors.blueGrey100),
@@ -481,8 +503,10 @@ final class TimesheetPdfService {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
-        pw.Text(strings.t('pdf.receipt', {'merchant': receipt.merchant}),
-            style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+        pw.Text(
+          strings.t('pdf.receipt', {'merchant': receipt.merchant}),
+          style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+        ),
         pw.SizedBox(height: 6),
         if (receipt.registrationNumber.isNotEmpty)
           pw.Text('Registration Number: ${receipt.registrationNumber}'),
@@ -499,10 +523,7 @@ final class TimesheetPdfService {
         pw.SizedBox(height: 12),
         pw.Expanded(
           child: pw.Center(
-            child: pw.Image(
-              pw.MemoryImage(bytes),
-              fit: pw.BoxFit.contain,
-            ),
+            child: pw.Image(pw.MemoryImage(bytes), fit: pw.BoxFit.contain),
           ),
         ),
       ],
@@ -562,21 +583,23 @@ String _jobAddress(FieldTimeSnapshot snapshot, String jobId) {
   return job.address;
 }
 
-String _date(DateTime value) => '${value.month.toString().padLeft(2, '0')}/'
+String _date(DateTime value) =>
+    '${value.month.toString().padLeft(2, '0')}/'
     '${value.day.toString().padLeft(2, '0')}/${value.year}';
 
 String _weekDay(DateTime value) => switch (value.weekday) {
-      DateTime.monday => 'Monday',
-      DateTime.tuesday => 'Tuesday',
-      DateTime.wednesday => 'Wednesday',
-      DateTime.thursday => 'Thursday',
-      DateTime.friday => 'Friday',
-      DateTime.saturday => 'Saturday',
-      DateTime.sunday => 'Sunday',
-      _ => '',
-    };
+  DateTime.monday => 'Monday',
+  DateTime.tuesday => 'Tuesday',
+  DateTime.wednesday => 'Wednesday',
+  DateTime.thursday => 'Thursday',
+  DateTime.friday => 'Friday',
+  DateTime.saturday => 'Saturday',
+  DateTime.sunday => 'Sunday',
+  _ => '',
+};
 
-String _time(DateTime value) => '${value.hour.toString().padLeft(2, '0')}:'
+String _time(DateTime value) =>
+    '${value.hour.toString().padLeft(2, '0')}:'
     '${value.minute.toString().padLeft(2, '0')}';
 
 String _duration(Duration duration) =>
