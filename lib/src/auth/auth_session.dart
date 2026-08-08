@@ -6,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 final authSessionProvider =
     StateNotifierProvider<AuthSessionController, AuthSessionState>(
-  (ref) => AuthSessionController()..load(),
+  (ref) => AuthSessionController.live()..load(),
 );
 
 final class AuthSessionState {
@@ -67,10 +67,10 @@ final class HomologationAccount {
 }
 
 final class AuthSessionController extends StateNotifier<AuthSessionState> {
-  AuthSessionController()
+  AuthSessionController.live()
       : _client = Supabase.instance.client,
         super(const AuthSessionState()) {
-    _subscription = _client.auth.onAuthStateChange.listen((event) async {
+    _subscription = _client!.auth.onAuthStateChange.listen((event) async {
       if (event.session == null) {
         state = const AuthSessionState(loading: false);
         return;
@@ -79,11 +79,34 @@ final class AuthSessionController extends StateNotifier<AuthSessionState> {
     });
   }
 
-  final SupabaseClient _client;
-  late final StreamSubscription<AuthState> _subscription;
+  AuthSessionController.test({HomologationAccount? user})
+      : _client = null,
+        super(AuthSessionState(loading: false, user: user));
+
+  static const testWorker = HomologationAccount(
+    id: 'TER-0001',
+    authUserId: '00000000-0000-0000-0000-000000000001',
+    companyId: '00000000-0000-0000-0000-000000000101',
+    name: 'Santana',
+    username: 'collaborator@test.jkdd',
+    role: PilotRole.employee,
+    roleLabelKey: 'auth.roleCollaborator',
+  );
+
+  final SupabaseClient? _client;
+  StreamSubscription<AuthState>? _subscription;
+
+  SupabaseClient get _requiredClient {
+    final client = _client;
+    if (client == null) {
+      throw StateError('Supabase client is unavailable in test session mode.');
+    }
+    return client;
+  }
 
   Future<void> load() async {
-    final session = _client.auth.currentSession;
+    final client = _requiredClient;
+    final session = client.auth.currentSession;
     if (session == null) {
       state = const AuthSessionState(loading: false);
       return;
@@ -92,9 +115,10 @@ final class AuthSessionController extends StateNotifier<AuthSessionState> {
   }
 
   Future<void> login(String username, String password) async {
+    final client = _requiredClient;
     state = state.copyWith(authenticating: true, clearError: true);
     try {
-      final response = await _client.auth.signInWithPassword(
+      final response = await client.auth.signInWithPassword(
         email: username.trim(),
         password: password,
       );
@@ -113,7 +137,7 @@ final class AuthSessionController extends StateNotifier<AuthSessionState> {
         errorKey: 'auth.invalidCredentials',
       );
     } on PostgrestException {
-      await _client.auth.signOut();
+      await client.auth.signOut();
       state = const AuthSessionState(
         loading: false,
         errorKey: 'auth.invalidCredentials',
@@ -127,17 +151,21 @@ final class AuthSessionController extends StateNotifier<AuthSessionState> {
   }
 
   Future<void> requestPasswordRecovery(String email) async {
-    await _client.auth.resetPasswordForEmail(email.trim());
+    await _requiredClient.auth.resetPasswordForEmail(email.trim());
   }
 
   Future<void> logout() async {
-    await _client.auth.signOut();
+    final client = _client;
+    if (client != null) {
+      await client.auth.signOut();
+    }
     state = const AuthSessionState(loading: false);
   }
 
   Future<void> _hydrateAuthenticatedUser(User authUser) async {
+    final client = _requiredClient;
     try {
-      final membership = await _client
+      final membership = await client
           .from('company_members')
           .select('company_id, role')
           .eq('user_id', authUser.id)
@@ -146,7 +174,7 @@ final class AuthSessionController extends StateNotifier<AuthSessionState> {
           .maybeSingle();
 
       if (membership == null) {
-        await _client.auth.signOut();
+        await client.auth.signOut();
         state = const AuthSessionState(
           loading: false,
           errorKey: 'auth.invalidCredentials',
@@ -156,7 +184,7 @@ final class AuthSessionController extends StateNotifier<AuthSessionState> {
 
       final companyId = membership['company_id'] as String;
       final databaseRole = membership['role'] as String;
-      final profile = await _client
+      final profile = await client
           .from('profiles')
           .select('first_name, last_name')
           .eq('id', authUser.id)
@@ -168,7 +196,7 @@ final class AuthSessionController extends StateNotifier<AuthSessionState> {
 
       String? workerId;
       if (databaseRole == 'worker' || databaseRole == 'supervisor') {
-        final worker = await _client
+        final worker = await client
             .from('workers')
             .select('id')
             .eq('company_id', companyId)
@@ -206,7 +234,7 @@ final class AuthSessionController extends StateNotifier<AuthSessionState> {
         ),
       );
     } on Object {
-      await _client.auth.signOut();
+      await client.auth.signOut();
       state = const AuthSessionState(
         loading: false,
         errorKey: 'auth.invalidCredentials',
@@ -216,7 +244,7 @@ final class AuthSessionController extends StateNotifier<AuthSessionState> {
 
   @override
   void dispose() {
-    _subscription.cancel();
+    _subscription?.cancel();
     super.dispose();
   }
 }
