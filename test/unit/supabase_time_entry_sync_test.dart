@@ -75,7 +75,8 @@ void main() {
 
   test('coordinator detects a newly created clock segment', () {
     final before = FieldTimeSnapshot.seeded();
-    final after = snapshotWith(segment());
+    final created = segment();
+    final after = snapshotWith(created);
 
     final changed = SupabaseClockSyncCoordinator.changedSegments(
       before: before,
@@ -83,7 +84,7 @@ void main() {
     );
 
     expect(changed, hasLength(1));
-    expect(changed.single.id, segment().id);
+    expect(changed.single.id, created.id);
   });
 
   test('coordinator detects Clock Out as material change', () {
@@ -97,6 +98,19 @@ void main() {
 
     expect(changed, hasLength(1));
     expect(changed.single.endedAt, isNotNull);
+  });
+
+  test('coordinator detects changed notes as material change', () {
+    final beforeSegment = segment(notes: 'before');
+    final afterSegment = segment(notes: 'after');
+
+    final changed = SupabaseClockSyncCoordinator.changedSegments(
+      before: snapshotWith(beforeSegment),
+      after: snapshotWith(afterSegment),
+    );
+
+    expect(changed, hasLength(1));
+    expect(changed.single.notes, 'after');
   });
 
   test('coordinator ignores unchanged segments', () {
