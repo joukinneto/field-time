@@ -5,9 +5,11 @@ import 'package:jkdd_field_time_records_production/core/theme/app_spacing.dart';
 import 'package:jkdd_field_time_records_production/src/application/field_time_controller.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
+import 'package:jkdd_field_time_records_production/src/platform/file_download.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_controller.dart';
 import 'package:jkdd_field_time_records_production/src/supervisor_center/supervisor_center_models.dart';
 import 'package:jkdd_field_time_records_production/src/timesheet/timesheet_pdf_service.dart';
+import 'package:jkdd_field_time_records_production/src/timesheet/timesheet_excel_service.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_empty_state.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_info_row.dart';
 import 'package:jkdd_field_time_records_production/shared/widgets/jkdd_section_header.dart';
@@ -60,6 +62,7 @@ final class _TimesheetContent extends ConsumerWidget {
     final snapshot = ref.watch(fieldTimeControllerProvider).snapshot;
     final service = ref.watch(fieldTimeApplicationServiceProvider);
     const pdfService = TimesheetPdfService();
+    const excelService = TimesheetExcelService();
     final days = service.timesheet(snapshot, period, DateTime.now());
     final segments = days.expand((day) => day.segments).toList();
     final regularHours = segments.fold<double>(
@@ -107,9 +110,14 @@ final class _TimesheetContent extends ConsumerWidget {
                     spacing: AppSpacing.sm,
                     children: [
                       FilledButton.icon(
-                        onPressed: () =>
-                            _generatePdf(context, snapshot, pdfService, days),
-                        icon: const Icon(Icons.picture_as_pdf_outlined),
+                        onPressed: () => _showExportMenu(
+                          context,
+                          snapshot,
+                          pdfService,
+                          excelService,
+                          days,
+                        ),
+                        icon: const Icon(Icons.file_download_outlined),
                         label: Text(context.tr('timesheet.generateTimesheet')),
                       ),
                     ],
@@ -128,18 +136,33 @@ final class _TimesheetContent extends ConsumerWidget {
                       _hours(regularHours),
                       Icons.schedule_outlined,
                       AppColors.blue,
+                      () => _showMetricDetails(
+                        context,
+                        days,
+                        _TimesheetMetric.regular,
+                      ),
                     ),
                     _TotalItem(
                       context.tr('timesheet.bonusHours'),
                       _hours(bonusHours),
                       Icons.route_outlined,
                       AppColors.teal,
+                      () => _showMetricDetails(
+                        context,
+                        days,
+                        _TimesheetMetric.bonus,
+                      ),
                     ),
                     _TotalItem(
                       context.tr('timesheet.totalHours'),
                       _hours(regularHours + bonusHours),
                       Icons.access_time_filled,
                       AppColors.green,
+                      () => _showMetricDetails(
+                        context,
+                        days,
+                        _TimesheetMetric.total,
+                      ),
                     ),
                     _TotalItem(
                       context.tr('timesheet.payPremium'),
@@ -149,12 +172,22 @@ final class _TimesheetContent extends ConsumerWidget {
                           .toString(),
                       Icons.workspace_premium_outlined,
                       AppColors.purple,
+                      () => _showMetricDetails(
+                        context,
+                        days,
+                        _TimesheetMetric.premium,
+                      ),
                     ),
                     _TotalItem(
                       context.tr('timesheet.jobs'),
                       totalsByJob.length.toString(),
                       Icons.apartment_outlined,
                       AppColors.purple,
+                      () => _showMetricDetails(
+                        context,
+                        days,
+                        _TimesheetMetric.jobs,
+                      ),
                     ),
                   ],
                 ),
@@ -209,6 +242,191 @@ final class _TimesheetContent extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _showExportMenu(
+    BuildContext context,
+    FieldTimeSnapshot snapshot,
+    TimesheetPdfService pdfService,
+    TimesheetExcelService excelService,
+    List<WorkDay> days,
+  ) async {
+    if (days.expand((day) => day.segments).isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('timesheet.noRecordsForPeriod'))),
+      );
+      return;
+    }
+    final format = await showModalBottomSheet<_TimesheetExportFormat>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Gerar Timesheet',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf_outlined),
+                title: const Text('PDF'),
+                subtitle: const Text(
+                  'Visualizar, imprimir, compartilhar ou salvar.',
+                ),
+                onTap: () => Navigator.pop(context, _TimesheetExportFormat.pdf),
+              ),
+              ListTile(
+                leading: const Icon(Icons.table_view_outlined),
+                title: const Text('Excel'),
+                subtitle: const Text(
+                  'Planilha .xlsx para conferência e payroll.',
+                ),
+                onTap: () =>
+                    Navigator.pop(context, _TimesheetExportFormat.excel),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!context.mounted || format == null) return;
+    if (format == _TimesheetExportFormat.pdf) {
+      await _generatePdf(context, snapshot, pdfService, days);
+    } else {
+      await _generateExcel(context, snapshot, excelService, days);
+    }
+  }
+
+  Future<void> _generateExcel(
+    BuildContext context,
+    FieldTimeSnapshot snapshot,
+    TimesheetExcelService excelService,
+    List<WorkDay> days,
+  ) async {
+    try {
+      final bytes = excelService.build(snapshot: snapshot, days: days);
+      final delivered = await downloadBytes(
+        bytes: bytes,
+        fileName:
+            'Field_Time_Timesheet_${snapshot.worker.displayName.replaceAll(' ', '_')}.xlsx',
+        mimeType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              delivered
+                  ? 'Timesheet Excel gerado com sucesso.'
+                  : 'Exportação Excel está disponível na versão Web/PWA.',
+            ),
+          ),
+        );
+      }
+    } on Exception catch (error) {
+      debugPrint('Timesheet Excel generation failed: $error');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não foi possível gerar o Excel.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showMetricDetails(
+    BuildContext context,
+    List<WorkDay> days,
+    _TimesheetMetric metric,
+  ) async {
+    final rows = <_TimesheetMetricRow>[];
+    for (final day in days) {
+      for (final segment in day.segments) {
+        final value = switch (metric) {
+          _TimesheetMetric.regular => segment.regularHours(),
+          _TimesheetMetric.bonus => segment.travelBonusHours,
+          _TimesheetMetric.total =>
+            segment.regularHours() + segment.travelBonusHours,
+          _TimesheetMetric.premium => segment.hasPayPremium ? 1.0 : 0.0,
+          _TimesheetMetric.jobs => 1.0,
+        };
+        if (value > 0) {
+          rows.add(
+            _TimesheetMetricRow(
+              date: day.workDate,
+              jobNumber: segment.jobNumber,
+              value: value,
+              premium: segment.hasPayPremium,
+            ),
+          );
+        }
+      }
+    }
+    final maxValue = rows.fold<double>(
+      0,
+      (max, row) => row.value > max ? row.value : max,
+    );
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.82,
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            children: [
+              Text(
+                _timesheetMetricLabel(metric),
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 4),
+              const Text('Gráfico e registros do período selecionado.'),
+              const SizedBox(height: AppSpacing.lg),
+              if (rows.isEmpty)
+                const JkddEmptyState(
+                  icon: Icons.query_stats_outlined,
+                  title: 'Nenhum registro neste período',
+                  message:
+                      'Altere o período do Timesheet para consultar outros registros.',
+                )
+              else
+                for (final row in rows) ...[
+                  Row(
+                    children: [
+                      SizedBox(width: 92, child: Text(_date(row.date))),
+                      SizedBox(width: 90, child: Text('Obra ${row.jobNumber}')),
+                      Expanded(
+                        child: LinearProgressIndicator(
+                          value: maxValue <= 0 ? 0 : row.value / maxValue,
+                          minHeight: 12,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      SizedBox(
+                        width: 76,
+                        child: Text(
+                          metric == _TimesheetMetric.premium
+                              ? (row.premium ? 'Sim' : 'Não')
+                              : metric == _TimesheetMetric.jobs
+                              ? '1 registro'
+                              : _hours(row.value),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -586,13 +804,6 @@ final class _SupervisorEntryCard extends ConsumerWidget {
                 SizedBox(
                   width: 150,
                   child: JkddInfoRow(
-                    label: context.tr('approval.breakMinutes'),
-                    value: '${entry.breakMinutes} min',
-                  ),
-                ),
-                SizedBox(
-                  width: 150,
-                  child: JkddInfoRow(
                     label: context.tr('approval.travelBonus'),
                     value: _hours(entry.travelBonusHours),
                   ),
@@ -759,7 +970,6 @@ Future<void> _editSupervisorEntry(
   final job = state.jobById(entry.jobId);
   final clockIn = TextEditingController(text: entry.clockIn);
   final clockOut = TextEditingController(text: entry.clockOut ?? '');
-  final breakMinutes = TextEditingController(text: '${entry.breakMinutes}');
   final bonus = TextEditingController(
     text: entry.travelBonusHours.toStringAsFixed(2),
   );
@@ -788,14 +998,6 @@ Future<void> _editSupervisorEntry(
                 controller: clockOut,
                 decoration: InputDecoration(
                   labelText: context.tr('approval.clockOut'),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: breakMinutes,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: context.tr('approval.breakMinutes'),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -860,7 +1062,7 @@ Future<void> _editSupervisorEntry(
         entryId: entry.id,
         clockIn: clockIn.text.trim(),
         clockOut: clockOut.text.trim().isEmpty ? null : clockOut.text.trim(),
-        breakMinutes: int.tryParse(breakMinutes.text) ?? entry.breakMinutes,
+        breakMinutes: 0,
         travelBonusHours: double.tryParse(bonus.text) ?? entry.travelBonusHours,
         supervisorNote: note.text.trim(),
         justification: reason,
@@ -885,7 +1087,6 @@ Future<void> _editSupervisorEntry(
 
   clockIn.dispose();
   clockOut.dispose();
-  breakMinutes.dispose();
   bonus.dispose();
   premium.dispose();
   note.dispose();
@@ -1057,7 +1258,7 @@ double _supervisorEntryHours(TimeEntry entry) {
   final start = _parseClock(entry.clockIn);
   final end = entry.clockOut == null ? null : _parseClock(entry.clockOut!);
   if (start == null || end == null) return entry.travelBonusHours;
-  var minutes = end - start - entry.breakMinutes;
+  var minutes = end - start;
   if (minutes < 0) minutes += 24 * 60;
   return (minutes / 60) + entry.travelBonusHours;
 }
@@ -1120,6 +1321,10 @@ final class _TimesheetFilters extends StatelessWidget {
                     value: TimesheetPeriod.year,
                     label: Text(context.tr('timesheet.year')),
                   ),
+                  const ButtonSegment(
+                    value: TimesheetPeriod.all,
+                    label: Text('Todo período'),
+                  ),
                 ],
                 selected: {period},
                 onSelectionChanged: (value) => onPeriodChanged(value.first),
@@ -1154,11 +1359,15 @@ final class _TotalsGrid extends StatelessWidget {
         childAspectRatio: count == 2 ? 1.55 : 1.45,
         children: [
           for (final item in items)
-            JkddSummaryCard(
-              label: item.label,
-              value: item.value,
-              icon: item.icon,
-              color: item.color,
+            InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: item.onTap,
+              child: JkddSummaryCard(
+                label: item.label,
+                value: item.value,
+                icon: item.icon,
+                color: item.color,
+              ),
             ),
         ],
       );
@@ -1166,13 +1375,40 @@ final class _TotalsGrid extends StatelessWidget {
   );
 }
 
+enum _TimesheetMetric { regular, bonus, total, premium, jobs }
+
+enum _TimesheetExportFormat { pdf, excel }
+
+final class _TimesheetMetricRow {
+  const _TimesheetMetricRow({
+    required this.date,
+    required this.jobNumber,
+    required this.value,
+    required this.premium,
+  });
+
+  final DateTime date;
+  final String jobNumber;
+  final double value;
+  final bool premium;
+}
+
+String _timesheetMetricLabel(_TimesheetMetric metric) => switch (metric) {
+  _TimesheetMetric.regular => 'Horas regulares',
+  _TimesheetMetric.bonus => 'Horas de bônus',
+  _TimesheetMetric.total => 'Total de horas',
+  _TimesheetMetric.premium => 'Adicional salarial',
+  _TimesheetMetric.jobs => 'Obras trabalhadas',
+};
+
 final class _TotalItem {
-  const _TotalItem(this.label, this.value, this.icon, this.color);
+  const _TotalItem(this.label, this.value, this.icon, this.color, this.onTap);
 
   final String label;
   final String value;
   final IconData icon;
   final Color color;
+  final VoidCallback onTap;
 }
 
 final class _TotalsByJob extends StatelessWidget {

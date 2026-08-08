@@ -43,10 +43,9 @@ final class JkddAppBar extends StatelessWidget implements PreferredSizeWidget {
             const SizedBox(width: 12),
             Text(
               'v1.1.0-test4',
-              style: Theme.of(context)
-                  .textTheme
-                  .labelMedium
-                  ?.copyWith(color: AppColors.gray),
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(color: AppColors.gray),
             ),
           ],
         ],
@@ -108,7 +107,7 @@ final class _HeaderStatus extends StatelessWidget {
         const SizedBox(width: 16),
         const Icon(Icons.sync_problem_outlined, size: 20),
         const SizedBox(width: 6),
-        Text(context.tr('home.pendingItems', {'count': pendingItems})),
+        Text('$pendingItems aguardando sincronização'),
       ],
     );
   }

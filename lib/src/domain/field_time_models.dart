@@ -12,7 +12,7 @@ enum AttachmentKind { receipt, jobPhoto }
 
 enum SyncOperation { create, update }
 
-enum TimesheetPeriod { today, week, month, year }
+enum TimesheetPeriod { today, week, month, year, all }
 
 enum PayPremiumType { percentage, fixedHourly, doubleTime }
 
