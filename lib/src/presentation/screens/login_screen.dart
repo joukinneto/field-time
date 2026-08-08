@@ -5,6 +5,7 @@ import 'package:jkdd_field_time_records_production/core/theme/app_colors.dart';
 import 'package:jkdd_field_time_records_production/core/theme/app_spacing.dart';
 import 'package:jkdd_field_time_records_production/src/auth/auth_session.dart';
 import 'package:jkdd_field_time_records_production/src/localization/app_language.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 final class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -171,7 +172,7 @@ final class _LoginScreenState extends ConsumerState<LoginScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Informe o e-mail/usuário cadastrado para recuperar o acesso.',
+              'Informe o e-mail cadastrado para receber o link seguro de recuperação.',
             ),
             const SizedBox(height: AppSpacing.md),
             TextField(
@@ -179,7 +180,7 @@ final class _LoginScreenState extends ConsumerState<LoginScreen> {
               autofocus: true,
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
-                labelText: 'E-mail ou usuário',
+                labelText: 'E-mail',
                 prefixIcon: Icon(Icons.alternate_email_outlined),
               ),
             ),
@@ -192,7 +193,7 @@ final class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, email.text.trim()),
-            child: const Text('Continuar'),
+            child: const Text('Enviar link'),
           ),
         ],
       ),
@@ -200,21 +201,17 @@ final class _LoginScreenState extends ConsumerState<LoginScreen> {
     email.dispose();
     if (!mounted || submitted == null || submitted.isEmpty) return;
 
-    HomologationAccount? account;
-    for (final item in AuthSessionController.accounts) {
-      if (item.username.toLowerCase() == submitted.toLowerCase()) {
-        account = item;
-        break;
-      }
-    }
-
-    if (account == null) {
+    try {
+      await ref
+          .read(authSessionProvider.notifier)
+          .requestPasswordRecovery(submitted);
+      if (!mounted) return;
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Usuário não encontrado'),
+          title: const Text('Verifique seu e-mail'),
           content: const Text(
-            'Não existe uma conta de teste cadastrada com esse e-mail/usuário.',
+            'Se o endereço estiver cadastrado, o Supabase Auth enviará as instruções de recuperação de senha.',
           ),
           actions: [
             FilledButton(
@@ -224,25 +221,21 @@ final class _LoginScreenState extends ConsumerState<LoginScreen> {
           ],
         ),
       );
-      return;
-    }
-
-    _username.text = account.username;
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Acesso de teste recuperado'),
-        content: const Text(
-          'Neste ambiente de homologação, a senha padrão foi restaurada para Test123!. '
-          'Na versão de produção, a recuperação será feita por link/código seguro enviado ao usuário.',
+    } on AuthException catch (error) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Não foi possível enviar'),
+          content: Text(error.message),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
         ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Voltar ao login'),
-          ),
-        ],
-      ),
-    );
+      );
+    }
   }
 }

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:jkdd_field_time_records_production/features/employees/data/employee_asset_repository.dart';
 import 'package:jkdd_field_time_records_production/features/jobs/data/job_asset_repository.dart';
 import 'package:jkdd_field_time_records_production/src/application/field_time_application_service.dart';
+import 'package:jkdd_field_time_records_production/src/data/remote/supabase_clock_sync_coordinator.dart';
 import 'package:jkdd_field_time_records_production/src/data/repositories/field_time_repository.dart';
 import 'package:jkdd_field_time_records_production/src/domain/field_time_models.dart';
 import 'package:jkdd_field_time_records_production/src/domain/value_objects/geo_point.dart';
@@ -20,6 +21,10 @@ final fieldTimeApplicationServiceProvider = Provider(
   (ref) => const FieldTimeApplicationService(),
 );
 
+final fieldTimeClockSyncCoordinatorProvider = Provider(
+  (ref) => const SupabaseClockSyncCoordinator(),
+);
+
 final fieldTimeControllerProvider =
     StateNotifierProvider<FieldTimeController, FieldTimeState>((ref) {
       final controller = FieldTimeController(
@@ -27,6 +32,7 @@ final fieldTimeControllerProvider =
         jobRepository: ref.watch(jobAssetRepositoryProvider),
         employeeRepository: ref.watch(employeeAssetRepositoryProvider),
         service: ref.watch(fieldTimeApplicationServiceProvider),
+        clockSyncCoordinator: ref.watch(fieldTimeClockSyncCoordinatorProvider),
       );
       controller.initialize();
       return controller;
@@ -95,6 +101,7 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
     required this.jobRepository,
     required this.employeeRepository,
     required this.service,
+    this.clockSyncCoordinator,
     this.locationService = const TimeRecordLocationService(),
     this.uuid = const Uuid(),
   }) : super(FieldTimeState(snapshot: FieldTimeSnapshot.seeded()));
@@ -103,6 +110,7 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
   final JobAssetRepository jobRepository;
   final EmployeeAssetRepository employeeRepository;
   final FieldTimeApplicationService service;
+  final SupabaseClockSyncCoordinator? clockSyncCoordinator;
   final TimeRecordLocationService locationService;
   final Uuid uuid;
 
@@ -429,9 +437,11 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
       message: progress,
     );
     try {
+      final before = state.snapshot;
       final location = await locationService.currentLocation();
-      final snapshot = mutate(state.snapshot, DateTime.now(), location);
+      final snapshot = mutate(before, DateTime.now(), location);
       await repository.save(snapshot);
+      await _syncClockBestEffort(before: before, after: snapshot);
       state = FieldTimeState(
         snapshot: snapshot,
         message: success,
@@ -446,6 +456,22 @@ final class FieldTimeController extends StateNotifier<FieldTimeState> {
         snapshot: state.snapshot,
         error: 'fieldTime.operationFailed',
       );
+    }
+  }
+
+  Future<void> _syncClockBestEffort({
+    required FieldTimeSnapshot before,
+    required FieldTimeSnapshot after,
+  }) async {
+    final coordinator = clockSyncCoordinator;
+    if (coordinator == null || !isDeviceOnline) return;
+
+    try {
+      await coordinator.syncAfterMutation(before: before, after: after);
+    } on Object {
+      // Offline-first invariant: a remote failure never rolls back a locally
+      // persisted Clock In, Switch Job, or Clock Out. Pending sync remains in
+      // the local queue for later retry once Auth/data prerequisites exist.
     }
   }
 
