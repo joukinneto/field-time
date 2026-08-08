@@ -487,6 +487,8 @@ final class _TimesheetContent extends ConsumerWidget {
 
 enum _SupervisorTimesheetFilter { all, pending, review, approved, rejected }
 
+enum _SupervisorTimesheetScope { own, team }
+
 final class _SupervisorTeamTimesheet extends ConsumerStatefulWidget {
   const _SupervisorTeamTimesheet();
 
@@ -498,6 +500,7 @@ final class _SupervisorTeamTimesheet extends ConsumerStatefulWidget {
 final class _SupervisorTeamTimesheetState
     extends ConsumerState<_SupervisorTeamTimesheet> {
   _SupervisorTimesheetFilter _filter = _SupervisorTimesheetFilter.all;
+  _SupervisorTimesheetScope _scope = _SupervisorTimesheetScope.own;
 
   static const _reviewStatuses = {
     TimeReviewStatus.underReview,
@@ -509,9 +512,19 @@ final class _SupervisorTeamTimesheetState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(supervisorCenterProvider);
+    final directReportIds = state
+        .directReportsFor(state.currentUser)
+        .map((user) => user.id)
+        .toSet();
     final allEntries =
         state.timeEntries
-            .where((entry) => entry.status != TimeReviewStatus.working)
+            .where(
+              (entry) =>
+                  entry.status != TimeReviewStatus.working &&
+                  (_scope == _SupervisorTimesheetScope.own
+                      ? entry.userId == state.currentUser.id
+                      : directReportIds.contains(entry.userId)),
+            )
             .toList(growable: false)
           ..sort((left, right) {
             final dateCompare = right.date.compareTo(left.date);
@@ -551,8 +564,34 @@ final class _SupervisorTeamTimesheetState
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 JkddSectionHeader(
-                  title: context.tr('timesheet.dailyRecords'),
-                  subtitle: context.tr('supervisor.reviewSubmittedRecords'),
+                  title: _scope == _SupervisorTimesheetScope.own
+                      ? 'Meu Timesheet'
+                      : 'Timesheets da equipe',
+                  subtitle: _scope == _SupervisorTimesheetScope.own
+                      ? 'Minhas horas — aprovação por ${state.approverLabelFor(state.currentUser)} · Centro de custo: ${state.currentUser.costCenter}'
+                      : 'Horas dos subordinados diretos de ${state.currentUser.name}',
+                ),
+                const SizedBox(height: AppSpacing.md),
+                SegmentedButton<_SupervisorTimesheetScope>(
+                  segments: const [
+                    ButtonSegment(
+                      value: _SupervisorTimesheetScope.own,
+                      icon: Icon(Icons.person_outline),
+                      label: Text('Meu Timesheet'),
+                    ),
+                    ButtonSegment(
+                      value: _SupervisorTimesheetScope.team,
+                      icon: Icon(Icons.groups_outlined),
+                      label: Text('Minha equipe'),
+                    ),
+                  ],
+                  selected: {_scope},
+                  onSelectionChanged: (selection) {
+                    setState(() {
+                      _scope = selection.first;
+                      _filter = _SupervisorTimesheetFilter.all;
+                    });
+                  },
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 LayoutBuilder(
@@ -651,7 +690,11 @@ final class _SupervisorTeamTimesheetState
                   )
                 else
                   for (final entry in entries)
-                    _SupervisorEntryCard(entry: entry),
+                    _SupervisorEntryCard(
+                      entry: entry,
+                      allowReviewActions:
+                          _scope == _SupervisorTimesheetScope.team,
+                    ),
               ],
             ),
           ),
@@ -726,9 +769,13 @@ String _supervisorTimesheetFilterLabel(_SupervisorTimesheetFilter filter) =>
     };
 
 final class _SupervisorEntryCard extends ConsumerWidget {
-  const _SupervisorEntryCard({required this.entry});
+  const _SupervisorEntryCard({
+    required this.entry,
+    required this.allowReviewActions,
+  });
 
   final TimeEntry entry;
+  final bool allowReviewActions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -859,62 +906,74 @@ final class _SupervisorEntryCard extends ConsumerWidget {
               ),
             ],
             const SizedBox(height: AppSpacing.md),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: entry.isLocked
-                        ? null
-                        : () => _editSupervisorEntry(context, ref, entry),
-                    icon: const Icon(Icons.edit_outlined),
-                    label: Text(context.tr('approval.review')),
-                  ),
-                  FilledButton.icon(
-                    onPressed: entry.isLocked
-                        ? null
-                        : () => _approveSupervisorEntry(context, ref, entry),
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: Text(context.tr('approval.approve')),
-                  ),
-                  if (entry.status == TimeReviewStatus.approved &&
-                      {
-                        PilotRole.owner,
-                        PilotRole.administrator,
-                      }.contains(state.currentRole))
-                    TextButton.icon(
-                      onPressed: () => _questionSupervisor(context, ref, entry),
-                      icon: const Icon(Icons.help_outline),
-                      label: const Text('Questionar supervisor'),
-                    ),
-                  if (entry.status == TimeReviewStatus.approved &&
-                      state.currentRole == PilotRole.supervisor &&
-                      hasUnansweredQuestion)
-                    TextButton.icon(
-                      onPressed: () => _respondDirector(context, ref, entry),
-                      icon: const Icon(Icons.reply_outlined),
-                      label: const Text('Responder diretor'),
-                    ),
-                  OutlinedButton.icon(
-                    onPressed: entry.isLocked
-                        ? null
-                        : () => _rejectSupervisorEntry(context, ref, entry),
-                    icon: const Icon(Icons.cancel_outlined),
-                    label: Text(context.tr('approval.reject')),
-                  ),
-                  TextButton.icon(
-                    onPressed: entry.isLocked
-                        ? null
-                        : () =>
-                              _requestSupervisorCorrection(context, ref, entry),
-                    icon: const Icon(Icons.edit_note_outlined),
-                    label: Text(context.tr('supervisor.requestCorrection')),
-                  ),
-                ],
+            if (!allowReviewActions)
+              JkddStatusChip(
+                label:
+                    'Aprovação: ${state.approverLabelFor(user)} · Centro de custo: ${user.costCenter}',
+                icon: Icons.account_tree_outlined,
+                tone: JkddStatusTone.info,
               ),
-            ),
+            if (allowReviewActions)
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: entry.isLocked
+                          ? null
+                          : () => _editSupervisorEntry(context, ref, entry),
+                      icon: const Icon(Icons.edit_outlined),
+                      label: Text(context.tr('approval.review')),
+                    ),
+                    FilledButton.icon(
+                      onPressed: entry.isLocked
+                          ? null
+                          : () => _approveSupervisorEntry(context, ref, entry),
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: Text(context.tr('approval.approve')),
+                    ),
+                    if (entry.status == TimeReviewStatus.approved &&
+                        {
+                          PilotRole.owner,
+                          PilotRole.administrator,
+                        }.contains(state.currentRole))
+                      TextButton.icon(
+                        onPressed: () =>
+                            _questionSupervisor(context, ref, entry),
+                        icon: const Icon(Icons.help_outline),
+                        label: const Text('Questionar supervisor'),
+                      ),
+                    if (entry.status == TimeReviewStatus.approved &&
+                        state.currentRole == PilotRole.supervisor &&
+                        hasUnansweredQuestion)
+                      TextButton.icon(
+                        onPressed: () => _respondDirector(context, ref, entry),
+                        icon: const Icon(Icons.reply_outlined),
+                        label: const Text('Responder diretor'),
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: entry.isLocked
+                          ? null
+                          : () => _rejectSupervisorEntry(context, ref, entry),
+                      icon: const Icon(Icons.cancel_outlined),
+                      label: Text(context.tr('approval.reject')),
+                    ),
+                    TextButton.icon(
+                      onPressed: entry.isLocked
+                          ? null
+                          : () => _requestSupervisorCorrection(
+                              context,
+                              ref,
+                              entry,
+                            ),
+                      icon: const Icon(Icons.edit_note_outlined),
+                      label: Text(context.tr('supervisor.requestCorrection')),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),

@@ -143,7 +143,10 @@ final class SupervisorCenterController
         .where((assignment) => assignment.userId == user.id)
         .cast<JobAssignment?>()
         .firstOrNull;
-    final jobId = existing?.jobId ?? assignment?.jobId;
+    final jobId =
+        existing?.jobId ??
+        assignment?.jobId ??
+        (user.costCenter == 'Escritório' ? 'cost-center-office' : null);
     if (jobId == null) {
       throw StateError('supervisor.noAssignedJob');
     }
@@ -163,7 +166,7 @@ final class SupervisorCenterController
             date: DateTime.now(),
             clockIn: '7:00 AM',
             clockOut: clockOut,
-            breakMinutes: 30,
+            breakMinutes: 0,
             employeeNote: note,
             status: TimeReviewStatus.pending,
           )
@@ -325,7 +328,8 @@ final class SupervisorCenterController
           (entry) =>
               entry.jobId == jobId &&
               entry.clockOut != null &&
-              entry.status != TimeReviewStatus.approved,
+              entry.status != TimeReviewStatus.approved &&
+              state.canCurrentUserReview(entry),
         )
         .map((entry) => entry.id)
         .toSet();
@@ -384,10 +388,11 @@ final class SupervisorCenterController
       throw StateError('supervisor.cannotReviewOwnTime');
     }
     final target = state.userById(entry.userId);
-    if (status == TimeReviewStatus.approved &&
-        state.currentRole == PilotRole.supervisor &&
-        !{PilotRole.employee, PilotRole.contractor}.contains(target.role)) {
-      throw StateError('Horas de supervisor devem ser aprovadas pelo diretor.');
+    if (!state.canCurrentUserReview(entry)) {
+      throw StateError(
+        'Este registro deve ser aprovado pelo superior imediato de ${target.name}: '
+        '${state.approverLabelFor(target)}.',
+      );
     }
     if (status != TimeReviewStatus.approved && justification.trim().isEmpty) {
       throw StateError(

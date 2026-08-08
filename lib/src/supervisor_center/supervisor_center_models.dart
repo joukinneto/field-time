@@ -58,6 +58,7 @@ final class PilotUser {
     this.category,
     this.supervisor,
     this.function,
+    this.costCenter = 'Field',
     this.active = true,
   });
 
@@ -69,10 +70,11 @@ final class PilotUser {
   final String? category;
   final String? supervisor;
   final String? function;
+  final String costCenter;
   final bool active;
 
   bool get isContractor => role == PilotRole.contractor;
-  bool get isWorker => role == PilotRole.employee;
+  bool get isWorker => true;
 }
 
 final class SupervisorJob {
@@ -423,9 +425,56 @@ final class SupervisorCenterState {
 
   PilotUser userById(String id) =>
       users.firstWhere((user) => user.id == id, orElse: () => currentUser);
+
+  List<PilotUser> directReportsFor(PilotUser manager) => users
+      .where(
+        (user) =>
+            user.id != manager.id &&
+            ((user.supervisor ?? '').trim().toLowerCase() ==
+                    manager.name.trim().toLowerCase() ||
+                (user.supervisor ?? '').trim().toLowerCase() ==
+                    manager.id.trim().toLowerCase()),
+      )
+      .toList(growable: false);
+
+  bool canCurrentUserReview(TimeEntry entry) {
+    if (entry.userId == currentUser.id) return false;
+    final target = userById(entry.userId);
+    return directReportsFor(currentUser).any((user) => user.id == target.id);
+  }
+
+  String approverLabelFor(PilotUser user) {
+    final supervisorRef = (user.supervisor ?? '').trim();
+    if (supervisorRef.isEmpty) return 'Superior não definido';
+    for (final candidate in users) {
+      if (candidate.id.toLowerCase() == supervisorRef.toLowerCase() ||
+          candidate.name.toLowerCase() == supervisorRef.toLowerCase()) {
+        return candidate.name;
+      }
+    }
+    return supervisorRef;
+  }
+
   SupervisorJob jobById(String id) => jobs.firstWhere(
     (job) => job.id == id,
-    orElse: () => SupervisorJob.placeholder(id),
+    orElse: () => id == 'cost-center-office'
+        ? SupervisorJob(
+            id: 'cost-center-office',
+            registrationNumber: 'OFFICE',
+            number: 'OFFICE',
+            name: 'Escritório',
+            client: 'EWW',
+            address: 'Centro de custo administrativo',
+            city: '',
+            state: '',
+            zipCode: '',
+            startDate: DateTime(2026),
+            scheduledTime: '',
+            supervisorId: '',
+            notes: 'Horas administrativas',
+            status: JobStatus.active,
+          )
+        : SupervisorJob.placeholder(id),
   );
 
   bool hasPermission(PilotPermission permission) {
@@ -564,7 +613,9 @@ const _homologationUsers = [
     role: PilotRole.supervisor,
     company: 'JKDD TECH - Homologation',
     category: 'Homologation data',
+    supervisor: 'Director Test',
     function: 'Supervisor',
+    costCenter: 'Escritório',
   ),
   PilotUser(
     id: 'test-director',
@@ -588,8 +639,17 @@ PilotUser _pilotUserFromEmployee(Employee employee) => PilotUser(
   category: employee.category,
   supervisor: employee.supervisor,
   function: employee.role,
+  costCenter: _costCenterForRole(_roleFromEmployee(employee)),
   active: employee.active,
 );
+
+String _costCenterForRole(PilotRole role) => switch (role) {
+  PilotRole.owner ||
+  PilotRole.administrator ||
+  PilotRole.coordinator ||
+  PilotRole.supervisor => 'Escritório',
+  _ => 'Obra',
+};
 
 PilotRole _roleFromEmployee(Employee employee) {
   if (employee.employeeId == 'TER-0001') return PilotRole.employee;
