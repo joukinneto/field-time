@@ -58,8 +58,10 @@ final class TimesheetExcelService {
   String _premium(WorkSegment segment) {
     if (!segment.hasPayPremium) return '';
     return switch (segment.payPremiumType) {
-      PayPremiumType.percentage => '${segment.payPremiumValue.toStringAsFixed(0)}%',
-      PayPremiumType.fixedHourly => '\$${segment.payPremiumValue.toStringAsFixed(2)}/h',
+      PayPremiumType.percentage =>
+        '${segment.payPremiumValue.toStringAsFixed(0)}%',
+      PayPremiumType.fixedHourly =>
+        '\$${segment.payPremiumValue.toStringAsFixed(2)}/h',
       PayPremiumType.doubleTime => 'Double time',
       null => segment.payPremiumValue.toStringAsFixed(2),
     };
@@ -69,7 +71,9 @@ final class TimesheetExcelService {
       '${value.month.toString().padLeft(2, '0')}/${value.day.toString().padLeft(2, '0')}/${value.year}';
 
   String _time(DateTime value) {
-    final hour = value.hour == 0 ? 12 : (value.hour > 12 ? value.hour - 12 : value.hour);
+    final hour = value.hour == 0
+        ? 12
+        : (value.hour > 12 ? value.hour - 12 : value.hour);
     final minute = value.minute.toString().padLeft(2, '0');
     final suffix = value.hour >= 12 ? 'PM' : 'AM';
     return '$hour:$minute $suffix';

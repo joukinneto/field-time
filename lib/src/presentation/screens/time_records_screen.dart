@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1670,12 +1671,136 @@ final class _ReceiptsView extends StatelessWidget {
                         ),
                     ],
                   ),
-                  onTap: receipt.status == ReceiptStatus.draft
-                      ? () => onEditReceipt(receipt)
-                      : null,
+                  onTap: () => _showReceiptDetails(context, receipt),
                 ),
               ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _showReceiptDetails(
+    BuildContext context,
+    Receipt receipt,
+  ) async {
+    Attachment? attachment;
+    for (final id in receipt.attachmentIds) {
+      for (final item in snapshot.attachments) {
+        if (item.id == id) {
+          attachment = item;
+          break;
+        }
+      }
+      if (attachment != null) break;
+    }
+    Job? job;
+    for (final item in snapshot.jobs) {
+      if (item.id == receipt.jobId) {
+        job = item;
+        break;
+      }
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.9,
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            children: [
+              JkddSectionHeader(
+                title: 'Detalhes do recibo',
+                subtitle: receipt.registrationNumber.isEmpty
+                    ? receipt.merchant
+                    : receipt.registrationNumber,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              if (attachment != null &&
+                  attachment.mimeType.toLowerCase().startsWith('image/'))
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.memory(
+                    base64Decode(attachment.dataBase64),
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const SizedBox(
+                      height: 180,
+                      child: Center(
+                        child: Text('Não foi possível abrir a imagem.'),
+                      ),
+                    ),
+                  ),
+                )
+              else if (attachment != null)
+                ListTile(
+                  leading: const Icon(Icons.attach_file_outlined),
+                  title: Text(attachment.fileName),
+                  subtitle: Text(attachment.mimeType),
+                ),
+              const SizedBox(height: AppSpacing.lg),
+              JkddInfoRow(
+                icon: Icons.storefront_outlined,
+                label: 'Estabelecimento',
+                value: receipt.merchant,
+              ),
+              JkddInfoRow(
+                icon: Icons.apartment_outlined,
+                label: 'Obra',
+                value: job == null
+                    ? receipt.jobId
+                    : _jobLabel(context, job.number),
+              ),
+              JkddInfoRow(
+                icon: Icons.category_outlined,
+                label: 'Categoria',
+                value: receipt.description,
+              ),
+              JkddInfoRow(
+                icon: Icons.calendar_today_outlined,
+                label: 'Data',
+                value: _date(receipt.purchaseDate),
+              ),
+              JkddInfoRow(
+                icon: Icons.payments_outlined,
+                label: 'Valor',
+                value: _money(receipt.total),
+              ),
+              JkddInfoRow(
+                icon: Icons.receipt_long_outlined,
+                label: 'Imposto',
+                value: _money(receipt.tax),
+              ),
+              JkddInfoRow(
+                icon: Icons.info_outline,
+                label: 'Status',
+                value: _receiptStatus(context, receipt.status),
+              ),
+              if (receipt.receiptNumber?.trim().isNotEmpty == true)
+                JkddInfoRow(
+                  icon: Icons.numbers_outlined,
+                  label: 'Número do recibo',
+                  value: receipt.receiptNumber!,
+                ),
+              if (receipt.notes?.trim().isNotEmpty == true)
+                JkddInfoRow(
+                  icon: Icons.notes_outlined,
+                  label: 'Observações',
+                  value: receipt.notes!,
+                ),
+              const SizedBox(height: AppSpacing.lg),
+              if (receipt.status == ReceiptStatus.draft)
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    onEditReceipt(receipt);
+                  },
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Editar recibo'),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

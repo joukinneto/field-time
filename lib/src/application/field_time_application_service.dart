@@ -345,19 +345,21 @@ final class FieldTimeApplicationService {
       ).subtract(Duration(days: now.weekday - 1)),
       TimesheetPeriod.month => DateTime(now.year, now.month),
       TimesheetPeriod.year => DateTime(now.year),
+      TimesheetPeriod.all => null,
     };
     final end = switch (period) {
-      TimesheetPeriod.today => start.add(const Duration(days: 1)),
-      TimesheetPeriod.week => start.add(const Duration(days: 7)),
+      TimesheetPeriod.today => start!.add(const Duration(days: 1)),
+      TimesheetPeriod.week => start!.add(const Duration(days: 7)),
       TimesheetPeriod.month => DateTime(now.year, now.month + 1),
       TimesheetPeriod.year => DateTime(now.year + 1),
+      TimesheetPeriod.all => null,
     };
     return snapshot.workDays
         .where(
           (day) =>
               day.workerId == snapshot.worker.id &&
-              !day.workDate.isBefore(start) &&
-              day.workDate.isBefore(end),
+              (start == null || !day.workDate.isBefore(start)) &&
+              (end == null || day.workDate.isBefore(end)),
         )
         .toList(growable: false)
       ..sort((left, right) => right.workDate.compareTo(left.workDate));
